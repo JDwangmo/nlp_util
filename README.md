@@ -14,7 +14,7 @@
 
 ### data_processing_util: 数据预处理类工具
 
-- #### [jiebanlp:](https://github.com/JDwangmo/nlp_util/tree/master/data_processing_util/jiebanlp)
+- [jiebanlp:](https://github.com/JDwangmo/nlp_util/tree/master/data_processing_util/jiebanlp)
     - describe: jieba分词
     - 依赖包: jieba 0.38
     - 项目结构:
@@ -27,8 +27,8 @@
 ---------------
 ### deep_learning: 深度学习类工具
 
-#### [cnn/randEmbedding_cnn:](https://github.com/JDwangmo/nlp_util/tree/master/deep_learning/cnn/randEmbedding_cnn)
-- 
+#### [CNN类](https://github.com/JDwangmo/nlp_util/tree/master/deep_learning/cnn/)
+- [cnn/randEmbedding_cnn:]
     - describe: CNN-rand.随机词向量输入,一层CNN,多种卷积核,具体见:[Kim,Convolutional Neural-Networks for Sentence Classification,2014](https://github.com/JDwangmo/coprocessor#2convolutional-neural-networks-for-sentence-classification).
     - 依赖包: Keras 1.0.4
     - 项目结构:
