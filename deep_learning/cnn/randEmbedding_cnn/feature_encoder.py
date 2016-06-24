@@ -15,6 +15,7 @@ class FeatureEncoder(object):
     '''
     def __init__(self,
                  train_data=None,
+                 need_segmented = True,
                  verbose=0,
                  full_mode=True,
                  remove_stopword=True,
@@ -24,8 +25,10 @@ class FeatureEncoder(object):
             1. 初始化参数
             2. build feature encoder
 
-        :param train_data: 训练句子列表
-        :type train_data: np.array([])
+        :param train_data: 训练句子列表:[[],[],...,[]]
+        :type train_data: array-like.
+        :param need_segmented: 数据处理选项,是否需要经过分词处理;如果为False,那么输入的数据不需要分词,提供的数据的每个句子的每个词要以空格分割.比如: ['我 要 买 手机','你好','早上 好'];如果为True,提供原始输入句子即可,比如:['我要买 手机','你好','早上好'].
+        :type need_segmented: bool
         :param verbose: 数值越大,输出越详细
         :type verbose: int
         :param full_mode: jieba分词选项,是否使用 full mode,默认为True
@@ -39,6 +42,7 @@ class FeatureEncoder(object):
         self.verbose = verbose
         self.sentence_padding_length = sentence_padding_length
         self.train_data = train_data
+        self.need_segmented = need_segmented
 
         # 初始化jieba分词器
         self.jieba_seg = Jieba_Util()
@@ -87,10 +91,11 @@ class FeatureEncoder(object):
             logging.debug('对数据进行分词')
             print '对数据进行分词'
         # -------------- code start : 开始 -------------
-
-        self.segmented_sentences = map(self.segment_sentence, self.train_data)
-
-        # -------------- code start : 结束 -------------
+        if self.need_segmented:
+            self.segmented_sentences = map(self.segment_sentence, self.train_data)
+        else:
+            self.segmented_sentences = self.train_data
+            # -------------- code start : 结束 -------------
         if self.verbose > 1 :
             logging.debug('-' * 20)
             print '-' * 20
@@ -267,7 +272,10 @@ class FeatureEncoder(object):
         # -------------- code start : 开始 -------------
 
         # 分词
-        seg_sentence = self.segment_sentence(sentence)
+        if self.need_segmented:
+            seg_sentence = self.segment_sentence(sentence)
+        else:
+            seg_sentence = sentence
 
         # -------------- code start : 结束 -------------
         if self.verbose > 1 :
