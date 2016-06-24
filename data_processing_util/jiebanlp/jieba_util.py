@@ -23,19 +23,43 @@ class Jieba_Util(object):
             1. 初始化参数
             2. 加载用户字典和stop word列表
         '''
+
         self.verbose = verbose
 
+        # -------------- region start : 2. 加载用户字典和stop word列表 -------------
+        if verbose > 1 :
+            logging.debug('-' * 20)
+            print '-' * 20
+            logging.debug('2. 加载用户字典和stop word列表')
+            print '2. 加载用户字典和stop word列表'
+        # -------------- code start : 开始 -------------
 
         jieba.load_userdict(os.path.dirname(__file__) + '/userdict.txt')
-        logging.debug('=' * 20)
-        logging.debug('加载stopwords列表....')
+        # -------------- print start : just print info -------------
+        if verbose > 1 :
+            logging.debug('=' * 20)
+            logging.debug('加载stopwords列表....')
+            print '加载stopwords列表....'
+        # -------------- print end : just print info -------------
+
         self.stopword_list = io.open(os.path.dirname(__file__) + '/stopword.txt', 'r',
                                      encoding='utf8').read().strip().split()
-        logging.debug(u'stopwords有：%s' % (','.join(self.stopword_list)))
-        logging.debug('=' * 20)
         self.exclude_word_list = set(['886', '88'])
-        logging.debug(u'exclude words有：%s' % (','.join(self.exclude_word_list)))
-        logging.debug('=' * 20)
+        # -------------- print start : just print info -------------
+        if verbose > 1 :
+            logging.debug(u'stopwords有：%s' % (','.join(self.stopword_list)))
+            print u'stopwords有：%s' % (','.join(self.stopword_list))
+            logging.debug(u'exclude words有：%s' % (','.join(self.exclude_word_list)))
+            logging.debug('=' * 20)
+        # -------------- print end : just print info -------------
+
+        # -------------- code start : 结束 -------------
+        if verbose > 1 :
+            logging.debug('-' * 20)
+            print '-' * 20
+        # -------------- region end : 2. 加载用户字典和stop word列表 ---------------
+
+
         jieba.enable_parallel(10)
 
 
@@ -47,11 +71,11 @@ class Jieba_Util(object):
         return jseg.lcut(word)[0].flag
 
     def seg(self,
-            sentence,sep='|',
-            full_mode = True,
+            sentence,sep=' ',
+            full_mode = False,
             remove_stopword = False,
-            replace_number = True,
-            verbose = 2):
+            replace_number = False,
+            ):
         '''
         使用jieba分词进行分词
         :param sentence: 待分词句子
@@ -83,10 +107,10 @@ class Jieba_Util(object):
             # 将数字替换成 NUM
             elif pattern.match(items.word) and items.word not in self.exclude_word_list:
                 if replace_number:
-                    if verbose>1:
+                    if self.verbose>1:
+                        logging.debug(u'句子（%s）将数字："%s" 替换成标记："NUMBER"'%(sentence,items.word))
                         print(u'句子（%s）将数字："%s" 替换成标记："NUMBER"'%(sentence,items.word))
                     seg.append('NUMBER')
-                    logging.debug(u'句子（%s）将数字："%s" 替换成标记："NUMBER"'%(sentence,items.word))
                 else:
                     seg.append(items.word)
             else:

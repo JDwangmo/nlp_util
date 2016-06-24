@@ -1,7 +1,9 @@
 # nlp_util
 ###NLP常用工具
 
-### backup some common nlp util
+### summary:
+- 预处理类工具:分词
+- 分类器:cnn
 
 ### 环境:
     - Ubuntu 14.04 / Linux mint 17.03
