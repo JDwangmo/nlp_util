@@ -26,7 +26,8 @@ class RandEmbeddingCNN(object):
                  input_length = None,
                  num_labels = None,
                  conv_filter_type = None,
-                 dropout_rate = 0.5,
+                 output_dropout_rate = 0.5,
+                 input_dropout_rate = 0.5,
                  nb_epoch=100,
                  earlyStoping_patience = 50,
                  ):
@@ -55,8 +56,10 @@ class RandEmbeddingCNN(object):
                                    ]
 
         :type conv_filter_type: array-like
-        :param dropout_rate: cnn设置选项,dropout层的的dropout rate.
-        :type dropout_rate: float
+        :param input_dropout_rate: cnn设置选项,dropout层的的dropout rate,对输入层进入dropuout,如果为0,则不dropout
+        :type input_dropout_rate: float
+        :param output_dropout_rate: cnn设置选项,dropout层的的dropout rate,对输出层进入dropuout,如果为0,则不dropout
+        :type output_dropout_rate: float
         :param nb_epoch: cnn设置选项,cnn迭代的次数.
         :type nb_epoch: int
         :param earlyStoping_patience: cnn设置选项,earlyStoping的设置,如果迭代次数超过这个耐心值,依旧不下降,则stop.
@@ -71,7 +74,8 @@ class RandEmbeddingCNN(object):
         self.input_length = input_length
         self.num_labels = num_labels
         self.conv_filter_type = conv_filter_type
-        self.dropout_rate = dropout_rate
+        self.input_dropout_rate = input_dropout_rate
+        self.output_dropout_rate = output_dropout_rate
         self.nb_epoch = nb_epoch
         self.earlyStoping_patience=earlyStoping_patience
 
@@ -156,6 +160,9 @@ class RandEmbeddingCNN(object):
 
         # 输入层
         model_input = Input((self.input_length,), dtype='int64')
+        # 输入dropout层,如果input_dropout_rate!=0,则对输入增加doupout层
+        if self.input_dropout_rate:
+            model_input = Dropout(p=self.input_dropout_rate)(model_input)
         # embedding层
         embedding = Embedding(input_dim=self.input_dim,
                               output_dim=self.word_embedding_dim,
@@ -171,7 +178,7 @@ class RandEmbeddingCNN(object):
         full_connected_layers = Dense(output_dim=self.num_labels, init="glorot_uniform", activation='relu')(
             conv1_output)
 
-        dropout_layers = Dropout(p=self.dropout_rate)(full_connected_layers)
+        dropout_layers = Dropout(p=self.output_dropout_rate)(full_connected_layers)
 
         softmax_output = Activation("softmax")(dropout_layers)
 
