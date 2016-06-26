@@ -31,7 +31,7 @@
 
 #### [CNN类](https://github.com/JDwangmo/nlp_util/tree/master/deep_learning/cnn/)
 - [cnn/randEmbedding_cnn:]
-    - describe: CNN-rand.随机词向量输入,一层CNN,多种卷积核,具体见:[Kim,Convolutional Neural-Networks for Sentence Classification,2014](https://github.com/JDwangmo/coprocessor#2convolutional-neural-networks-for-sentence-classification).
+    - describe: 基于CNN-rand,对输入层增加了dropout rate的调节,目的在于避免输入特征过多,训练时间长.随机词向量输入,一层CNN,多种卷积核,具体见:[Kim,Convolutional Neural-Networks for Sentence Classification,2014](https://github.com/JDwangmo/coprocessor#2convolutional-neural-networks-for-sentence-classification).
     - 依赖包: Keras 1.0.4
     - 项目结构:
         - [feature_encoder.py]:特征编码类,将原始输入的句子转换为补齐的字典索引的形式,使用0补长.
