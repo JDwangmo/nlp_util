@@ -13,7 +13,7 @@ from feature_encoder import FeatureEncoder
 class RandEmbeddingCNN(object):
     '''
         一层CNN模型,随机初始化词向量,CNN-rand模型.
-        架构各个层次分别为: 输入层,embedding层,卷积层,1-max pooling层,softmax层
+        架构各个层次分别为: 输入层,embedding层,dropout层,卷积层,1-max pooling层,全连接层,dropout层,softmax层
         具体见:
             https://github.com/JDwangmo/coprocessor#2convolutional-neural-networks-for-sentence-classification
     '''
@@ -26,8 +26,8 @@ class RandEmbeddingCNN(object):
                  input_length = None,
                  num_labels = None,
                  conv_filter_type = None,
+                 embedding_dropout_rate = 0.5,
                  output_dropout_rate = 0.5,
-                 input_dropout_rate = 0.5,
                  nb_epoch=100,
                  earlyStoping_patience = 50,
                  ):
@@ -56,8 +56,8 @@ class RandEmbeddingCNN(object):
                                    ]
 
         :type conv_filter_type: array-like
-        :param input_dropout_rate: cnn设置选项,dropout层的的dropout rate,对输入层进入dropuout,如果为0,则不dropout
-        :type input_dropout_rate: float
+        :param embedding_dropout_rate: cnn设置选项,dropout层的的dropout rate,对embedding层进入dropuout,如果为0,则不dropout
+        :type embedding_dropout_rate: float
         :param output_dropout_rate: cnn设置选项,dropout层的的dropout rate,对输出层进入dropuout,如果为0,则不dropout
         :type output_dropout_rate: float
         :param nb_epoch: cnn设置选项,cnn迭代的次数.
@@ -74,7 +74,7 @@ class RandEmbeddingCNN(object):
         self.input_length = input_length
         self.num_labels = num_labels
         self.conv_filter_type = conv_filter_type
-        self.input_dropout_rate = input_dropout_rate
+        self.embedding_dropout_rate = embedding_dropout_rate
         self.output_dropout_rate = output_dropout_rate
         self.nb_epoch = nb_epoch
         self.earlyStoping_patience=earlyStoping_patience
@@ -160,9 +160,6 @@ class RandEmbeddingCNN(object):
 
         # 输入层
         model_input = Input((self.input_length,), dtype='int64')
-        # 输入dropout层,如果input_dropout_rate!=0,则对输入增加doupout层
-        if self.input_dropout_rate:
-            model_input = Dropout(p=self.input_dropout_rate)(model_input)
         # embedding层
         embedding = Embedding(input_dim=self.input_dim,
                               output_dim=self.word_embedding_dim,
@@ -170,6 +167,10 @@ class RandEmbeddingCNN(object):
                               # mask_zero = True,
                               init='uniform'
                               )(model_input)
+        # 输入dropout层,embedding_dropout_rate!=0,则对embedding增加doupout层
+        if self.embedding_dropout_rate:
+            embedding = Dropout(p=self.embedding_dropout_rate)(embedding)
+
         # 将embedding转换4-dim的shape
         embedding_4_dim = Reshape((1, self.input_length, self.word_embedding_dim))(embedding)
         #
