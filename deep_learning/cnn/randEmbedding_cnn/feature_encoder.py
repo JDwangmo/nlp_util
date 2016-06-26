@@ -45,7 +45,7 @@ class FeatureEncoder(object):
         self.need_segmented = need_segmented
 
         # 初始化jieba分词器
-        self.jieba_seg = Jieba_Util()
+        self.jieba_seg = Jieba_Util(verbose=self.verbose)
         # 切完词的句子
         self.segmented_sentences = None
         # 训练库提取出来的字典
@@ -73,7 +73,6 @@ class FeatureEncoder(object):
                                                 sep=' ',
                                                 full_mode=self.full_mode,
                                                 remove_stopword=self.remove_stopword,
-                                                verbose=self.verbose
                                                 )
         return segmented_sentence
 

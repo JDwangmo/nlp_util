@@ -34,7 +34,7 @@ class RandEmbeddingCNN(object):
             1. 初始化参数
             2. 构建模型
 
-        :param rand_seed: 随机种子
+        :param rand_seed: 随机种子,假如设置为为None时,则随机取随机种子
         :type rand_seed: int
         :param verbose: 数值越大,输出更详细的信息
         :type verbose: int
@@ -216,7 +216,7 @@ class RandEmbeddingCNN(object):
 
         from keras.callbacks import EarlyStopping
 
-        # -------------- region start : 11. 设置优化算法,earlystop等 -------------
+        # -------------- region start : 1. 设置优化算法,earlystop等 -------------
         logging.debug('-' * 20)
         print '-' * 20
         if self.verbose > 1 :
@@ -308,6 +308,50 @@ class RandEmbeddingCNN(object):
         y_pred = y_pred.argmax(axis=-1)[0]
         return y_pred
 
+    def accuracy(self,test_data):
+        '''
+            预测,对输入的句子进行预测,并给出准确率
+                1. 转换格式
+                2. 批量预测
+                3. 统计准确率等
+
+        :param sentence_index: 测试句子,以字典索引的形式
+        :type sentence_index: array-like
+        '''
+        # -------------- region start : 1. 转换格式 -------------
+        if self.verbose > 1 :
+            logging.debug('-' * 20)
+            print '-' * 20
+            logging.debug('1. 转换格式')
+            print '1. 转换格式'
+        # -------------- code start : 开始 -------------
+
+        test_X, test_y = test_data
+        test_X = np.asarray(test_X)
+
+
+        # -------------- code start : 结束 -------------
+        if self.verbose > 1 :
+            logging.debug('-' * 20)
+            print '-' * 20
+        # -------------- region end : 1. 转换格式 ---------------
+
+
+
+        y_pred = self.model_output([test_X,0])[0]
+        y_pred = y_pred.argmax(axis=-1)
+
+        is_correct = y_pred==test_y
+        logging.debug('正确的个数:%d'%(sum(is_correct)))
+        print '正确的个数:%d'%(sum(is_correct))
+        accu = sum(is_correct)/(1.0*len(test_y))
+        logging.debug('准确率为:%f'%(accu))
+        print '准确率为:%f'%(accu)
+
+        return y_pred,is_correct,accu
+
+
+
 if __name__ == '__main__':
     # 使用样例
     train_X = ['你好', '无聊', '测试句子', '今天天气不错','我要买手机']
@@ -339,8 +383,8 @@ if __name__ == '__main__':
     # rand_embedding_cnn.fit((feature_encoder.train_padding_index, trian_y),
     #                        (map(feature_encoder.encoding_sentence,test_X),test_y))
     # 保存模型
-    # rand_embedding_cnn.save_model('model/model.pkl')
+    # rand_embedding_cnn.save_model('model/modelA.pkl')
 
     # 从保存的pickle中加载模型
-    rand_embedding_cnn.model_from_pickle('model/model.pkl')
+    rand_embedding_cnn.model_from_pickle('model/modelA.pkl')
     print rand_embedding_cnn.predict(feature_encoder.encoding_sentence('你好吗'))
