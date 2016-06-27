@@ -93,6 +93,7 @@ class RandEmbeddingCNN(object):
     def kmaxpooling(self):
         '''
             分别定义 kmax 的output 和output shape
+            !但是k-max的实现用到Lambda,而pickle无法dump function对象,所以使用该模型的时候,保存不了模型,待解决.
         :return:  Lambda
         '''
         def kmaxpooling_output(input):
@@ -168,13 +169,17 @@ class RandEmbeddingCNN(object):
             m.add(Activation('relu'))
 
             # 1-max
-            # if border_mode == 'valid':
-            #     pool_size = (self.input_length - nb_row + 1, 1)
-            # elif border_mode == 'same':
-            #     pool_size = (self.input_length, 1)
-            # m.add(MaxPooling2D(pool_size=pool_size, name='1-max'))
-            # k-max pooling
-            m.add(self.kmaxpooling())
+            if self.k == 1:
+                if border_mode == 'valid':
+                    pool_size = (self.input_length - nb_row + 1, 1)
+                elif border_mode == 'same':
+                    pool_size = (self.input_length, 1)
+                m.add(MaxPooling2D(pool_size=pool_size, name='1-max'))
+            else:
+                # k-max pooling
+                # todo
+                # 因为kmax需要用到Lambda,而pickle无法dump function对象,所以使用该模型的时候,保存不了模型,待解决.
+                m.add(self.kmaxpooling())
             # m.summary()
             conv_layers.append(m)
 
@@ -438,7 +443,7 @@ if __name__ == '__main__':
                             [100,4,10,'valid'],
                             # [100,6,5,'valid'],
                             ],
-        k=3,
+        k=1,
         embedding_dropout_rate= 0.5,
         output_dropout_rate=0.5,
         nb_epoch=10,
