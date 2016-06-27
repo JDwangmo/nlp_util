@@ -8,7 +8,7 @@ import pandas as pd
 import logging
 import cPickle as pickle
 from feature_encoder import FeatureEncoder
-
+import theano.tensor as T
 
 class RandEmbeddingCNN(object):
     '''
@@ -26,6 +26,7 @@ class RandEmbeddingCNN(object):
                  input_length = None,
                  num_labels = None,
                  conv_filter_type = None,
+                 k = 1,
                  embedding_dropout_rate = 0.5,
                  output_dropout_rate = 0.5,
                  nb_epoch=100,
@@ -56,6 +57,8 @@ class RandEmbeddingCNN(object):
                                    ]
 
         :type conv_filter_type: array-like
+        :param k: cnn设置选项,k-max pooling层的的k值,即设置要获取 前k个 值 ,默认为 1-max
+        :type k: int
         :param embedding_dropout_rate: cnn设置选项,dropout层的的dropout rate,对embedding层进入dropuout,如果为0,则不dropout
         :type embedding_dropout_rate: float
         :param output_dropout_rate: cnn设置选项,dropout层的的dropout rate,对输出层进入dropuout,如果为0,则不dropout
@@ -74,6 +77,7 @@ class RandEmbeddingCNN(object):
         self.input_length = input_length
         self.num_labels = num_labels
         self.conv_filter_type = conv_filter_type
+        self.k = k
         self.embedding_dropout_rate = embedding_dropout_rate
         self.output_dropout_rate = output_dropout_rate
         self.nb_epoch = nb_epoch
@@ -86,6 +90,40 @@ class RandEmbeddingCNN(object):
         # 构建模型
         self.build_model()
 
+    def kmaxpooling(self):
+        '''
+            分别定义 kmax 的output 和output shape
+        :return:  Lambda
+        '''
+        def kmaxpooling_output(input):
+            '''
+                实现 k-max pooling
+                    1. 先排序
+                    2. 再分别取出前k个值
+            :param k: k top higiest value
+            :type k: int
+            :return:
+            '''
+            input = T.transpose(input,axes=(0,1,3,2))
+            sorted_values = T.argsort(input, axis=3)
+            topmax_indexes = sorted_values[:, :, :, -self.k:]
+            # sort indexes so that we keep the correct order within the sentence
+            topmax_indexes_sorted = T.sort(topmax_indexes)
+
+            # given that topmax only gives the index of the third dimension, we need to generate the other 3 dimensions
+            dim0 = T.arange(0, input.shape[0]).repeat(input.shape[1] * input.shape[2] * self.k)
+            dim1 = T.arange(0, input.shape[1]).repeat(self.k * input.shape[2]).reshape((1, -1)).repeat(input.shape[0],
+                                                                                                  axis=0).flatten()
+            dim2 = T.arange(0, input.shape[2]).repeat(self.k).reshape((1, -1)).repeat(input.shape[0] * input.shape[1],
+                                                                                 axis=0).flatten()
+            dim3 = topmax_indexes_sorted.flatten()
+            return T.transpose(input[dim0, dim1, dim2, dim3].reshape((input.shape[0], input.shape[1],input.shape[2], self.k)),axes=(0,1,3,2))
+
+        def kmaxpooling_output_shape(input_shape):
+            return (input_shape[0], input_shape[1], self.k, input_shape[3])
+
+        from keras.layers import Lambda
+        return Lambda(kmaxpooling_output,kmaxpooling_output_shape,name='k-max')
 
     def build_model(self):
         '''
@@ -130,11 +168,14 @@ class RandEmbeddingCNN(object):
             m.add(Activation('relu'))
 
             # 1-max
-            if border_mode == 'valid':
-                pool_size = (self.input_length - nb_row + 1, 1)
-            elif border_mode == 'same':
-                pool_size = (self.input_length, 1)
-            m.add(MaxPooling2D(pool_size=pool_size, name='1-max'))
+            # if border_mode == 'valid':
+            #     pool_size = (self.input_length - nb_row + 1, 1)
+            # elif border_mode == 'same':
+            #     pool_size = (self.input_length, 1)
+            # m.add(MaxPooling2D(pool_size=pool_size, name='1-max'))
+            # k-max pooling
+            m.add(self.kmaxpooling())
+            # m.summary()
             conv_layers.append(m)
 
         # 卷积的结果进行拼接,变成一列隐含层
@@ -358,7 +399,21 @@ class RandEmbeddingCNN(object):
 
         return y_pred,is_correct,accu
 
-
+    def print_model_descibe(self):
+        import pprint
+        pprint.pprint({'rand_seed': self.rand_seed,
+               'verbose': self.verbose,
+               'input_dim': self.input_dim,
+               'word_embedding_dim': self.word_embedding_dim,
+               'input_length': self.input_length,
+               'num_labels': self.num_labels,
+               'conv_filter_type': self.conv_filter_type,
+               'kmaxpooling_k': self.k,
+               'embedding_dropout_rate': self.embedding_dropout_rate,
+               'output_dropout_rate': self.output_dropout_rate,
+               'nb_epoch': self.nb_epoch,
+               'earlyStoping_patience': self.earlyStoping_patience,
+               })
 
 if __name__ == '__main__':
     # 使用样例
@@ -366,7 +421,7 @@ if __name__ == '__main__':
     trian_y = [1,3,2,2,3]
     test_X = ['句子','你好','你妹']
     test_y = [3,1,1]
-    sentence_padding_length = 5
+    sentence_padding_length = 8
     feature_encoder = FeatureEncoder(train_data=train_X,
                                      sentence_padding_length=sentence_padding_length,
                                      verbose=0)
@@ -376,23 +431,27 @@ if __name__ == '__main__':
         rand_seed=1337,
         verbose=1,
         input_dim=feature_encoder.train_data_dict_size+1,
-        word_embedding_dim=5,
+        word_embedding_dim=10,
         input_length = sentence_padding_length,
         num_labels = 5,
-        conv_filter_type = [[100,2,5,'valid'],
-                            [100,4,5,'valid'],
+        conv_filter_type = [[100,2,10,'valid'],
+                            [100,4,10,'valid'],
                             # [100,6,5,'valid'],
                             ],
-        dropout_rate = 0.5,
+        k=3,
+        embedding_dropout_rate= 0.5,
+        output_dropout_rate=0.5,
         nb_epoch=10,
         earlyStoping_patience = 5,
     )
+    rand_embedding_cnn.print_model_descibe()
     # 训练模型
-    # rand_embedding_cnn.fit((feature_encoder.train_padding_index, trian_y),
-    #                        (map(feature_encoder.encoding_sentence,test_X),test_y))
+    rand_embedding_cnn.fit((feature_encoder.train_padding_index, trian_y),
+                           (map(feature_encoder.encoding_sentence,test_X),test_y))
     # 保存模型
-    # rand_embedding_cnn.save_model('model/modelA.pkl')
+    rand_embedding_cnn.save_model('model/modelA.pkl')
 
+    quit()
     # 从保存的pickle中加载模型
-    rand_embedding_cnn.model_from_pickle('model/modelA.pkl')
-    print rand_embedding_cnn.predict(feature_encoder.encoding_sentence('你好吗'))
+    # rand_embedding_cnn.model_from_pickle('model/modelA.pkl')
+    # print rand_embedding_cnn.predict(feature_encoder.encoding_sentence('你好吗'))
