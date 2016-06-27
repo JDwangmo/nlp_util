@@ -87,3 +87,7 @@ ENV/
 
 # Rope project settings
 .ropeproject
+
+# pickle 模型文件
+*.pkl
+*.pickle
