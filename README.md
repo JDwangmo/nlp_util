@@ -38,6 +38,6 @@
     - 项目结构:
         - [feature_encoder.py]: 特征编码类,将原始输入的句子转换为补齐的字典索引的形式,使用0补长.
         - [randEmbedding_cnn_model.py]:
-            - > CNN-rand模型类,搭建一层卷积层的CNN-rand.集成了训练,测试等方法.
-            - > 关于这个模型的具体内容请参考: [Kim et al.,Convolutional Neural-Networks for Sentence Classification,EMNLP 2014](https://github.com/JDwangmo/coprocessor#2convolutional-neural-networks-for-sentence-classification)
+            - CNN-rand模型类,搭建一层卷积层的CNN-rand.集成了训练,测试等方法.
+            - 关于这个模型的具体内容请参考: [Kim et al.,Convolutional Neural-Networks for Sentence Classification,EMNLP 2014](https://github.com/JDwangmo/coprocessor#2convolutional-neural-networks-for-sentence-classification)
     
