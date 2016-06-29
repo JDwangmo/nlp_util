@@ -1,4 +1,4 @@
-#encoding=utf8
+# encoding=utf8
 __author__ = 'jdwang'
 __date__ = 'create date: 2016-06-24'
 __email__ = '383287471@qq.com'
@@ -9,32 +9,48 @@ import timeit
 from gensim.corpora.dictionary import Dictionary
 from data_processing_util.jiebanlp.jieba_util import Jieba_Util
 
+
 class FeatureEncoder(object):
     '''
-    输入的特征编码器,将句子转成onehot编码(以字典索引形式表示)
+    输入的特征编码器,将句子转成onehot编码(以字典索引形式表示),包含以下函数：
+        1. segment_sentence：对句子分词
+        2. build_dictionary：构建字典
+        3. sentence_to_index：将原始字符串句子转为字典索引列表
+        4. sentence_padding：将句子补齐
+        5. build_encoder：构建编码器
+        6. encoding_sentence：对句子编码
+        7. get_sentence_length：对句子长度计算
+        8. print_sentence_length_detail： 打印训练库句子详情.
+        9. print_model_descibe: 打印模型的详情.
     '''
+
     def __init__(self,
                  train_data=None,
-                 need_segmented = True,
+                 need_segmented=True,
                  verbose=0,
                  full_mode=True,
                  remove_stopword=True,
-                 sentence_padding_length = 7,
+                 replace_number=True,
+                 sentence_padding_length=7,
                  ):
         '''
             1. 初始化参数
             2. build feature encoder
+            :param train_data: 训练句子列表:[[],[],...,[]]
+            :type train_data: array-like.
+            :param need_segmented: 数据处理选项,是否需要经过分词处理;如果为False,那么输入的数据不需要分词,提供的数据的每个句子的每个词要以空格分割.比如: ['我 要 买 手机','你好','早上 好'];如果为True,提供原始输入句子即可,比如:['我要买手机','你好','早上好'].
+            :type need_segmented: bool
+            :param verbose: 数值越大,输出越详细
+            :type verbose: int
+            :param full_mode: jieba分词选项,是否使用 full mode,默认为True
+            :type full_mode: bool
+            :param remove_stopword: jieba分词选项,是否去除 stop word,默认为True
+            :type remove_stopword: bool
+            :param replace_number: jieba分词选项,是否将数据统一替换成NUM,默认为True
+            :type replace_number: bool
+            :param sentence_padding_length:  句子的补齐（截断）长度，默认为7
+            :type sentence_padding_length: int
 
-        :param train_data: 训练句子列表:[[],[],...,[]]
-        :type train_data: array-like.
-        :param need_segmented: 数据处理选项,是否需要经过分词处理;如果为False,那么输入的数据不需要分词,提供的数据的每个句子的每个词要以空格分割.比如: ['我 要 买 手机','你好','早上 好'];如果为True,提供原始输入句子即可,比如:['我要买 手机','你好','早上好'].
-        :type need_segmented: bool
-        :param verbose: 数值越大,输出越详细
-        :type verbose: int
-        :param full_mode: jieba分词选项,是否使用 full mode,默认为True
-        :type full_mode: bool
-        :param remove_stopword: jieba分词选项,是否去除 stop word,默认为True
-        :type remove_stopword: bool
 
         '''
         self.full_mode = full_mode
@@ -43,6 +59,7 @@ class FeatureEncoder(object):
         self.sentence_padding_length = sentence_padding_length
         self.train_data = train_data
         self.need_segmented = need_segmented
+        self.replace_number = replace_number
 
         # 初始化jieba分词器
         self.jieba_seg = Jieba_Util(verbose=self.verbose)
@@ -51,7 +68,7 @@ class FeatureEncoder(object):
         # 训练库提取出来的字典
         self.train_data_dict = None
         # 训练库提取出来的字典词汇个数
-        self.train_data_dict_size=None
+        self.train_data_dict_size = None
         # 训练库句子的字典索引形式
         self.train_index = None
         # 训练库句子的补齐的字典索引形式
@@ -65,16 +82,54 @@ class FeatureEncoder(object):
     def segment_sentence(self, sentence):
         '''
         对句子进行分词,使用jieba分词
+
         :param sentence: 句子
         :type sentence: str
-        :return:
+        :return: 分完词句子，以空格连接
+        :rtype: str
         '''
+
         segmented_sentence = self.jieba_seg.seg(sentence,
                                                 sep=' ',
                                                 full_mode=self.full_mode,
                                                 remove_stopword=self.remove_stopword,
+                                                replace_number=self.replace_number,
                                                 )
         return segmented_sentence
+
+    def get_sentence_length(self,sentence):
+        '''
+            计算句子的长度，注意，这里的长度以词为单位，即分完词后统计。
+                1. 对句子分词
+                2. 对句子的词计算
+
+        :param sentence: 句子
+        :type sentence: str
+        :return: 句子长度
+        :rtype: int
+        '''
+
+        # 1. 分词
+        segmented_senence = self.segment_sentence(sentence)
+        # 2. 统计
+        sentence_length = len(segmented_senence.split())
+
+        return sentence_length
+
+
+    def print_sentence_length_detail(self):
+        '''
+            打印训练库中句子的长度情况
+        :return: 句子长度列表
+        :rtype: list
+        '''
+
+        sentence_length = map(self.get_sentence_length,self.train_data)
+        print '句子长度情况为：%s'%(str(sentence_length))
+        print '句子最长长度为：%d'%(max(sentence_length))
+        print '句子最短长度为：%d'%(min(sentence_length))
+        print '句子平均长度为：%d'%(np.average(sentence_length))
+        return sentence_length
 
     def build_dictionary(self):
         '''
@@ -84,7 +139,7 @@ class FeatureEncoder(object):
         '''
 
         # -------------- region start : 1.对数据进行分词 -------------
-        if self.verbose > 1 :
+        if self.verbose > 1:
             logging.debug('-' * 20)
             print '-' * 20
             logging.debug('对数据进行分词')
@@ -95,12 +150,12 @@ class FeatureEncoder(object):
         else:
             self.segmented_sentences = self.train_data
             # -------------- code start : 结束 -------------
-        if self.verbose > 1 :
+        if self.verbose > 1:
             logging.debug('-' * 20)
             print '-' * 20
         # -------------- region end : 1.对数据进行分词 ---------------
         # -------------- region start : 2.构建训练库字典 -------------
-        if self.verbose > 1 :
+        if self.verbose > 1:
             logging.debug('-' * 20)
             print '-' * 20
             logging.debug('2.构建训练库字典')
@@ -124,7 +179,7 @@ class FeatureEncoder(object):
         self.train_data_dict_size = len(self.train_data_dict.keys())
 
         # -------------- print start : just print info -------------
-        if self.verbose > 1 :
+        if self.verbose > 1:
             logging.debug('训练库字典为:%d' % (len(self.train_data_dict.keys())))
             print '训练库字典为:%d' % (len(self.train_data_dict.keys()))
             logging.debug(u'字典有:%s' % (','.join(self.train_data_dict.token2id.keys())))
@@ -132,13 +187,12 @@ class FeatureEncoder(object):
         # -------------- print end : just print info -------------
 
         # -------------- code start : 结束 -------------
-        if self.verbose > 1 :
+        if self.verbose > 1:
             logging.debug('-' * 20)
             print '-' * 20
-        # -------------- region end : 2.构建训练库字典 ---------------
+            # -------------- region end : 2.构建训练库字典 ---------------
 
-
-    def sentence_to_index(self,sentence):
+    def sentence_to_index(self, sentence):
         """
             将 sentence 转换为 index,如果 token为OOV词,则分配为 UNKOWN
         :type sentence: str
@@ -151,7 +205,7 @@ class FeatureEncoder(object):
         index = [self.train_data_dict.token2id.get(item, unknow_token_index) + 1 for item in sentence.split()]
         return index
 
-    def sentence_padding(self,sentence):
+    def sentence_padding(self, sentence):
         '''
         将不等长的句子都对齐,超出padding_length长度的句子截断,小于的则补0
         :type sentence: list
@@ -193,9 +247,8 @@ class FeatureEncoder(object):
             print '没有输入训练数据!'
             quit()
 
-
         # -------------- region start : 1.构建训练库字典 -------------
-        if self.verbose > 1 :
+        if self.verbose > 1:
             logging.debug('-' * 20)
             print '-' * 20
             logging.debug('1.构建训练库字典')
@@ -206,13 +259,13 @@ class FeatureEncoder(object):
         self.build_dictionary()
 
         # -------------- code start : 结束 -------------
-        if self.verbose > 1 :
+        if self.verbose > 1:
             logging.debug('-' * 20)
             print '-' * 20
         # -------------- region end : 1.构建训练库字典 ---------------
 
         # -------------- region start : 2. 将训练句子转成字典索引形式 -------------
-        if self.verbose > 1 :
+        if self.verbose > 1:
             logging.debug('-' * 20)
             print '-' * 20
             logging.debug('2. 将训练句子转成字典索引形式')
@@ -224,13 +277,13 @@ class FeatureEncoder(object):
         # print train_index[:5]
 
         # -------------- code start : 结束 -------------
-        if self.verbose > 1 :
+        if self.verbose > 1:
             logging.debug('-' * 20)
             print '-' * 20
         # -------------- region end : 2. 将训练句子转成字典索引形式 ---------------
 
         # -------------- region start : 3. 将句子补齐到等长 -------------
-        if self.verbose > 1 :
+        if self.verbose > 1:
             logging.debug('-' * 20)
             print '-' * 20
             logging.debug('3. 将句子补齐到等长')
@@ -242,16 +295,12 @@ class FeatureEncoder(object):
         self.train_padding_index = train_padding_index
 
         # -------------- code start : 结束 -------------
-        if self.verbose > 1 :
+        if self.verbose > 1:
             logging.debug('-' * 20)
             print '-' * 20
-        # -------------- region end : 3. 将句子补齐到等长 ---------------
+            # -------------- region end : 3. 将句子补齐到等长 ---------------
 
-
-
-
-
-    def encoding_sentence(self,sentence):
+    def encoding_sentence(self, sentence):
         '''
             跟训练数据一样的操作,对输入句子进行 padding index 编码,将sentence转为补齐的字典索引
                 1. 分词
@@ -263,7 +312,7 @@ class FeatureEncoder(object):
         '''
 
         # -------------- region start : 1. 分词 -------------
-        if self.verbose > 1 :
+        if self.verbose > 1:
             logging.debug('-' * 20)
             print '-' * 20
             logging.debug('1. 分词')
@@ -277,13 +326,13 @@ class FeatureEncoder(object):
             seg_sentence = sentence
 
         # -------------- code start : 结束 -------------
-        if self.verbose > 1 :
+        if self.verbose > 1:
             logging.debug('-' * 20)
             print '-' * 20
         # -------------- region end : 1. 分词 ---------------
 
         # -------------- region start : 2. 转为字典索引列表,之后补齐,输入为补齐的字典索引列表 -------------
-        if self.verbose > 1 :
+        if self.verbose > 1:
             logging.debug('-' * 20)
             print '-' * 20
             logging.debug('2. 转为字典索引列表,之后补齐,输入为补齐的字典索引列表')
@@ -294,18 +343,33 @@ class FeatureEncoder(object):
         sentence_padding_index = self.sentence_padding(sentence_index)
 
         # -------------- code start : 结束 -------------
-        if self.verbose > 1 :
+        if self.verbose > 1:
             logging.debug('-' * 20)
             print '-' * 20
         # -------------- region end : 2. 转为字典索引列表,之后补齐,输入为补齐的字典索引列表 ---------------
 
         return sentence_padding_index
 
+    def print_model_descibe(self):
+        import pprint
+        detail = {'train_data_count': len(self.train_data),
+                       'need_segmented': self.need_segmented,
+                       'verbose': self.verbose,
+                       'full_mode': self.full_mode,
+                       'remove_stopword': self.remove_stopword,
+                       'replace_number': self.replace_number,
+                       'sentence_padding_length': self.sentence_padding_length,
+                       }
+        pprint.pprint(detail)
+        logging.debug(detail)
+        return detail
 
 if __name__ == '__main__':
-    train_data = ['你好','无聊','测试句子','今天天气不错']
+    train_data = ['你好', '无聊', '测试句子', '今天天气不错']
     test_data = '句子'
     feature_encoder = FeatureEncoder(train_data=train_data,
                                      verbose=0)
     print feature_encoder.train_padding_index
     print feature_encoder.encoding_sentence(test_data)
+    feature_encoder.print_sentence_length_detail()
+    feature_encoder.print_model_descibe()

@@ -406,19 +406,22 @@ class RandEmbeddingCNN(object):
 
     def print_model_descibe(self):
         import pprint
-        pprint.pprint({'rand_seed': self.rand_seed,
-               'verbose': self.verbose,
-               'input_dim': self.input_dim,
-               'word_embedding_dim': self.word_embedding_dim,
-               'input_length': self.input_length,
-               'num_labels': self.num_labels,
-               'conv_filter_type': self.conv_filter_type,
-               'kmaxpooling_k': self.k,
-               'embedding_dropout_rate': self.embedding_dropout_rate,
-               'output_dropout_rate': self.output_dropout_rate,
-               'nb_epoch': self.nb_epoch,
-               'earlyStoping_patience': self.earlyStoping_patience,
-               })
+        detail = {'rand_seed': self.rand_seed,
+                  'verbose': self.verbose,
+                  'input_dim': self.input_dim,
+                  'word_embedding_dim': self.word_embedding_dim,
+                  'input_length': self.input_length,
+                  'num_labels': self.num_labels,
+                  'conv_filter_type': self.conv_filter_type,
+                  'kmaxpooling_k': self.k,
+                  'embedding_dropout_rate': self.embedding_dropout_rate,
+                  'output_dropout_rate': self.output_dropout_rate,
+                  'nb_epoch': self.nb_epoch,
+                  'earlyStoping_patience': self.earlyStoping_patience,
+                  }
+        pprint.pprint(detail)
+        logging.debug(detail)
+        return detail
 
 if __name__ == '__main__':
     # 使用样例
