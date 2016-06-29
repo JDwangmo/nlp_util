@@ -97,19 +97,20 @@ class Jieba_Util(object):
             # print items.flag
             # 利用词性标注去除标点符号
             if items.flag in ['x']:
-                logging.debug(u'句子（%s）将标点符号："%s"替换成""' % (sentence, items.word))
                 seg.append('')
+                if self.verbose > 1:
+                    logging.debug(u'句子（%s）将标点符号："%s"替换成""' % (sentence, items.word))
 
             elif remove_stopword and items.word in self.stopword_list:
-                logging.debug(u'句子（%s）去除stopwords：%s' % (sentence, items))
-                continue
-            # 将数字替换成 NUM
+                if self.verbose > 1:
+                   logging.debug(u'句子（%s）去除stopwords：%s' % (sentence, items))
             elif pattern.match(items.word) and items.word not in self.exclude_word_list:
+                # 将数字替换成 NUM
                 if replace_number:
+                    seg.append('NUMBER')
                     if self.verbose > 1:
                         logging.debug(u'句子（%s）将数字："%s" 替换成标记："NUMBER"' % (sentence, items.word))
                         print(u'句子（%s）将数字："%s" 替换成标记："NUMBER"' % (sentence, items.word))
-                    seg.append('NUMBER')
                 else:
                     seg.append(items.word)
             else:

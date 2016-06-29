@@ -36,6 +36,7 @@ class FeatureEncoder(object):
         '''
             1. 初始化参数
             2. build feature encoder
+
             :param train_data: 训练句子列表:[[],[],...,[]]
             :type train_data: array-like.
             :param need_segmented: 数据处理选项,是否需要经过分词处理;如果为False,那么输入的数据不需要分词,提供的数据的每个句子的每个词要以空格分割.比如: ['我 要 买 手机','你好','早上 好'];如果为True,提供原始输入句子即可,比如:['我要买手机','你好','早上好'].
@@ -120,6 +121,7 @@ class FeatureEncoder(object):
     def print_sentence_length_detail(self):
         '''
             打印训练库中句子的长度情况
+
         :return: 句子长度列表
         :rtype: list
         '''
@@ -195,6 +197,7 @@ class FeatureEncoder(object):
     def sentence_to_index(self, sentence):
         """
             将 sentence 转换为 index,如果 token为OOV词,则分配为 UNKOWN
+
         :type sentence: str
         :param sentence: 以空格分割
         :return:
@@ -207,7 +210,8 @@ class FeatureEncoder(object):
 
     def sentence_padding(self, sentence):
         '''
-        将不等长的句子都对齐,超出padding_length长度的句子截断,小于的则补0
+            将不等长的句子都对齐,超出padding_length长度的句子截断,小于的则补0
+
         :type sentence: list
         :param sentence: 以索引列表表示的句子
         :type padding_length: int
@@ -351,6 +355,12 @@ class FeatureEncoder(object):
         return sentence_padding_index
 
     def print_model_descibe(self):
+        '''
+            打印模型参数详情
+
+        :return: 参数设置详情
+        :rtype: dict 或 {}
+        '''
         import pprint
         detail = {'train_data_count': len(self.train_data),
                        'need_segmented': self.need_segmented,
