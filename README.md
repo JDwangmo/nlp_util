@@ -41,3 +41,5 @@
             - CNN-rand模型类,搭建一层卷积层的CNN-rand.集成了训练,测试等方法.
             - 关于这个模型的具体内容请参考: [Kim et al.,Convolutional Neural-Networks for Sentence Classification,EMNLP 2014](https://github.com/JDwangmo/coprocessor#2convolutional-neural-networks-for-sentence-classification)
     
+- [cnn/dynamic_cnn:]
+    - describe:动态 k-max poooling 操作。

@@ -12,7 +12,7 @@ import theano.tensor as T
 
 class RandEmbeddingCNN(object):
     '''
-        一层CNN模型,随机初始化词向量,CNN-rand模型.
+        一层CNN模型,随机初始化词向量,CNN-rand模型.借助Keras和jieba实现。
         架构各个层次分别为: 输入层,embedding层,dropout层,卷积层,1-max pooling层,全连接层,dropout层,softmax层
         具体见:
             https://github.com/JDwangmo/coprocessor#2convolutional-neural-networks-for-sentence-classification
