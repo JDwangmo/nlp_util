@@ -34,6 +34,7 @@ class FeatureEncoder(object):
                  full_mode=True,
                  remove_stopword=True,
                  replace_number=True,
+                 lowercase = True,
                  sentence_padding_length=7,
                  ):
         '''
@@ -52,6 +53,8 @@ class FeatureEncoder(object):
             :type remove_stopword: bool
             :param replace_number: jieba分词选项,是否将数据统一替换成NUM,默认为True
             :type replace_number: bool
+            :param lowercase: jieba分词选项,是否将数据统一替换成NUM,默认为True
+            :type lowercase: bool
             :param sentence_padding_length:  句子的补齐（截断）长度，默认为7
             :type sentence_padding_length: int
 
@@ -64,6 +67,7 @@ class FeatureEncoder(object):
         self.train_data = train_data
         self.need_segmented = need_segmented
         self.replace_number = replace_number
+        self.lowercase = lowercase
 
         # 初始化jieba分词器
         self.jieba_seg = Jieba_Util(verbose=self.verbose)
@@ -98,6 +102,7 @@ class FeatureEncoder(object):
                                                 full_mode=self.full_mode,
                                                 remove_stopword=self.remove_stopword,
                                                 replace_number=self.replace_number,
+                                                lowercase = self.lowercase,
                                                 )
         return segmented_sentence
 

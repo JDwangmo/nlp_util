@@ -71,6 +71,7 @@ class Jieba_Util(object):
             full_mode=False,
             remove_stopword=False,
             replace_number=False,
+            lowercase=True,
             ):
         """
             使用 jieba 分词进行分词
@@ -85,6 +86,8 @@ class Jieba_Util(object):
         :type remove_stopword: bool
         :param replace_number: 是否把数字统一替换成字符 NUM
         :type replace_number: bool
+        :param lowercase: 是否把字母转成小写
+        :type lowercase: bool
         :return: 返回分词后字符串,seg_srt
         :rtype: str
 
@@ -126,6 +129,10 @@ class Jieba_Util(object):
         seg_list = [item for item in seg_list if len(item.strip()) != 0]
         # print seg_list
         seg_srt = sep.join(seg_list)
+        if lowercase:
+            # 转成小写
+            seg_srt = seg_srt.lower()
+
         return seg_srt
 
 
