@@ -22,6 +22,9 @@ class FeatureEncoder(object):
             7. get_sentence_length：对句子长度计算
             8. print_sentence_length_detail： 打印训练库句子详情.
             9. print_model_descibe: 打印模型的详情.
+            10. index_to_onehot: 将索引转为onehot数据
+            11. to_onehot_array： 生成训练库句子的onehot编码
+
         注意：
             1. 训练库中所有词，包括未知词字符（UNKOWN），的字典索引都是从1开始分配的，索引0是作为填充字符所用。
             2. 训练库字典大小 （train_data_dict_size）是不计入索引0的，只计算训练库中所有词和未知词字符（UNKOWN）。
@@ -36,6 +39,9 @@ class FeatureEncoder(object):
                  replace_number=True,
                  lowercase = True,
                  sentence_padding_length=7,
+                 padding_mode='center',
+                 add_unkown_word=True,
+                 mask_zero = True,
                  ):
         '''
             1. 初始化参数
@@ -55,32 +61,49 @@ class FeatureEncoder(object):
             :type replace_number: bool
             :param lowercase: jieba分词选项,是否将数据统一替换成NUM,默认为True
             :type lowercase: bool
+            :param add_unkown_word: 训练库字典的设置选项，是否在字典中增加一个未知词字符(UNKOWN)
+            :type add_unkown_word: bool
+            :param mask_zero: 训练库字典的设置选项，是否留出索引0，如果为True，表示0为掩码（空白符），不用做实际词的索引;若为False，则索引0作为普通词索引用。
+            :type mask_zero: bool
             :param sentence_padding_length:  句子的补齐（截断）长度，默认为7
             :type sentence_padding_length: int
+            :param padding_mode:  句子的补齐（截断）模式，有四种模式：
+                                        1. center：如果小于sentence_padding_length的话往两边补0;如果超出sentence_padding_length的话，直接在后面截断。
+                                        2. left：如果小于sentence_padding_length的话往左边补0;如果超出sentence_padding_length的话，直接在后面截断。
+                                        3. right：如果小于sentence_padding_length的话往右边补0;如果超出sentence_padding_length的话，直接在后面截断。
+                                        4. none：不补齐。
+            :type padding_mode: str
 
 
         '''
         self.full_mode = full_mode
         self.remove_stopword = remove_stopword
         self.verbose = verbose
-        self.sentence_padding_length = sentence_padding_length
         self.train_data = train_data
         self.need_segmented = need_segmented
         self.replace_number = replace_number
         self.lowercase = lowercase
+        self.add_unkown_word = add_unkown_word
+        self.sentence_padding_length = sentence_padding_length
+        self.mask_zero = mask_zero
+        self.padding_mode = padding_mode
 
         # 初始化jieba分词器
         self.jieba_seg = Jieba_Util(verbose=self.verbose)
         # 切完词的句子
         self.segmented_sentences = None
-        # 训练库提取出来的字典
+        # 训练库提取出来的字典对象
         self.train_data_dict = None
+        # 训练库提取出来的字典词汇列表
+        self.vocabulary = None
         # 训练库提取出来的字典词汇个数
         self.train_data_dict_size = None
         # 训练库句子的字典索引形式
         self.train_index = None
         # 训练库句子的补齐的字典索引形式
         self.train_padding_index = None
+        # 训练库句子装成onehot array
+        self.onehot_array = None
 
         if verbose > 1:
             logging.debug('build feature encoder...')
@@ -184,9 +207,12 @@ class FeatureEncoder(object):
 
         # 更新字典,再字典中添加特殊符号,其中
         # UNKOWN表示未知字符,即OOV词汇
-        self.train_data_dict.add_documents([[u'UNKOWN']])
+        if self.add_unkown_word:
+            self.train_data_dict.add_documents([[u'UNKOWN']])
 
         self.train_data_dict_size = len(self.train_data_dict.keys())
+        # 按索引从小到大排序
+        self.vocabulary = [token for token,id in sorted(self.train_data_dict.token2id.items(),key=lambda x:x[1])]
 
         # -------------- print start : just print info -------------
         if self.verbose > 1:
@@ -210,10 +236,16 @@ class FeatureEncoder(object):
         :param sentence: 以空格分割
         :return:
         """
-        unknow_token_index = self.train_data_dict.token2id[u'UNKOWN']
+        if self.add_unkown_word:
+            unknow_token_index = self.train_data_dict.token2id[u'UNKOWN']
+        else:
+            unknow_token_index=0
         # 将训练库中所有句子的每个词映射到索引上,变成索引列表
         # 注意这里把所有索引都加1,目的是为了保留 索引0(用于补充句子),在神经网络上通过mask_zero忽略,实现变长输入
-        index = [self.train_data_dict.token2id.get(item, unknow_token_index) + 1 for item in sentence.split()]
+        if self.mask_zero:
+            index = [self.train_data_dict.token2id.get(item, unknow_token_index) + 1 for item in sentence.split()]
+        else:
+            index = [self.train_data_dict.token2id.get(item, unknow_token_index) for item in sentence.split()]
         return index
 
     def sentence_padding(self, sentence):
@@ -226,6 +258,8 @@ class FeatureEncoder(object):
         :param padding_length: 补齐长度
         :return:
         '''
+
+        assert self.padding_mode in ['center','left','right','none'],'padding mode 只能取: center,left,right,none'
 
         padding_length = self.sentence_padding_length
         # print sentence
@@ -241,9 +275,43 @@ class FeatureEncoder(object):
             should_padding_length = padding_length - sentence_length
             left_padding = np.asarray([0] * (should_padding_length / 2))
             right_padding = np.asarray([0] * (should_padding_length - len(left_padding)))
-            sentence = np.concatenate((left_padding, sentence, right_padding), axis=0)
+            if self.padding_mode == 'center':
+                sentence = np.concatenate((left_padding, sentence, right_padding), axis=0)
+            elif self.padding_mode == 'left':
+                sentence = np.concatenate((left_padding, right_padding, sentence), axis=0)
+            elif self.padding_mode =='right':
+                sentence = np.concatenate((sentence,left_padding, right_padding), axis=0)
+            elif self.padding_mode=='none':
+                sentence = sentence
+
 
         return sentence
+
+    def index_to_onehot(self,index):
+        '''
+            将字典索引转成 onehot 编码,比如：
+                [1,2]-->[ 0 , 1 , 1 , 0 , 0 , 0 , 0 , 0 , 0,  0.]
+
+        :param index: 字典索引
+        :type index: list
+        :return: onehot 编码
+        :rtype: np.array()
+        '''
+
+        onehot_array = np.zeros(self.train_data_dict_size,dtype=int)
+        onehot_array[index] = 1
+
+        return onehot_array
+
+
+    def to_onehot_array(self):
+        '''
+            将所有训练库句子转成onehot编码的数组，保存在 self.onehot_array 中
+
+        :return: onehot编码的数组
+        '''
+        self.onehot_array = np.asarray(map(self.index_to_onehot,self.train_index))
+        return self.onehot_array
 
     def build_encoder(self):
         '''
@@ -383,11 +451,28 @@ class FeatureEncoder(object):
         return detail
 
 if __name__ == '__main__':
-    train_data = ['你好', '无聊', '测试句子', '今天天气不错']
-    test_data = '句子'
+    train_data = ['你好，你好', '无聊', '测试句子', '今天天气不错','买手机','你要买手机']
+    test_data = '你好，你好'
     feature_encoder = FeatureEncoder(train_data=train_data,
-                                     verbose=0)
+                                     verbose=0,
+                                     padding_mode='none',
+                                     need_segmented=True,
+                                     full_mode=True,
+                                     remove_stopword=True,
+                                     replace_number=True,
+                                     lowercase=True,
+                                     sentence_padding_length=7,
+                                     add_unkown_word=False,
+                                     mask_zero=False,
+                                     )
     print feature_encoder.train_padding_index
+    print ','.join(feature_encoder.vocabulary)
     print feature_encoder.encoding_sentence(test_data)
-    feature_encoder.print_sentence_length_detail()
-    feature_encoder.print_model_descibe()
+
+    print feature_encoder.index_to_onehot(feature_encoder.encoding_sentence(test_data))
+
+    X = feature_encoder.to_onehot_array()
+    print X
+
+    # feature_encoder.print_sentence_length_detail()
+    # feature_encoder.print_model_descibe()
