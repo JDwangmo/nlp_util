@@ -12,16 +12,19 @@ from data_processing_util.jiebanlp.jieba_util import Jieba_Util
 
 class FeatureEncoder(object):
     '''
-    输入的特征编码器,将句子转成onehot编码(以字典索引形式表示),包含以下函数：
-        1. segment_sentence：对句子分词
-        2. build_dictionary：构建字典
-        3. sentence_to_index：将原始字符串句子转为字典索引列表
-        4. sentence_padding：将句子补齐
-        5. build_encoder：构建编码器
-        6. encoding_sentence：对句子编码
-        7. get_sentence_length：对句子长度计算
-        8. print_sentence_length_detail： 打印训练库句子详情.
-        9. print_model_descibe: 打印模型的详情.
+        Onehot特征编码器,将句子转成onehot编码(以字典索引形式表示,补齐),包含以下函数：
+            1. segment_sentence：对句子分词
+            2. build_dictionary：构建字典
+            3. sentence_to_index：将原始字符串句子转为字典索引列表
+            4. sentence_padding：将句子补齐
+            5. build_encoder：构建编码器
+            6. encoding_sentence：对句子编码
+            7. get_sentence_length：对句子长度计算
+            8. print_sentence_length_detail： 打印训练库句子详情.
+            9. print_model_descibe: 打印模型的详情.
+        注意：
+            1. 训练库中所有词，包括未知词字符（UNKOWN），的字典索引都是从1开始分配的，索引0是作为填充字符所用。
+            2. 训练库字典大小 （train_data_dict_size）是不计入索引0的，只计算训练库中所有词和未知词字符（UNKOWN）。
     '''
 
     def __init__(self,

@@ -11,30 +11,35 @@ import numpy as np
 import pandas as pd
 import logging
 import cPickle as pickle
-from feature_encoder import FeatureEncoder
+from data_processing_util.feature_encoder.onehot_feature_encoder import FeatureEncoder
 import theano.tensor as T
+import theano
+from collections import OrderedDict
 import lasagne
+import DCNN
 
 class DynamicCNN(object):
     '''
-        两层层CNN模型,随机初始化词向量,DCNN模型.
+        DCNN模型: 两层CNN模型,每层都是一种类型卷积核，多核，随机初始化词向量,.
+        使用 lasagne、theano实现。
         架构各个层次分别为: 输入层,embedding层,dropout层,卷积层,1-max pooling层,全连接层,dropout层,softmax层
         具体见:
             https://github.com/JDwangmo/coprocessor#2convolutional-neural-networks-for-sentence-classification
     '''
 
     def __init__(self,
-                 batch_size=32,
-                 rand_seed=1337,
                  verbose=0,
-                 input_dim=None,
+                 batch_size=4,
+                 vocab_size=None,
                  word_embedding_dim=None,
-                 input_length = None,
+                 conv_filter_type=None,
+                 ktop = 1,
                  num_labels = None,
-                 conv_filter_type = None,
-                 k = 1,
-                 embedding_dropout_rate = 0.5,
                  output_dropout_rate = 0.5,
+
+                 rand_seed=1337,
+                 input_length = None,
+                 embedding_dropout_rate = 0.5,
                  nb_epoch=100,
                  earlyStoping_patience = 50,
                  ):
@@ -42,55 +47,53 @@ class DynamicCNN(object):
             1. 初始化参数
             2. 构建模型
 
+        :param verbose: 数值越大,输出更详细的信息
+        :type verbose: int
         :param batch_size: 一个批量batch的大小，默认为4
         :type batch_size: int
+        :param vocab_size: 字典大小 ,即embedding层输入(onehot)的维度-1,embedding层输入的维度比字典大小多1的原因，是留出索引0给填充用。
+        :type vocab_size: int
+        :param word_embedding_dim: cnn设置选项,embedding层词向量的维度(长度).
+        :type word_embedding_dim: int
+        :param conv_filter_type: cnn设置选项,卷积层的类型.
+
+            for example:每个列表代表某一层的卷积核类型(size)的卷积核,每层只有一种类型，但可以多核：
+                conv_filter_type = [[100, 4, 'full'],
+                                    [100, 5, 'full'],
+                                   ]
+        :type conv_filter_type: array-like
+        :param ktop: cnn设置选项,dynamic k-max pooling层的的ktop(最后一层max-pooling层的size)值,默认为1
+        :type ktop: int
+        :param num_labels: cnn设置选项,最后输出层的大小,即分类类别的个数.
+        :type num_labels: int
+        :param output_dropout_rate: cnn设置选项,dropout层的的dropout rate,对输出层进入dropuout,如果为0,则不dropout
+        :type output_dropout_rate: float
 
         :param rand_seed: 随机种子,假如设置为为None时,则随机取随机种子
         :type rand_seed: int
-        :param verbose: 数值越大,输出更详细的信息
-        :type verbose: int
-        :param input_dim: embedding层输入(onehot)的维度,即 字典大小+1,+1是为了留出0给填充用
-        :type input_dim: int
-        :param word_embedding_dim: cnn设置选项,embedding层词向量的维度(长度).
-        :type word_embedding_dim: int
         :param input_length: cnn设置选项,输入句子(序列)的长度.
         :type input_length: int
-        :param num_labels: cnn设置选项,最后输出层的大小,即分类类别的个数.
-        :type num_labels: int
-        :param conv_filter_type: cnn设置选项,卷积层的类型.
-
-            for example:每个列表代表一种类型(size)的卷积核,
-                conv_filter_type = [[100,2,word_embedding_dim,'valid'],
-                                    [100,4,word_embedding_dim,'valid'],
-                                    [100,6,word_embedding_dim,'valid'],
-                                   ]
-
-        :type conv_filter_type: array-like
-        :param k: cnn设置选项,k-max pooling层的的k值,即设置要获取 前k个 值 ,默认为 1-max
-        :type k: int
         :param embedding_dropout_rate: cnn设置选项,dropout层的的dropout rate,对embedding层进入dropuout,如果为0,则不dropout
         :type embedding_dropout_rate: float
-        :param output_dropout_rate: cnn设置选项,dropout层的的dropout rate,对输出层进入dropuout,如果为0,则不dropout
-        :type output_dropout_rate: float
         :param nb_epoch: cnn设置选项,cnn迭代的次数.
         :type nb_epoch: int
         :param earlyStoping_patience: cnn设置选项,earlyStoping的设置,如果迭代次数超过这个耐心值,依旧不下降,则stop.
         :type earlyStoping_patience: int
         '''
 
-        self.batch_size = batch_size
-
         self.verbose = verbose
+        self.batch_size = batch_size
+        self.vocab_size = vocab_size
+        self.word_embedding_dim = word_embedding_dim
+        self.conv_filter_type = conv_filter_type
+        self.ktop = ktop
+        self.num_labels = num_labels
+        self.output_dropout_rate = output_dropout_rate
+
         self.rand_seed = rand_seed
         self.verbose = verbose
-        self.input_dim = input_dim
-        self.word_embedding_dim = word_embedding_dim
         self.input_length = input_length
-        self.num_labels = num_labels
-        self.conv_filter_type = conv_filter_type
-        self.k = k
         self.embedding_dropout_rate = embedding_dropout_rate
-        self.output_dropout_rate = output_dropout_rate
         self.nb_epoch = nb_epoch
         self.earlyStoping_patience=earlyStoping_patience
 
@@ -137,11 +140,16 @@ class DynamicCNN(object):
         from keras.layers import Lambda
         return Lambda(kmaxpooling_output,kmaxpooling_output_shape,name='k-max')
 
+
     def build_model(self):
         '''
             构建CNN模型,分别是：
                 1. 输入层： (batch_size,None)
                 2. embedding层
+                3. 第一层卷积层： wide 1-dim convolution
+                4. folding层：将相邻两维相加
+
+
         :return:
         '''
         # 1.输入层
@@ -149,49 +157,95 @@ class DynamicCNN(object):
         l_in = lasagne.layers.InputLayer(
             shape=(self.batch_size, None),
         )
-
+        # 2. embedding层
+        # 将 索引 投影成 向量，first表示 将0作为填充字符
         l_embedding = DCNN.embeddings.SentenceEmbeddingLayer(
             l_in,
-            vocab_size,
-            embeddings_size,
-            padding=padding
+            self.vocab_size,
+            self.word_embedding_dim,
+            padding='first'
         )
-
+        # 3. 第一层卷积层： wide 1-dim convolution
         l_conv1 = DCNN.convolutions.Conv1DLayerSplitted(
             l_embedding,
-            nr_of_filters[0],
-            filter_sizes[0],
+            num_filters=self.conv_filter_type[0][0],
+            filter_size =self.conv_filter_type[0][1],
             nonlinearity=lasagne.nonlinearities.linear,
-            border_mode="full"
+            border_mode=self.conv_filter_type[0][2]
         )
-
+        # 4. folding层：将相邻两维相加
         l_fold1 = DCNN.folding.FoldingLayer(l_conv1)
+        # 5. 第一层max-pooling层
+        l_pool1 = DCNN.pooling.DynamicKMaxPoolLayer(l_fold1,
+                                                    ktop=self.ktop,
+                                                    nroflayers=2,
+                                                    layernr=1)
 
-        l_pool1 = DCNN.pooling.DynamicKMaxPoolLayer(l_fold1, ktop, nroflayers=2, layernr=1)
-
-        l_nonlinear1 = lasagne.layers.NonlinearityLayer(l_pool1, nonlinearity=parseActivation(activations[0]))
-
+        l_nonlinear1 = lasagne.layers.NonlinearityLayer(l_pool1,
+                                                        nonlinearity=lasagne.nonlinearities.rectify)
+        # 第二层卷积层
         l_conv2 = DCNN.convolutions.Conv1DLayerSplitted(
             l_nonlinear1,
-            nr_of_filters[1],
-            filter_sizes[1],
+            num_filters=self.conv_filter_type[1][0],
+            filter_size=self.conv_filter_type[1][1],
             nonlinearity=lasagne.nonlinearities.linear,
-            border_mode="full"
+            border_mode=self.conv_filter_type[1][2]
         )
+
 
         l_fold2 = DCNN.folding.FoldingLayer(l_conv2)
 
-        l_pool2 = DCNN.pooling.KMaxPoolLayer(l_fold2, ktop)
+        l_pool2 = DCNN.pooling.KMaxPoolLayer(l_fold2, self.ktop)
 
-        l_nonlinear2 = lasagne.layers.NonlinearityLayer(l_pool2, nonlinearity=parseActivation(activations[1]))
+        l_nonlinear2 = lasagne.layers.NonlinearityLayer(l_pool2,
+                                                        nonlinearity=lasagne.nonlinearities.rectify)
 
-        l_dropout2 = lasagne.layers.DropoutLayer(l_nonlinear2, p=dropout)
+        l_dropout2 = lasagne.layers.DropoutLayer(l_nonlinear2, p=self.output_dropout_rate)
 
-        l_out = lasagne.layers.DenseLayer(
+        output_layer = lasagne.layers.DenseLayer(
             l_dropout2,
-            num_units=output_classes,
+            num_units=self.num_labels,
             nonlinearity=lasagne.nonlinearities.softmax
         )
+
+        # allocate symbolic variables for the data
+        X_batch = T.matrix('x',dtype='int64')
+        y_batch = T.vector('y',dtype='int64')
+
+        # Kalchbrenner uses a fine-grained L2 regularization in the Matlab code, default values taken from Matlab code
+        # Training objective
+        l2_layers = []
+        for layer in lasagne.layers.get_all_layers(output_layer):
+            if isinstance(layer, (DCNN.embeddings.SentenceEmbeddingLayer,
+                                  DCNN.convolutions.Conv1DLayerSplitted,
+                                  lasagne.layers.DenseLayer)):
+                l2_layers.append(layer)
+
+        # 计算训练误差:期望交叉商+L2正则
+        loss_train = lasagne.objectives.aggregate(
+            lasagne.objectives.categorical_crossentropy(lasagne.layers.get_output(output_layer, X_batch), y_batch),
+            mode='mean')+ lasagne.regularization.regularize_layer_params_weighted(dict(zip(l2_layers, [0.0001,0.00003,0.000003,0.0001])),lasagne.regularization.l2)
+        # validating/testing
+        loss_eval = lasagne.objectives.categorical_crossentropy(
+            lasagne.layers.get_output(output_layer, X_batch, deterministic=True), y_batch)
+        cnn_pred = T.argmax(lasagne.layers.get_output(output_layer, X_batch, deterministic=True), axis=1)
+        correct_predictions = T.eq(cnn_pred, y_batch)
+
+        self.loss_trian = loss_train
+        self.loss_eval = loss_eval
+        self.cnn_pred = cnn_pred
+        # In the matlab code, Kalchbrenner works with a adagrad reset mechanism, if the para --adagrad_reset has value 0, no reset will be applied
+        all_params = lasagne.layers.get_all_params(output_layer)
+        # updates, accumulated_grads = self.adagrad(loss_train, all_params, 0.001)
+        updates = lasagne.updates.adagrad(loss_train, all_params, 1e-6)
+
+
+        self.train_model = theano.function(inputs=[X_batch, y_batch], outputs=loss_train, updates=updates)
+
+        self.valid_model = theano.function(inputs=[X_batch, y_batch], outputs=correct_predictions)
+
+        self.test_model = theano.function(inputs=[X_batch, y_batch], outputs=correct_predictions)
+
 
     def to_categorical(self,y):
         '''
@@ -218,72 +272,95 @@ class DynamicCNN(object):
         :type validation_data: (array-like,array-like)
         :return:
         '''
-
-        from keras.callbacks import EarlyStopping
-
-        # -------------- region start : 1. 设置优化算法,earlystop等 -------------
-        logging.debug('-' * 20)
-        print '-' * 20
-        if self.verbose > 1 :
-            logging.debug('1. 设置优化算法,earlystop等')
-            print '1. 设置优化算法,earlystop等'
-        # -------------- code start : 开始 -------------
-
-        # sgd = SGD(lr=0.1, decay=1e-6, momentum=0.9, nesterov=True)
-
-        self.model.compile(loss='categorical_crossentropy', optimizer='adadelta', metrics=['accuracy'])
-        early_stop = EarlyStopping(patience=self.earlyStoping_patience, verbose=self.verbose)
-
-        # -------------- code start : 结束 -------------
-        if self.verbose > 1 :
-            logging.debug('-' * 20)
-            print '-' * 20
-        # -------------- region end : 1. 设置优化算法,earlystop等 ---------------
-        # -------------- region start : 2. 对数据进行格式转换,比如 转换 y 的格式:转成onehot编码 -------------
-        if self.verbose > 1 :
-            logging.debug('-' * 20)
-            print '-' * 20
-            logging.debug('2. 对数据进行格式转换,比如 转换 y 的格式:转成onehot编码')
-            print '2. 对数据进行格式转换,比如 转换 y 的格式:转成onehot编码'
-        # -------------- code start : 开始 -------------
+        batch_size = self.batch_size
 
         train_X, train_y = train_data
         train_X = np.asarray(train_X)
-        validation_X,validation_y =validation_data
+        validation_X, validation_y = validation_data
         validation_X = np.asarray(validation_X)
 
-        train_y = self.to_categorical(train_y)
+        n_train_samples = len(train_X)
+        n_validation_samples = len(validation_X)
 
-        validation_y = self.to_categorical(validation_y)
+        print train_X[:5]
+        print len(train_X)
+        train_X = np.concatenate((train_X,
+                                  np.asarray([np.zeros(len(train_X[0]),dtype=int)]*(batch_size - n_train_samples%batch_size))),
+                                 axis=0,
+                                 )
+        train_y = np.concatenate((train_y,
+                                  np.zeros(batch_size - n_train_samples%batch_size,dtype=int)),
+                                 axis=0,
+                                 )
+        n_train_batches = len(train_X)/batch_size
+        print n_train_batches
 
-        # -------------- code start : 结束 -------------
-        if self.verbose > 1 :
-            logging.debug('-' * 20)
-            print '-' * 20
-        # -------------- region end : 2. 对数据进行格式转换,比如 转换 y 的格式:转成onehot编码 ---------------
-        # -------------- region start : 3. 模型训练 -------------
-        if self.verbose > 1 :
-            logging.debug('-' * 20)
-            print '-' * 20
-            logging.debug('3. 模型训练')
-            print '3. 模型训练'
-        # -------------- code start : 开始 -------------
-        self.model.fit(train_X,
-                       train_y,
-                       nb_epoch=self.nb_epoch,
-                       verbose=self.verbose,
-                       # validation_split=0.1,
-                       validation_data=(validation_X,validation_y),
-                       shuffle=True,
-                       batch_size=32,
-                       callbacks=[early_stop]
-                       )
+        validation_X = np.concatenate((validation_X,
+                                  np.asarray([np.zeros(len(validation_X[0]), dtype=int)] * (
+                                  batch_size - n_validation_samples % batch_size))),
+                                 axis=0,
+                                 )
 
-        # -------------- code start : 结束 -------------
-        if self.verbose > 1 :
-            logging.debug('-' * 20)
-            print '-' * 20
-        # -------------- region end : 3. 模型训练 ---------------
+        validation_y = np.concatenate((validation_y,
+                              np.zeros(batch_size - n_validation_samples % batch_size, dtype=int)),
+                             axis=0,
+                             )
+        n_dev_batches = len(validation_X)/batch_size
+
+
+        best_validation_accuracy = 0
+        epoch = 0
+        while (epoch < self.nb_epoch):
+            epoch = epoch + 1
+            permutation = np.random.RandomState(self.rand_seed).permutation(n_train_batches)
+            batch_counter = 0
+            train_loss = 0
+
+            for minibatch_index in permutation:
+
+
+                x_input = train_X[minibatch_index * batch_size:(minibatch_index + 1) * batch_size]
+                y_input = train_y[minibatch_index * batch_size:(minibatch_index + 1) * batch_size]
+                train_loss += self.train_model(x_input, y_input)
+
+                # print x_input
+                # print y_input
+                print batch_counter
+                print train_loss
+                # quit()
+                if batch_counter > 0 :
+                    accuracy_valid = []
+                    for minibatch_dev_index in range(n_dev_batches):
+                        x_input = validation_X[
+                                  minibatch_dev_index * batch_size:(minibatch_dev_index + 1) * batch_size]
+                        y_input = validation_y[
+                                  minibatch_dev_index * batch_size:(minibatch_dev_index + 1) * batch_size]
+                        accuracy_valid.append(self.valid_model(x_input, y_input))
+
+                    # dirty code to correctly asses validation accuracy, last results in the array are predictions for the padding rows and can be dumped afterwards
+                    this_validation_accuracy = np.concatenate(accuracy_valid)[0:n_validation_samples].sum() / float(n_validation_samples)
+
+                    if this_validation_accuracy > best_validation_accuracy:
+                        print(
+                        "Train loss, " + str((train_loss / 1)) + ", validation accuracy: " + str(
+                            this_validation_accuracy * 100) + "%")
+                        best_validation_accuracy = this_validation_accuracy
+                    #
+                    #     # test it
+                    #     accuracy_test = []
+                    #     for minibatch_test_index in range(n_test_batches):
+                    #         x_input = test_x_indexes_extended[
+                    #                   minibatch_test_index * batch_size:(minibatch_test_index + 1) * batch_size,
+                    #                   0:test_lengths[(minibatch_test_index + 1) * batch_size - 1]]
+                    #         y_input = test_y_extended[
+                    #                   minibatch_test_index * batch_size:(minibatch_test_index + 1) * batch_size]
+                    #         accuracy_test.append(test_model(x_input, y_input))
+                    #     this_test_accuracy = numpy.concatenate(accuracy_test)[0:n_test_samples].sum() / float(
+                    #         n_test_samples)
+                    #     print("Test accuracy: " + str(this_test_accuracy * 100) + "%")
+
+                train_loss = 0
+                batch_counter += 1
 
     def save_model(self,path):
         '''
@@ -359,12 +436,12 @@ class DynamicCNN(object):
         import pprint
         detail = {'rand_seed': self.rand_seed,
                   'verbose': self.verbose,
-                  'input_dim': self.input_dim,
+                  'input_dim': self.vocab_size,
                   'word_embedding_dim': self.word_embedding_dim,
                   'input_length': self.input_length,
                   'num_labels': self.num_labels,
                   'conv_filter_type': self.conv_filter_type,
-                  'kmaxpooling_k': self.k,
+                  'kmaxpooling_ktop': self.ktop,
                   'embedding_dropout_rate': self.embedding_dropout_rate,
                   'output_dropout_rate': self.output_dropout_rate,
                   'nb_epoch': self.nb_epoch,
@@ -386,18 +463,19 @@ if __name__ == '__main__':
                                      verbose=0)
     print feature_encoder.train_padding_index
     print map(feature_encoder.encoding_sentence,test_X)
-    rand_embedding_cnn = RandEmbeddingCNN(
+    rand_embedding_cnn = DynamicCNN(
         rand_seed=1337,
         verbose=1,
-        input_dim=feature_encoder.train_data_dict_size+1,
+        batch_size=2,
+        vocab_size=feature_encoder.train_data_dict_size,
         word_embedding_dim=10,
         input_length = sentence_padding_length,
         num_labels = 5,
-        conv_filter_type = [[100,2,10,'valid'],
-                            [100,4,10,'valid'],
+        conv_filter_type = [[100,2,'full'],
+                            [100,4,'full'],
                             # [100,6,5,'valid'],
                             ],
-        k=1,
+        ktop=2,
         embedding_dropout_rate= 0.5,
         output_dropout_rate=0.5,
         nb_epoch=10,
@@ -407,6 +485,7 @@ if __name__ == '__main__':
     # 训练模型
     rand_embedding_cnn.fit((feature_encoder.train_padding_index, trian_y),
                            (map(feature_encoder.encoding_sentence,test_X),test_y))
+    quit()
     # 保存模型
     rand_embedding_cnn.save_model('model/modelA.pkl')
 

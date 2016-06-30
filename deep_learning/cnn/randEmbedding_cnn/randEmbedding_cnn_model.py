@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import logging
 import cPickle as pickle
-from feature_encoder import FeatureEncoder
+from data_processing_util.feature_encoder.onehot_feature_encoder import FeatureEncoder
 import theano.tensor as T
 
 class RandEmbeddingCNN(object):
@@ -261,11 +261,12 @@ class RandEmbeddingCNN(object):
                 1. 设置优化算法,earlystop等
                 2. 对数据进行格式转换,比如 转换 y 的格式:转成onehot编码
                 3. 模型训练
-        :param train_data: 训练数据,格式为:(train_X, train_y),train_X中每个句子以字典索引的形式表示,train_y是一个整形列表.
+
+        :param train_data: 训练数据,格式为:(train_X, train_y),train_X中每个句子以字典索引的形式表示(使用data_processing_util.feature_encoder.onehot_feature_encoder编码器编码),train_y是一个整形列表.
         :type train_data: (array-like,array-like)
-        :param validation_data: 验证数据,格式为:(validation_X, validation_y),validation_X中每个句子以字典索引的形式表示,validation_y是一个整形列表.
+        :param validation_data: 验证数据,格式为:(validation_X, validation_y),validation_X中每个句子以字典索引的形式表示(使用data_processing_util.feature_encoder.onehot_feature_encoder编码器编码),validation_y是一个整形列表.
         :type validation_data: (array-like,array-like)
-        :return:
+        :return: None
         '''
 
         from keras.callbacks import EarlyStopping
