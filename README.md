@@ -14,6 +14,11 @@
     - OpenCC 0.2: Open Chinese Convert 開放中文轉換
         - 官网： https://github.com/BYVoid/OpenCC 和 [Python 接口](https://github.com/lepture/opencc-python)
         - 安装方法：sudo pip install OpenCC
+        
+    - scikit-learn 0.17.1: 机器学习工具类，包括计算F1值等
+        - 官网： https://github.com/scikit-learn/scikit-learn
+        - 安装方法：sudo pip install scikit-learn
+
 
 ## 工具列表
 
@@ -41,11 +46,11 @@
     - describe: 
         - 基于CNN-rand,对输入层增加了dropout rate的调节,目的在于避免输入特征过多,训练时间长,另外可以设置k-max,不止原paper中模型的1-max.随机词向量输入,一层CNN,多种卷积核,具体见:[Kim,Convolutional Neural-Networks for Sentence Classification,2014](https://github.com/JDwangmo/coprocessor#2convolutional-neural-networks-for-sentence-classification).
     
-    - 依赖包: Keras 1.0.4
+    - 依赖包: Keras 1.0.4, scikit-learn 0.17.1,
     - 项目结构:
         - [feature_encoder.py]: 特征编码类,将原始输入的句子转换为补齐的字典索引的形式,使用0补长.
         - [randEmbedding_cnn_model.py]:
-            - CNN-rand模型类,搭建一层卷积层的CNN-rand.集成了训练,测试等方法.
+            - CNN-rand模型类,搭建一层卷积层的CNN-rand.集成了训练,测试,统计准确、F1值等方法.
             - 关于这个模型的具体内容请参考: [Kim et al.,Convolutional Neural-Networks for Sentence Classification,EMNLP 2014](https://github.com/JDwangmo/coprocessor#2convolutional-neural-networks-for-sentence-classification)
     
 - [cnn/dynamic_cnn:]

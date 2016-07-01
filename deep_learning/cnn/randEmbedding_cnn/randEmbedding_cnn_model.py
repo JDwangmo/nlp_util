@@ -9,6 +9,7 @@ import logging
 import cPickle as pickle
 from data_processing_util.feature_encoder.onehot_feature_encoder import FeatureEncoder
 import theano.tensor as T
+from sklearn.metrics import f1_score
 
 class RandEmbeddingCNN(object):
     '''
@@ -369,6 +370,7 @@ class RandEmbeddingCNN(object):
                 1. 转换格式
                 2. 批量预测
                 3. 统计准确率等
+                4. 统计F1(macro) :统计各个类别的F1值，然后进行平均
 
         :param sentence_index: 测试句子,以字典索引的形式
         :type sentence_index: array-like
@@ -391,10 +393,30 @@ class RandEmbeddingCNN(object):
             print '-' * 20
         # -------------- region end : 1. 转换格式 ---------------
 
-
+        # -------------- region start : 2. 批量预测 -------------
+        if self.verbose > 1 :
+            logging.debug('-' * 20)
+            print '-' * 20
+            logging.debug('2. 批量预测')
+            print '2. 批量预测'
+        # -------------- code start : 开始 -------------
 
         y_pred = self.model_output([test_X,0])[0]
         y_pred = y_pred.argmax(axis=-1)
+
+        # -------------- code start : 结束 -------------
+        if self.verbose > 1 :
+            logging.debug('-' * 20)
+            print '-' * 20
+        # -------------- region end : 2. 批量预测 ---------------
+
+        # -------------- region start : 3 & 4. 计算准确率和F1值 -------------
+        if self.verbose > 1 :
+            logging.debug('-' * 20)
+            print '-' * 20
+            logging.debug('3 & 4. 计算准确率和F1值')
+            print '3 & 4. 计算准确率和F1值'
+        # -------------- code start : 开始 -------------
 
         is_correct = y_pred==test_y
         logging.debug('正确的个数:%d'%(sum(is_correct)))
@@ -403,7 +425,17 @@ class RandEmbeddingCNN(object):
         logging.debug('准确率为:%f'%(accu))
         print '准确率为:%f'%(accu)
 
-        return y_pred,is_correct,accu
+        f1 = f1_score(test_y,y_pred.tolist(),average=None)
+        logging.debug('F1为：%s'%(str(f1)))
+        print 'F1为：%s'%(str(f1))
+
+        # -------------- code start : 结束 -------------
+        if self.verbose > 1 :
+            logging.debug('-' * 20)
+            print '-' * 20
+        # -------------- region end : 3 & 4. 计算准确率和F1值 ---------------
+
+        return y_pred,is_correct,accu,f1
 
     def print_model_descibe(self):
         import pprint
@@ -429,7 +461,7 @@ if __name__ == '__main__':
     train_X = ['你好', '无聊', '测试句子', '今天天气不错','我要买手机']
     trian_y = [1,3,2,2,3]
     test_X = ['句子','你好','你妹']
-    test_y = [3,1,1]
+    test_y = [2,3,0]
     sentence_padding_length = 8
     feature_encoder = FeatureEncoder(train_data=train_X,
                                      sentence_padding_length=sentence_padding_length,
@@ -466,10 +498,11 @@ if __name__ == '__main__':
     # 训练模型
     rand_embedding_cnn.fit((feature_encoder.train_padding_index, trian_y),
                            (map(feature_encoder.encoding_sentence,test_X),test_y))
+    rand_embedding_cnn.accuracy((map(feature_encoder.encoding_sentence,test_X),test_y))
     # 保存模型
     rand_embedding_cnn.save_model('model/modelA.pkl')
 
     quit()
     # 从保存的pickle中加载模型
     # rand_embedding_cnn.model_from_pickle('model/modelA.pkl')
-    # print rand_embedding_cnn.predict(feature_encoder.encoding_sentence('你好吗'))
+    print rand_embedding_cnn.predict(feature_encoder.encoding_sentence('你好吗'))
