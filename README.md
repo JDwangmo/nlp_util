@@ -6,11 +6,14 @@
 - 分类器:cnn
 
 ### 环境:
-    - Ubuntu 14.04 / Linux mint 17.03
-    - Python: 2.7.6版本.
-    - python lib: 
-        - jieba 0.38
-        - Keras 1.0.4
+- Ubuntu 14.04 / Linux mint 17.03
+- Python: 2.7.6版本.
+- python lib: 
+    - jieba 0.38: 分词工具
+    - Keras 1.0.4: 神经网络的框架
+    - OpenCC 0.2: Open Chinese Convert 開放中文轉換
+        - 官网： https://github.com/BYVoid/OpenCC 和 [Python 接口](https://github.com/lepture/opencc-python)
+        - 安装方法：sudo pip install OpenCC
 
 ## 工具列表
 
@@ -22,7 +25,11 @@
     - 项目结构:
         - stopword.txt: 中文停止词表.
         - userdict.txt: 用户自定义字典
-        - jieba_util.py: jieba分词工具类,自封装了一层,即包装成一个 Jieba_Util类,这个类主要在原 jieba 分词的基础上对增加类，用户字典，是否移除stopwords，是否统一替换数字 等功能.
+        - jieba_util.py: jieba分词工具类,自封装了一层,即包装成一个 Jieba_Util类,这个类主要在原 jieba 分词的基础上对扩展：
+            - 增加用户字典
+            - 是否移除stopwords，
+            - 是否统一替换数字 
+            - 是否繁体转简体
         
     
     

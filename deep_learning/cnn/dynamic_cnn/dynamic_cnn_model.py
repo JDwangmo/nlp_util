@@ -230,6 +230,7 @@ class DynamicCNN(object):
             lasagne.layers.get_output(output_layer, X_batch, deterministic=True), y_batch)
         cnn_pred = T.argmax(lasagne.layers.get_output(output_layer, X_batch, deterministic=True), axis=1)
         correct_predictions = T.eq(cnn_pred, y_batch)
+        predictions_accu =  T.sum(correct_predictions)/(y_batch.shape[0]*1.0)
 
         self.loss_trian = loss_train
         self.loss_eval = loss_eval
@@ -239,8 +240,8 @@ class DynamicCNN(object):
         # updates, accumulated_grads = self.adagrad(loss_train, all_params, 0.001)
         updates = lasagne.updates.adagrad(loss_train, all_params, 1e-6)
 
-
-        self.train_model = theano.function(inputs=[X_batch, y_batch], outputs=loss_train, updates=updates)
+        self.prediction = theano.function([X_batch],outputs=cnn_pred)
+        self.train_model = theano.function(inputs=[X_batch, y_batch], outputs=[loss_train,predictions_accu], updates=updates)
 
         self.valid_model = theano.function(inputs=[X_batch, y_batch], outputs=correct_predictions)
 
@@ -293,7 +294,6 @@ class DynamicCNN(object):
                                  axis=0,
                                  )
         n_train_batches = len(train_X)/batch_size
-        print n_train_batches
 
         validation_X = np.concatenate((validation_X,
                                   np.asarray([np.zeros(len(validation_X[0]), dtype=int)] * (
@@ -305,7 +305,7 @@ class DynamicCNN(object):
                               np.zeros(batch_size - n_validation_samples % batch_size, dtype=int)),
                              axis=0,
                              )
-        n_dev_batches = len(validation_X)/batch_size
+        n_validation_batches = len(validation_X)/batch_size
 
 
         best_validation_accuracy = 0
@@ -315,52 +315,33 @@ class DynamicCNN(object):
             permutation = np.random.RandomState(self.rand_seed).permutation(n_train_batches)
             batch_counter = 0
             train_loss = 0
+            # print batch_counter
 
             for minibatch_index in permutation:
 
 
                 x_input = train_X[minibatch_index * batch_size:(minibatch_index + 1) * batch_size]
                 y_input = train_y[minibatch_index * batch_size:(minibatch_index + 1) * batch_size]
-                train_loss += self.train_model(x_input, y_input)
-
-                # print x_input
-                # print y_input
-                print batch_counter
-                print train_loss
-                # quit()
-                if batch_counter > 0 :
-                    accuracy_valid = []
-                    for minibatch_dev_index in range(n_dev_batches):
-                        x_input = validation_X[
-                                  minibatch_dev_index * batch_size:(minibatch_dev_index + 1) * batch_size]
-                        y_input = validation_y[
-                                  minibatch_dev_index * batch_size:(minibatch_dev_index + 1) * batch_size]
-                        accuracy_valid.append(self.valid_model(x_input, y_input))
-
-                    # dirty code to correctly asses validation accuracy, last results in the array are predictions for the padding rows and can be dumped afterwards
-                    this_validation_accuracy = np.concatenate(accuracy_valid)[0:n_validation_samples].sum() / float(n_validation_samples)
-
-                    if this_validation_accuracy > best_validation_accuracy:
-                        print(
-                        "Train loss, " + str((train_loss / 1)) + ", validation accuracy: " + str(
-                            this_validation_accuracy * 100) + "%")
-                        best_validation_accuracy = this_validation_accuracy
-                    #
-                    #     # test it
-                    #     accuracy_test = []
-                    #     for minibatch_test_index in range(n_test_batches):
-                    #         x_input = test_x_indexes_extended[
-                    #                   minibatch_test_index * batch_size:(minibatch_test_index + 1) * batch_size,
-                    #                   0:test_lengths[(minibatch_test_index + 1) * batch_size - 1]]
-                    #         y_input = test_y_extended[
-                    #                   minibatch_test_index * batch_size:(minibatch_test_index + 1) * batch_size]
-                    #         accuracy_test.append(test_model(x_input, y_input))
-                    #     this_test_accuracy = numpy.concatenate(accuracy_test)[0:n_test_samples].sum() / float(
-                    #         n_test_samples)
-                    #     print("Test accuracy: " + str(this_test_accuracy * 100) + "%")
-
-                train_loss = 0
+                loss,train_accu = self.train_model(x_input, y_input)
+                print train_accu
+                train_loss += loss
                 batch_counter += 1
+                # quit()
+            # 验证
+            accuracy_valid = []
+            for minibatch_dev_index in range(n_validation_batches):
+                x_input = validation_X[
+                          minibatch_dev_index * batch_size:(minibatch_dev_index + 1) * batch_size]
+                y_input = validation_y[
+                          minibatch_dev_index * batch_size:(minibatch_dev_index + 1) * batch_size]
+                accuracy_valid.append(self.valid_model(x_input, y_input))
+
+            # dirty code to correctly asses validation accuracy, last results in the array are predictions for the padding rows and can be dumped afterwards
+            this_validation_accuracy = np.concatenate(accuracy_valid)[0:n_validation_samples].sum() / float(n_validation_samples)
+
+            print('epoch %d，'%(epoch)+"Train loss, " + str(train_loss) + ", validation accuracy: " + str(
+                    this_validation_accuracy * 100) + "%")
+
 
     def save_model(self,path):
         '''
@@ -386,8 +367,12 @@ class DynamicCNN(object):
         :param sentence_index: 测试句子,以字典索引的形式
         :type sentence_index: array-like
         '''
-        y_pred = self.model_output([np.asarray(sentence_index).reshape(1,-1),0])[0]
-        y_pred = y_pred.argmax(axis=-1)[0]
+        num_need_padding = self.batch_size-1
+        x_input = np.concatenate((sentence_index.reshape(1,-1),np.zeros((num_need_padding,len(sentence_index)),dtype=int)),axis=0)
+
+        print self.prediction(x_input)
+        y_pred = self.prediction(x_input)[0]
+        print y_pred
         return y_pred
 
     def accuracy(self,test_data):
@@ -455,15 +440,15 @@ if __name__ == '__main__':
     # 使用样例
     train_X = ['你好', '无聊', '测试句子', '今天天气不错','我要买手机']
     trian_y = [1,3,2,2,3]
-    test_X = ['句子','你好','你妹']
+    test_X = ['你好','你好','你妹']
     test_y = [3,1,1]
     sentence_padding_length = 8
     feature_encoder = FeatureEncoder(train_data=train_X,
                                      sentence_padding_length=sentence_padding_length,
                                      verbose=0)
-    print feature_encoder.train_padding_index
-    print map(feature_encoder.encoding_sentence,test_X)
-    rand_embedding_cnn = DynamicCNN(
+    # print feature_encoder.train_padding_index
+    # print map(feature_encoder.encoding_sentence,test_X)
+    dcnn = DynamicCNN(
         rand_seed=1337,
         verbose=1,
         batch_size=2,
@@ -478,16 +463,17 @@ if __name__ == '__main__':
         ktop=2,
         embedding_dropout_rate= 0.5,
         output_dropout_rate=0.5,
-        nb_epoch=10,
+        nb_epoch=50,
         earlyStoping_patience = 5,
     )
-    rand_embedding_cnn.print_model_descibe()
+    dcnn.print_model_descibe()
     # 训练模型
-    rand_embedding_cnn.fit((feature_encoder.train_padding_index, trian_y),
-                           (map(feature_encoder.encoding_sentence,test_X),test_y))
+    dcnn.fit((feature_encoder.train_padding_index, trian_y),
+             (map(feature_encoder.encoding_sentence,test_X),test_y))
+    print dcnn.predict(feature_encoder.encoding_sentence(test_X[0]))
     quit()
     # 保存模型
-    rand_embedding_cnn.save_model('model/modelA.pkl')
+    dcnn.save_model('model/modelA.pkl')
 
     quit()
     # 从保存的pickle中加载模型

@@ -38,6 +38,8 @@ class FeatureEncoder(object):
                  remove_stopword=True,
                  replace_number=True,
                  lowercase = True,
+                 zhs2zht = True,
+                 remove_url = True,
                  sentence_padding_length=7,
                  padding_mode='center',
                  add_unkown_word=True,
@@ -61,6 +63,10 @@ class FeatureEncoder(object):
             :type replace_number: bool
             :param lowercase: jieba分词选项,是否将数据统一替换成NUM,默认为True
             :type lowercase: bool
+            :param zhs2zht: jieba分词选项,出現繁体的時候，是否转简体,默认为True
+            :type zhs2zht: bool
+            :param remove_url: jieba分词选项,是否移除 微博url，http://t.cn/开头的地址,默认为True
+            :type remove_url: bool
             :param add_unkown_word: 训练库字典的设置选项，是否在字典中增加一个未知词字符(UNKOWN)
             :type add_unkown_word: bool
             :param mask_zero: 训练库字典的设置选项，是否留出索引0，如果为True，表示0为掩码（空白符），不用做实际词的索引;若为False，则索引0作为普通词索引用。
@@ -83,6 +89,8 @@ class FeatureEncoder(object):
         self.need_segmented = need_segmented
         self.replace_number = replace_number
         self.lowercase = lowercase
+        self.zhs2zht = zhs2zht
+        self.remove_url = remove_url
         self.add_unkown_word = add_unkown_word
         self.sentence_padding_length = sentence_padding_length
         self.mask_zero = mask_zero
@@ -126,6 +134,8 @@ class FeatureEncoder(object):
                                                 remove_stopword=self.remove_stopword,
                                                 replace_number=self.replace_number,
                                                 lowercase = self.lowercase,
+                                                zhs2zht= self.zhs2zht,
+                                                remove_url=self.remove_url,
                                                 )
         return segmented_sentence
 
@@ -439,19 +449,23 @@ class FeatureEncoder(object):
         '''
         import pprint
         detail = {'train_data_count': len(self.train_data),
-                       'need_segmented': self.need_segmented,
-                       'verbose': self.verbose,
-                       'full_mode': self.full_mode,
-                       'remove_stopword': self.remove_stopword,
-                       'replace_number': self.replace_number,
-                       'sentence_padding_length': self.sentence_padding_length,
-                       }
+                  'need_segmented': self.need_segmented,
+                  'verbose': self.verbose,
+                  'full_mode': self.full_mode,
+                  'remove_stopword': self.remove_stopword,
+                  'replace_number': self.replace_number,
+                  'sentence_padding_length': self.sentence_padding_length,
+                  'padding_mode': 'center',
+                  'train_data_dict_size': self.train_data_dict_size,
+                  'add_unkown_word': True,
+                  'mask_zero': True,
+                  }
         pprint.pprint(detail)
         logging.debug(detail)
         return detail
 
 if __name__ == '__main__':
-    train_data = ['你好，你好', '无聊', '测试句子', '今天天气不错','买手机','你要买手机']
+    train_data = ['你好，你好', '測試句子','无聊', '测试句子', '今天天气不错','买手机','你要买手机']
     test_data = '你好，你好'
     feature_encoder = FeatureEncoder(train_data=train_data,
                                      verbose=0,
@@ -464,9 +478,11 @@ if __name__ == '__main__':
                                      sentence_padding_length=7,
                                      add_unkown_word=False,
                                      mask_zero=False,
+                                     zhs2zht=True,
                                      )
     print feature_encoder.train_padding_index
     print ','.join(feature_encoder.vocabulary)
+    print feature_encoder.train_data_dict_size
     print feature_encoder.encoding_sentence(test_data)
 
     print feature_encoder.index_to_onehot(feature_encoder.encoding_sentence(test_data))

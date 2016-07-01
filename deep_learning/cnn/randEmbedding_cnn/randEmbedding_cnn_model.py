@@ -433,7 +433,16 @@ if __name__ == '__main__':
     sentence_padding_length = 8
     feature_encoder = FeatureEncoder(train_data=train_X,
                                      sentence_padding_length=sentence_padding_length,
-                                     verbose=0)
+                                     verbose=0,
+                                     need_segmented=True,
+                                     full_mode=True,
+                                     replace_number=True,
+                                     remove_stopword=True,
+                                     lowercase=True,
+                                     padding_mode='center',
+                                     add_unkown_word=True,
+                                     mask_zero=True,
+                                     )
     print feature_encoder.train_padding_index
     print map(feature_encoder.encoding_sentence,test_X)
     rand_embedding_cnn = RandEmbeddingCNN(
