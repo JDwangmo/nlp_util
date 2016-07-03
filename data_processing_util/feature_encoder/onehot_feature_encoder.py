@@ -24,7 +24,7 @@ class FeatureEncoder(object):
             7. get_sentence_length：对句子长度计算
             8. print_sentence_length_detail： 打印训练库句子详情.
             9. print_model_descibe: 打印模型的详情.
-            10. index_to_onehot: 将索引转为onehot数据
+            10. sentence_index_to_onehot: 将索引转为onehot数据
             11. to_onehot_array： 生成训练库句子的onehot编码
 
         注意：
@@ -338,14 +338,31 @@ class FeatureEncoder(object):
 
         return sentence
 
-    def index_to_onehot(self,index):
+    def word_index_to_onehot(self, index):
         '''
-            将字典索引转成 onehot 编码,比如：
-                [1,2]-->[ 0 , 1 , 1 , 0 , 0 , 0 , 0 , 0 , 0,  0.]
+            注意:该方法跟[sentence_index_to_onehot]的区别。
+            将词的索引转成 onehot 编码,比如：
+                索引 1 -->[  0 , 0 , 0 , 0,  1]
 
-        :param index: 字典索引
+        :param index: 一个词的字典索引
+        :type index: int
+        :return: onehot 编码，长度为 字典长度
+        :rtype: np.array()
+        '''
+        # todo
+        pass
+
+        return None
+
+    def sentence_index_to_onehot(self, index):
+        '''
+            注意:该方法跟[word_index_to_onehot]的区别。
+            将句子的字典索引转成 onehot 编码比如：
+                [1,2]-->[ 0 , 1 , 1 , 0 , 0 , 0 , 0 , 0 , 0,  0]
+
+        :param index: 一个句子的字典索引
         :type index: list
-        :return: onehot 编码
+        :return: onehot 编码，长度为 字典长度
         :rtype: np.array()
         '''
 
@@ -361,7 +378,7 @@ class FeatureEncoder(object):
 
         :return: onehot编码的数组
         '''
-        self.onehot_array = np.asarray(map(self.index_to_onehot,self.train_index))
+        self.onehot_array = np.asarray(map(self.sentence_index_to_onehot, self.train_index))
         return self.onehot_array
 
     def build_encoder(self):
@@ -527,7 +544,7 @@ if __name__ == '__main__':
     print ','.join(feature_encoder.vocabulary)
     print feature_encoder.train_padding_index
     print feature_encoder.encoding_sentence(test_data)
-    print feature_encoder.index_to_onehot(feature_encoder.encoding_sentence(test_data))
+    print feature_encoder.sentence_index_to_onehot(feature_encoder.encoding_sentence(test_data))
     quit()
     print feature_encoder.train_data_dict_size
 
