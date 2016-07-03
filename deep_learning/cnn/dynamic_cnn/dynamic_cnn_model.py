@@ -1,4 +1,4 @@
-#encoding=utf8
+# encoding=utf8
 __author__ = 'jdwang'
 __date__ = 'create date: 2016-06-29'
 __email__ = '383287471@qq.com'
@@ -18,6 +18,7 @@ from collections import OrderedDict
 import lasagne
 import DCNN
 
+
 class DynamicCNN(object):
     '''
         DCNN模型: 两层CNN模型,每层都是一种类型卷积核，多核，随机初始化词向量,.
@@ -33,15 +34,15 @@ class DynamicCNN(object):
                  vocab_size=None,
                  word_embedding_dim=None,
                  conv_filter_type=None,
-                 ktop = 1,
-                 num_labels = None,
-                 output_dropout_rate = 0.5,
+                 ktop=1,
+                 num_labels=None,
+                 output_dropout_rate=0.5,
 
                  rand_seed=1337,
-                 input_length = None,
-                 embedding_dropout_rate = 0.5,
+                 input_length=None,
+                 embedding_dropout_rate=0.5,
                  nb_epoch=100,
-                 earlyStoping_patience = 50,
+                 earlyStoping_patience=50,
                  ):
         '''
             1. 初始化参数
@@ -95,7 +96,7 @@ class DynamicCNN(object):
         self.input_length = input_length
         self.embedding_dropout_rate = embedding_dropout_rate
         self.nb_epoch = nb_epoch
-        self.earlyStoping_patience=earlyStoping_patience
+        self.earlyStoping_patience = earlyStoping_patience
 
         # cnn model
         self.model = None
@@ -110,6 +111,7 @@ class DynamicCNN(object):
             !但是k-max的实现用到Lambda,而pickle无法dump function对象,所以使用该模型的时候,保存不了模型,待解决.
         :return:  Lambda
         '''
+
         def kmaxpooling_output(input):
             '''
                 实现 k-max pooling
@@ -119,7 +121,7 @@ class DynamicCNN(object):
             :type k: int
             :return:
             '''
-            input = T.transpose(input,axes=(0,1,3,2))
+            input = T.transpose(input, axes=(0, 1, 3, 2))
             sorted_values = T.argsort(input, axis=3)
             topmax_indexes = sorted_values[:, :, :, -self.k:]
             # sort indexes so that we keep the correct order within the sentence
@@ -128,18 +130,19 @@ class DynamicCNN(object):
             # given that topmax only gives the index of the third dimension, we need to generate the other 3 dimensions
             dim0 = T.arange(0, input.shape[0]).repeat(input.shape[1] * input.shape[2] * self.k)
             dim1 = T.arange(0, input.shape[1]).repeat(self.k * input.shape[2]).reshape((1, -1)).repeat(input.shape[0],
-                                                                                                  axis=0).flatten()
+                                                                                                       axis=0).flatten()
             dim2 = T.arange(0, input.shape[2]).repeat(self.k).reshape((1, -1)).repeat(input.shape[0] * input.shape[1],
-                                                                                 axis=0).flatten()
+                                                                                      axis=0).flatten()
             dim3 = topmax_indexes_sorted.flatten()
-            return T.transpose(input[dim0, dim1, dim2, dim3].reshape((input.shape[0], input.shape[1],input.shape[2], self.k)),axes=(0,1,3,2))
+            return T.transpose(
+                input[dim0, dim1, dim2, dim3].reshape((input.shape[0], input.shape[1], input.shape[2], self.k)),
+                axes=(0, 1, 3, 2))
 
         def kmaxpooling_output_shape(input_shape):
             return (input_shape[0], input_shape[1], self.k, input_shape[3])
 
         from keras.layers import Lambda
-        return Lambda(kmaxpooling_output,kmaxpooling_output_shape,name='k-max')
-
+        return Lambda(kmaxpooling_output, kmaxpooling_output_shape, name='k-max')
 
     def build_model(self):
         '''
@@ -169,7 +172,7 @@ class DynamicCNN(object):
         l_conv1 = DCNN.convolutions.Conv1DLayerSplitted(
             l_embedding,
             num_filters=self.conv_filter_type[0][0],
-            filter_size =self.conv_filter_type[0][1],
+            filter_size=self.conv_filter_type[0][1],
             nonlinearity=lasagne.nonlinearities.linear,
             border_mode=self.conv_filter_type[0][2]
         )
@@ -192,7 +195,6 @@ class DynamicCNN(object):
             border_mode=self.conv_filter_type[1][2]
         )
 
-
         l_fold2 = DCNN.folding.FoldingLayer(l_conv2)
 
         l_pool2 = DCNN.pooling.KMaxPoolLayer(l_fold2, self.ktop)
@@ -209,8 +211,8 @@ class DynamicCNN(object):
         )
 
         # allocate symbolic variables for the data
-        X_batch = T.matrix('x',dtype='int64')
-        y_batch = T.vector('y',dtype='int64')
+        X_batch = T.matrix('x', dtype='int64')
+        y_batch = T.vector('y', dtype='int64')
 
         # Kalchbrenner uses a fine-grained L2 regularization in the Matlab code, default values taken from Matlab code
         # Training objective
@@ -224,13 +226,14 @@ class DynamicCNN(object):
         # 计算训练误差:期望交叉商+L2正则
         loss_train = lasagne.objectives.aggregate(
             lasagne.objectives.categorical_crossentropy(lasagne.layers.get_output(output_layer, X_batch), y_batch),
-            mode='mean')+ lasagne.regularization.regularize_layer_params_weighted(dict(zip(l2_layers, [0.0001,0.00003,0.000003,0.0001])),lasagne.regularization.l2)
+            mode='mean') + lasagne.regularization.regularize_layer_params_weighted(
+            dict(zip(l2_layers, [0.0001, 0.00003, 0.000003, 0.0001])), lasagne.regularization.l2)
         # validating/testing
         loss_eval = lasagne.objectives.categorical_crossentropy(
             lasagne.layers.get_output(output_layer, X_batch, deterministic=True), y_batch)
         cnn_pred = T.argmax(lasagne.layers.get_output(output_layer, X_batch, deterministic=True), axis=1)
         correct_predictions = T.eq(cnn_pred, y_batch)
-        predictions_accu =  T.sum(correct_predictions)/(y_batch.shape[0]*1.0)
+        predictions_accu = T.sum(correct_predictions) / (y_batch.shape[0] * 1.0)
 
         self.loss_trian = loss_train
         self.loss_eval = loss_eval
@@ -240,15 +243,16 @@ class DynamicCNN(object):
         # updates, accumulated_grads = self.adagrad(loss_train, all_params, 0.001)
         updates = lasagne.updates.adagrad(loss_train, all_params, 1e-6)
 
-        self.prediction = theano.function([X_batch],outputs=cnn_pred)
-        self.train_model = theano.function(inputs=[X_batch, y_batch], outputs=[loss_train,predictions_accu], updates=updates)
+        self.prediction = theano.function([X_batch], outputs=cnn_pred)
+
+        self.train_model = theano.function(inputs=[X_batch, y_batch], outputs=[loss_train, predictions_accu],
+                                           updates=updates)
 
         self.valid_model = theano.function(inputs=[X_batch, y_batch], outputs=correct_predictions)
 
         self.test_model = theano.function(inputs=[X_batch, y_batch], outputs=correct_predictions)
 
-
-    def to_categorical(self,y):
+    def to_categorical(self, y):
         '''
         将y转成适合CNN的格式,即标签y展开成onehot编码,比如
             y = [1,2]--> y = [[0,1 ],[1,0]]
@@ -258,7 +262,7 @@ class DynamicCNN(object):
         :rtype: array2D-like
         '''
         from keras.utils import np_utils
-        y_onehot = np_utils.to_categorical(y,nb_classes=self.num_labels)
+        y_onehot = np_utils.to_categorical(y, nb_classes=self.num_labels)
         return y_onehot
 
     def fit(self, train_data, validation_data):
@@ -283,30 +287,30 @@ class DynamicCNN(object):
         n_train_samples = len(train_X)
         n_validation_samples = len(validation_X)
 
-        print train_X[:5]
-        print len(train_X)
+        # print train_X[:5]
+        # print len(train_X)
         train_X = np.concatenate((train_X,
-                                  np.asarray([np.zeros(len(train_X[0]),dtype=int)]*(batch_size - n_train_samples%batch_size))),
+                                  np.asarray([np.zeros(len(train_X[0]), dtype=int)] * (
+                                  batch_size - n_train_samples % batch_size))),
                                  axis=0,
                                  )
         train_y = np.concatenate((train_y,
-                                  np.zeros(batch_size - n_train_samples%batch_size,dtype=int)),
+                                  np.zeros(batch_size - n_train_samples % batch_size, dtype=int)),
                                  axis=0,
                                  )
-        n_train_batches = len(train_X)/batch_size
+        n_train_batches = len(train_X) / batch_size
 
         validation_X = np.concatenate((validation_X,
-                                  np.asarray([np.zeros(len(validation_X[0]), dtype=int)] * (
-                                  batch_size - n_validation_samples % batch_size))),
-                                 axis=0,
-                                 )
+                                       np.asarray([np.zeros(len(validation_X[0]), dtype=int)] * (
+                                           batch_size - n_validation_samples % batch_size))),
+                                      axis=0,
+                                      )
 
         validation_y = np.concatenate((validation_y,
-                              np.zeros(batch_size - n_validation_samples % batch_size, dtype=int)),
-                             axis=0,
-                             )
-        n_validation_batches = len(validation_X)/batch_size
-
+                                       np.zeros(batch_size - n_validation_samples % batch_size, dtype=int)),
+                                      axis=0,
+                                      )
+        n_validation_batches = len(validation_X) / batch_size
 
         best_validation_accuracy = 0
         epoch = 0
@@ -318,12 +322,10 @@ class DynamicCNN(object):
             # print batch_counter
 
             for minibatch_index in permutation:
-
-
                 x_input = train_X[minibatch_index * batch_size:(minibatch_index + 1) * batch_size]
                 y_input = train_y[minibatch_index * batch_size:(minibatch_index + 1) * batch_size]
-                loss,train_accu = self.train_model(x_input, y_input)
-                print train_accu
+                loss, train_accu = self.train_model(x_input, y_input)
+                # print train_accu
                 train_loss += loss
                 batch_counter += 1
                 # quit()
@@ -337,13 +339,20 @@ class DynamicCNN(object):
                 accuracy_valid.append(self.valid_model(x_input, y_input))
 
             # dirty code to correctly asses validation accuracy, last results in the array are predictions for the padding rows and can be dumped afterwards
-            this_validation_accuracy = np.concatenate(accuracy_valid)[0:n_validation_samples].sum() / float(n_validation_samples)
+            this_validation_accuracy = np.concatenate(accuracy_valid)[0:n_validation_samples].sum() / float(
+                n_validation_samples)
+            # -------------- print start : just print info -------------
 
-            print('epoch %d，'%(epoch)+"Train loss, " + str(train_loss) + ", validation accuracy: " + str(
-                    this_validation_accuracy * 100) + "%")
+            if self.verbose > 1:
+                logging.debug(
+                    'epoch %d，' % (epoch) + "Train loss, " + str(train_loss) + ", validation accuracy: " + str(
+                        this_validation_accuracy * 100) + "%")
+                print 'epoch %d，' % (epoch) + "Train loss, " + str(train_loss) + ", validation accuracy: " + str(
+                    this_validation_accuracy * 100) + "%"
 
+                # -------------- print end : just print info -------------
 
-    def save_model(self,path):
+    def save_model(self, path):
         '''
             保存模型,保存成pickle形式
         :param path: 模型保存的路径
@@ -352,30 +361,84 @@ class DynamicCNN(object):
         '''
         pickle.dump(self.model_output, open(path, 'wb'))
 
-    def model_from_pickle(self,path):
+    def model_from_pickle(self, path):
         '''
             从模型文件中直接加载模型
         :param path:
         :return: RandEmbeddingCNN object
         '''
-        self.model_output = pickle.load(file(path,'rb'))
+        self.model_output = pickle.load(file(path, 'rb'))
 
-    def predict(self,sentence_index):
+    def batch_predict(self, sentences_index):
+        '''
+            批量预测：输入多个句子索引，一起预测结果，主要步骤如下啊：
+                1. 检查数据合法性和转换格式等;
+                2. 对数据进行补全，直到是 self.batch_size的倍数;
+                3. 预测，并取出相应的类别
+
+        :param sentences_index:
+        :return:
+        '''
+        # -------------- region start : 1. 检查数据合法性和转换格式等; -------------
+        if self.verbose > 2:
+            logging.debug('-' * 20)
+            print '-' * 20
+            logging.debug('1. 检查数据合法性和转换格式等;')
+            print '1. 检查数据合法性和转换格式等;'
+        # -------------- code start : 开始 -------------
+
+        sentences_index = np.asarray(sentences_index, dtype=int)
+
+        assert len(sentences_index.shape) == 2, '输入的维度一定要是2维！'
+
+
+        # -------------- code start : 结束 -------------
+        if self.verbose > 2:
+            logging.debug('-' * 20)
+            print '-' * 20
+        # -------------- region end : 1. 检查数据合法性和转换格式等; ---------------
+
+        # -------------- region start : 2&3. 对数据进行补全，直到是 self.batch_size的倍数;预测. -------------
+        if self.verbose > 2 :
+            logging.debug('-' * 20)
+            print '-' * 20
+            logging.debug('2 & 3. 对数据进行补全，直到是 self.batch_size的倍数; 预测.')
+            print '2 & 3. 对数据进行补全，直到是 self.batch_size的倍数; 预测.'
+        # -------------- code start : 开始 -------------
+
+        # 样例个数
+        num_sentences, sentence_length = sentences_index.shape
+        # 需要补全多个样例
+        num_need_padding = self.batch_size - num_sentences % self.batch_size
+
+        x_input = np.concatenate(
+            (sentences_index, np.zeros((num_need_padding, sentence_length), dtype=int)), axis=0)
+
+        y_pred = self.prediction(x_input)[:num_sentences]
+
+        # -------------- code start : 结束 -------------
+        if self.verbose > 2 :
+            logging.debug('-' * 20)
+            print '-' * 20
+        # -------------- region end : 2. 对数据进行补全，直到是 self.batch_size的倍数; ---------------
+
+        return y_pred
+
+    def predict(self, sentence_index):
         '''
             预测,对输入的句子进行预测
 
         :param sentence_index: 测试句子,以字典索引的形式
         :type sentence_index: array-like
         '''
-        num_need_padding = self.batch_size-1
-        x_input = np.concatenate((sentence_index.reshape(1,-1),np.zeros((num_need_padding,len(sentence_index)),dtype=int)),axis=0)
+        num_need_padding = self.batch_size - 1
+        x_input = np.concatenate(
+            (sentence_index.reshape(1, -1), np.zeros((num_need_padding, len(sentence_index)), dtype=int)), axis=0)
 
-        print self.prediction(x_input)
         y_pred = self.prediction(x_input)[0]
-        print y_pred
         return y_pred
 
-    def accuracy(self,test_data):
+    def accuracy(self, test_data):
         '''
             预测,对输入的句子进行预测,并给出准确率
                 1. 转换格式
@@ -386,7 +449,7 @@ class DynamicCNN(object):
         :type sentence_index: array-like
         '''
         # -------------- region start : 1. 转换格式 -------------
-        if self.verbose > 1 :
+        if self.verbose > 1:
             logging.debug('-' * 20)
             print '-' * 20
             logging.debug('1. 转换格式')
@@ -396,26 +459,26 @@ class DynamicCNN(object):
         test_X, test_y = test_data
         test_X = np.asarray(test_X)
 
-
         # -------------- code start : 结束 -------------
-        if self.verbose > 1 :
+        if self.verbose > 1:
             logging.debug('-' * 20)
             print '-' * 20
         # -------------- region end : 1. 转换格式 ---------------
 
 
+        y_pred = self.batch_predict(sentences_index=test_X)
 
-        y_pred = self.model_output([test_X,0])[0]
+        y_pred = self.model_output([test_X, 0])[0]
         y_pred = y_pred.argmax(axis=-1)
 
-        is_correct = y_pred==test_y
-        logging.debug('正确的个数:%d'%(sum(is_correct)))
-        print '正确的个数:%d'%(sum(is_correct))
-        accu = sum(is_correct)/(1.0*len(test_y))
-        logging.debug('准确率为:%f'%(accu))
-        print '准确率为:%f'%(accu)
+        is_correct = y_pred == test_y
+        logging.debug('正确的个数:%d' % (sum(is_correct)))
+        print '正确的个数:%d' % (sum(is_correct))
+        accu = sum(is_correct) / (1.0 * len(test_y))
+        logging.debug('准确率为:%f' % (accu))
+        print '准确率为:%f' % (accu)
 
-        return y_pred,is_correct,accu
+        return y_pred, is_correct, accu
 
     def print_model_descibe(self):
         import pprint
@@ -436,12 +499,13 @@ class DynamicCNN(object):
         logging.debug(detail)
         return detail
 
+
 if __name__ == '__main__':
     # 使用样例
-    train_X = ['你好', '无聊', '测试句子', '今天天气不错','我要买手机']
-    trian_y = [1,3,2,2,3]
-    test_X = ['你好','你好','你妹']
-    test_y = [3,1,1]
+    train_X = ['你好', '无聊', '测试句子', '今天天气不错', '我要买手机']
+    trian_y = [1, 3, 2, 2, 3]
+    test_X = ['你好', '你好', '你妹']
+    test_y = [3, 1, 1]
     sentence_padding_length = 8
     feature_encoder = FeatureEncoder(train_data=train_X,
                                      sentence_padding_length=sentence_padding_length,
@@ -454,28 +518,28 @@ if __name__ == '__main__':
         batch_size=2,
         vocab_size=feature_encoder.train_data_dict_size,
         word_embedding_dim=10,
-        input_length = sentence_padding_length,
-        num_labels = 5,
-        conv_filter_type = [[100,2,'full'],
-                            [100,4,'full'],
-                            # [100,6,5,'valid'],
-                            ],
+        input_length=sentence_padding_length,
+        num_labels=5,
+        conv_filter_type=[[100, 2, 'full'],
+                          [100, 4, 'full'],
+                          # [100,6,5,'valid'],
+                          ],
         ktop=2,
-        embedding_dropout_rate= 0.5,
+        embedding_dropout_rate=0.5,
         output_dropout_rate=0.5,
         nb_epoch=50,
-        earlyStoping_patience = 5,
+        earlyStoping_patience=5,
     )
     dcnn.print_model_descibe()
     # 训练模型
     dcnn.fit((feature_encoder.train_padding_index, trian_y),
-             (map(feature_encoder.encoding_sentence,test_X),test_y))
+             (map(feature_encoder.encoding_sentence, test_X), test_y))
     print dcnn.predict(feature_encoder.encoding_sentence(test_X[0]))
+    print dcnn.batch_predict(map(feature_encoder.encoding_sentence, test_X))
     quit()
     # 保存模型
     dcnn.save_model('model/modelA.pkl')
 
-    quit()
     # 从保存的pickle中加载模型
     # rand_embedding_cnn.model_from_pickle('model/modelA.pkl')
     # print rand_embedding_cnn.predict(feature_encoder.encoding_sentence('你好吗'))

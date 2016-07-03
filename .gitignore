@@ -91,3 +91,4 @@ ENV/
 # pickle 模型文件
 *.pkl
 *.pickle
+*.gem

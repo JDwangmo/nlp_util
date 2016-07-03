@@ -11,7 +11,7 @@ from data_processing_util.feature_encoder.onehot_feature_encoder import FeatureE
 import theano.tensor as T
 from sklearn.metrics import f1_score
 
-class RandEmbeddingCNN(object):
+class WordEmbeddingCNN(object):
     '''
         一层CNN模型,随机初始化词向量,CNN-rand模型.借助Keras和jieba实现。
         架构各个层次分别为: 输入层,embedding层,dropout层,卷积层,1-max pooling层,全连接层,dropout层,softmax层
@@ -24,6 +24,7 @@ class RandEmbeddingCNN(object):
                  verbose=0,
                  input_dim=None,
                  word_embedding_dim=None,
+                 embedding_init_weight = None,
                  input_length = None,
                  num_labels = None,
                  conv_filter_type = None,
@@ -34,7 +35,7 @@ class RandEmbeddingCNN(object):
                  earlyStoping_patience = 50,
                  ):
         '''
-            1. 初始化参数
+            1. 初始化参数，并检验参数合法性。
             2. 构建模型
 
         :param rand_seed: 随机种子,假如设置为为None时,则随机取随机种子
@@ -45,6 +46,10 @@ class RandEmbeddingCNN(object):
         :type input_dim: int
         :param word_embedding_dim: cnn设置选项,embedding层词向量的维度(长度).
         :type word_embedding_dim: int
+        :param embedding_init_weight: cnn设置选项,embedding层词向量的权重初始化方式,有2种,.
+            1. None: 使用随机初始化权重.
+            2. 不是None：若有提供权重，则使用训练好的词向量进行初始化.
+        :type embedding_init_weight: 2d array-like
         :param input_length: cnn设置选项,输入句子(序列)的长度.
         :type input_length: int
         :param num_labels: cnn设置选项,最后输出层的大小,即分类类别的个数.
@@ -75,6 +80,7 @@ class RandEmbeddingCNN(object):
         self.verbose = verbose
         self.input_dim = input_dim
         self.word_embedding_dim = word_embedding_dim
+        self.embedding_init_weight=embedding_init_weight
         self.input_length = input_length
         self.num_labels = num_labels
         self.conv_filter_type = conv_filter_type
@@ -83,6 +89,7 @@ class RandEmbeddingCNN(object):
         self.output_dropout_rate = output_dropout_rate
         self.nb_epoch = nb_epoch
         self.earlyStoping_patience=earlyStoping_patience
+
 
         # cnn model
         self.model = None
@@ -208,10 +215,15 @@ class RandEmbeddingCNN(object):
         # 输入层
         model_input = Input((self.input_length,), dtype='int64')
         # embedding层
+        if self.embedding_init_weight is None:
+            weight = None
+        else:
+            weight=[self.embedding_init_weight]
         embedding = Embedding(input_dim=self.input_dim,
                               output_dim=self.word_embedding_dim,
                               input_length=self.input_length,
                               # mask_zero = True,
+                              weights=weight,
                               init='uniform'
                               )(model_input)
         # 输入dropout层,embedding_dropout_rate!=0,则对embedding增加doupout层
@@ -451,6 +463,7 @@ class RandEmbeddingCNN(object):
                   'output_dropout_rate': self.output_dropout_rate,
                   'nb_epoch': self.nb_epoch,
                   'earlyStoping_patience': self.earlyStoping_patience,
+                  'embedding_init use rand':self.embedding_init_weight is None,
                   }
         pprint.pprint(detail)
         logging.debug(detail)
@@ -477,11 +490,13 @@ if __name__ == '__main__':
                                      )
     print feature_encoder.train_padding_index
     print map(feature_encoder.encoding_sentence,test_X)
-    rand_embedding_cnn = RandEmbeddingCNN(
+    # quit()
+    rand_embedding_cnn = WordEmbeddingCNN(
         rand_seed=1337,
         verbose=1,
         input_dim=feature_encoder.train_data_dict_size+1,
-        word_embedding_dim=10,
+        word_embedding_dim=50,
+        embedding_init_weight=feature_encoder.to_embedding_weight('/home/jdwang/PycharmProjects/corprocessor/word2vec/vector/ood_sentence_vector1191_50dim.gem'),
         input_length = sentence_padding_length,
         num_labels = 5,
         conv_filter_type = [[100,2,10,'valid'],

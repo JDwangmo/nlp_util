@@ -1,4 +1,5 @@
 # encoding=utf8
+
 __author__ = 'jdwang'
 __date__ = 'create date: 2016-06-24'
 __email__ = '383287471@qq.com'
@@ -6,6 +7,7 @@ import numpy as np
 import pandas as pd
 import logging
 import timeit
+from gensim.models import Word2Vec
 from gensim.corpora.dictionary import Dictionary
 from data_processing_util.jiebanlp.jieba_util import Jieba_Util
 
@@ -96,6 +98,10 @@ class FeatureEncoder(object):
         self.mask_zero = mask_zero
         self.padding_mode = padding_mode
 
+        # 检验参数合法性
+        assert self.padding_mode in ['center','left','right','none'],'padding mode 只能取: center,left,right,none'
+
+
         # 初始化jieba分词器
         self.jieba_seg = Jieba_Util(verbose=self.verbose)
         # 切完词的句子
@@ -112,6 +118,8 @@ class FeatureEncoder(object):
         self.train_padding_index = None
         # 训练库句子装成onehot array
         self.onehot_array = None
+        # word2vec 模型
+        self.word2vec_model = None
 
         if verbose > 1:
             logging.debug('build feature encoder...')
@@ -173,6 +181,40 @@ class FeatureEncoder(object):
         print '句子最短长度为：%d'%(min(sentence_length))
         print '句子平均长度为：%d'%(np.average(sentence_length))
         return sentence_length
+
+    def get_unkown_vector(self, ndim=50):
+        rand = np.random.RandomState(1337)
+        return rand.rand(ndim)
+
+    def get_w2vEmbedding(self, word):
+        try:
+            vector = self.word2vec_model[word]
+        except:
+            vector = self.get_unkown_vector(self.word2vec_model.vector_size)
+        return np.asarray(vector)
+
+    def to_embedding_weight(self,path):
+        '''
+            使用训练好的 word2vec 模型 将字典中每个词转为 word2vec向量，接着生成一个 Embedding层的初始权重形式，可用于初始化 Embedding 层的权重。
+                1. 加载word2vec模型
+                2.
+
+        :param path: word2vec 模型文件路径
+        :type path: str
+        :return:
+        '''
+        self.word2vec_model = Word2Vec.load(path)
+
+        # 若mask_zero=True，则需要为0留出一个位置，所有索引加1,embedding权重多加一行
+        # 若mask_zero=False，则不需要为0留出一个位置，不用加1
+        leave_for_zero = int(self.mask_zero)
+        size = self.train_data_dict_size + leave_for_zero
+        embedding_weights = np.zeros((size, self.word2vec_model.vector_size))
+        for key,value in self.train_data_dict.token2id.items():
+            embedding_weights[value+leave_for_zero,:] = self.get_w2vEmbedding(key)
+        # todo 创建词向量字典
+        self.embedding_weights = embedding_weights
+        return embedding_weights
 
     def build_dictionary(self):
         '''
@@ -269,7 +311,6 @@ class FeatureEncoder(object):
         :return:
         '''
 
-        assert self.padding_mode in ['center','left','right','none'],'padding mode 只能取: center,left,right,none'
 
         padding_length = self.sentence_padding_length
         # print sentence
@@ -308,7 +349,7 @@ class FeatureEncoder(object):
         :rtype: np.array()
         '''
 
-        onehot_array = np.zeros(self.train_data_dict_size,dtype=int)
+        onehot_array = np.zeros(self.train_data_dict_size+int(self.mask_zero),dtype=int)
         onehot_array[index] = 1
 
         return onehot_array
@@ -466,7 +507,7 @@ class FeatureEncoder(object):
 
 if __name__ == '__main__':
     train_data = ['你好，你好', '測試句子','无聊', '测试句子', '今天天气不错','买手机','你要买手机']
-    test_data = '你好，你好'
+    test_data = '你好，你好,si'
     feature_encoder = FeatureEncoder(train_data=train_data,
                                      verbose=0,
                                      padding_mode='none',
@@ -476,16 +517,20 @@ if __name__ == '__main__':
                                      replace_number=True,
                                      lowercase=True,
                                      sentence_padding_length=7,
-                                     add_unkown_word=False,
-                                     mask_zero=False,
+                                     add_unkown_word=True,
+                                     mask_zero=True,
                                      zhs2zht=True,
                                      )
-    print feature_encoder.train_padding_index
+    embedding_weight = feature_encoder.to_embedding_weight('/home/jdwang/PycharmProjects/corprocessor/word2vec/vector/ood_sentence_vector1191_50dim.gem')
+    print embedding_weight.shape
+    # print embedding_weight
     print ','.join(feature_encoder.vocabulary)
-    print feature_encoder.train_data_dict_size
+    print feature_encoder.train_padding_index
     print feature_encoder.encoding_sentence(test_data)
-
     print feature_encoder.index_to_onehot(feature_encoder.encoding_sentence(test_data))
+    quit()
+    print feature_encoder.train_data_dict_size
+
 
     X = feature_encoder.to_onehot_array()
     print X
