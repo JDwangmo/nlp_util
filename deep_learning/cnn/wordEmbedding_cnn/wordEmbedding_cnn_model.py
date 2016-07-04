@@ -43,7 +43,7 @@ class WordEmbeddingCNN(object):
         :type rand_seed: int
         :param verbose: 数值越大,输出更详细的信息
         :type verbose: int
-        :param optimizers: 数值越大,输出更详细的信息
+        :param optimizers: 求解的优化算法，目前支持: ['sgd','adadelta']
         :type optimizers: str
         :param input_dim: embedding层输入(onehot)的维度,即 字典大小+1,+1是为了留出0给填充用
         :type input_dim: int
@@ -94,6 +94,7 @@ class WordEmbeddingCNN(object):
         self.nb_epoch = nb_epoch
         self.earlyStoping_patience=earlyStoping_patience
 
+        assert optimizers in ['sgd','adadelta'],'optimizers只能取 sgd, adadelta'
 
         # cnn model
         self.model = None
@@ -488,6 +489,7 @@ class WordEmbeddingCNN(object):
         import pprint
         detail = {'rand_seed': self.rand_seed,
                   'verbose': self.verbose,
+                  'optimizers': self.optimizers,
                   'input_dim': self.input_dim,
                   'word_embedding_dim': self.word_embedding_dim,
                   'input_length': self.input_length,
@@ -530,7 +532,8 @@ if __name__ == '__main__':
     word_embedding_dim = 50
     rand_embedding_cnn = WordEmbeddingCNN(
         rand_seed=1377,
-        verbose=3,
+        verbose=2,
+        # optimizers='adadelta',
         input_dim=feature_encoder.train_data_dict_size+1,
         word_embedding_dim=word_embedding_dim,
         embedding_init_weight=feature_encoder.to_embedding_weight('/home/jdwang/PycharmProjects/corprocessor/word2vec/vector/ood_sentence_vector1191_50dim.gem'),
