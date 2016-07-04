@@ -308,7 +308,7 @@ class WordEmbeddingCNN(object):
             print '1. 设置优化算法,earlystop等'
         # -------------- code start : 开始 -------------
         if self.optimizers == 'sgd':
-            optimizers = SGD(lr=0.1, decay=1e-6, momentum=0.9, nesterov=True)
+            optimizers = SGD(lr=1e-2, decay=1e-6, momentum=0.9, nesterov=True)
         elif self.optimizers == 'adadelta':
             optimizers = 'adadelta'
         self.model.compile(loss='categorical_crossentropy', optimizer=optimizers, metrics=['accuracy'])

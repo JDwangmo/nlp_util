@@ -15,7 +15,7 @@ class FoldingLayer(Layer):
     def get_output_shape_for(self, input_shape):
         input_shape_2d = input_shape[2]
         if input_shape[2]%2!=0:
-            input_shape_2d +=2
+            input_shape_2d *=2
         return (input_shape[0], input_shape[1],input_shape_2d/2, input_shape[3])
 
     def get_output_for(self, input, **kwargs):
