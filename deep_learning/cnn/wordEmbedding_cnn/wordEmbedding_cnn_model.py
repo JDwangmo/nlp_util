@@ -484,7 +484,7 @@ if __name__ == '__main__':
                                      replace_number=True,
                                      remove_stopword=True,
                                      lowercase=True,
-                                     padding_mode='center',
+                                     padding_mode='left',
                                      add_unkown_word=True,
                                      mask_zero=True,
                                      )
@@ -492,8 +492,8 @@ if __name__ == '__main__':
     print map(feature_encoder.encoding_sentence,test_X)
     # quit()
     rand_embedding_cnn = WordEmbeddingCNN(
-        rand_seed=1337,
-        verbose=1,
+        rand_seed=1377,
+        verbose=2,
         input_dim=feature_encoder.train_data_dict_size+1,
         word_embedding_dim=50,
         embedding_init_weight=feature_encoder.to_embedding_weight('/home/jdwang/PycharmProjects/corprocessor/word2vec/vector/ood_sentence_vector1191_50dim.gem'),
@@ -514,6 +514,7 @@ if __name__ == '__main__':
     rand_embedding_cnn.fit((feature_encoder.train_padding_index, trian_y),
                            (map(feature_encoder.encoding_sentence,test_X),test_y))
     rand_embedding_cnn.accuracy((map(feature_encoder.encoding_sentence,test_X),test_y))
+    print rand_embedding_cnn.predict(map(feature_encoder.encoding_sentence,test_X))
     # 保存模型
     rand_embedding_cnn.save_model('model/modelA.pkl')
 

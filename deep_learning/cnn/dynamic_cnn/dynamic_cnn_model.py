@@ -1,4 +1,8 @@
 # encoding=utf8
+from __future__ import print_function
+
+from sklearn.metrics import f1_score
+
 __author__ = 'jdwang'
 __date__ = 'create date: 2016-06-29'
 __email__ = '383287471@qq.com'
@@ -17,8 +21,9 @@ import theano
 from collections import OrderedDict
 import lasagne
 import DCNN
-
-
+# theano.config.compute_test_value = 'warn'
+# theano.config.optimizer = 'fast_compile'
+# theano.config.exception_verbosity='high'
 class DynamicCNN(object):
     '''
         DCNN模型: 两层CNN模型,每层都是一种类型卷积核，多核，随机初始化词向量,.
@@ -30,6 +35,7 @@ class DynamicCNN(object):
 
     def __init__(self,
                  verbose=0,
+                 rand_seed=1337,
                  batch_size=4,
                  vocab_size=None,
                  word_embedding_dim=None,
@@ -38,7 +44,6 @@ class DynamicCNN(object):
                  num_labels=None,
                  output_dropout_rate=0.5,
 
-                 rand_seed=1337,
                  input_length=None,
                  embedding_dropout_rate=0.5,
                  nb_epoch=100,
@@ -50,6 +55,8 @@ class DynamicCNN(object):
 
         :param verbose: 数值越大,输出更详细的信息
         :type verbose: int
+        :param rand_seed: 随机种子,for Reproducibility. 假如设置为为None时,则随机取随机种子
+        :type rand_seed: int
         :param batch_size: 一个批量batch的大小，默认为4
         :type batch_size: int
         :param vocab_size: 字典大小 ,即embedding层输入(onehot)的维度-1,embedding层输入的维度比字典大小多1的原因，是留出索引0给填充用。
@@ -69,11 +76,10 @@ class DynamicCNN(object):
         :type num_labels: int
         :param output_dropout_rate: cnn设置选项,dropout层的的dropout rate,对输出层进入dropuout,如果为0,则不dropout
         :type output_dropout_rate: float
+        :param input_length: cnn设置选项,输入句子(序列)的长度.若为None的话，则句子输入可以不等长。
+        :type input_length: int / None
 
-        :param rand_seed: 随机种子,假如设置为为None时,则随机取随机种子
-        :type rand_seed: int
-        :param input_length: cnn设置选项,输入句子(序列)的长度.
-        :type input_length: int
+
         :param embedding_dropout_rate: cnn设置选项,dropout层的的dropout rate,对embedding层进入dropuout,如果为0,则不dropout
         :type embedding_dropout_rate: float
         :param nb_epoch: cnn设置选项,cnn迭代的次数.
@@ -98,51 +104,19 @@ class DynamicCNN(object):
         self.nb_epoch = nb_epoch
         self.earlyStoping_patience = earlyStoping_patience
 
-        # cnn model
-        self.model = None
-        # cnn model 的输出函数
-        self.model_output = None
+        # cnn model 的预测模型
+        self.prediction = None
+        # cnn model 的训练模型
+        self.train_model = None
+        # cnn model 的验证模型
+        self.valid_model = None
+        # cnn model 的测试模型
+        self.test_model = None
+        if self.rand_seed is not None:
+            np.random.seed(self.rand_seed)
         # 构建模型
         self.build_model()
 
-    def kmaxpooling(self):
-        '''
-            分别定义 kmax 的output 和output shape
-            !但是k-max的实现用到Lambda,而pickle无法dump function对象,所以使用该模型的时候,保存不了模型,待解决.
-        :return:  Lambda
-        '''
-
-        def kmaxpooling_output(input):
-            '''
-                实现 k-max pooling
-                    1. 先排序
-                    2. 再分别取出前k个值
-            :param k: k top higiest value
-            :type k: int
-            :return:
-            '''
-            input = T.transpose(input, axes=(0, 1, 3, 2))
-            sorted_values = T.argsort(input, axis=3)
-            topmax_indexes = sorted_values[:, :, :, -self.k:]
-            # sort indexes so that we keep the correct order within the sentence
-            topmax_indexes_sorted = T.sort(topmax_indexes)
-
-            # given that topmax only gives the index of the third dimension, we need to generate the other 3 dimensions
-            dim0 = T.arange(0, input.shape[0]).repeat(input.shape[1] * input.shape[2] * self.k)
-            dim1 = T.arange(0, input.shape[1]).repeat(self.k * input.shape[2]).reshape((1, -1)).repeat(input.shape[0],
-                                                                                                       axis=0).flatten()
-            dim2 = T.arange(0, input.shape[2]).repeat(self.k).reshape((1, -1)).repeat(input.shape[0] * input.shape[1],
-                                                                                      axis=0).flatten()
-            dim3 = topmax_indexes_sorted.flatten()
-            return T.transpose(
-                input[dim0, dim1, dim2, dim3].reshape((input.shape[0], input.shape[1], input.shape[2], self.k)),
-                axes=(0, 1, 3, 2))
-
-        def kmaxpooling_output_shape(input_shape):
-            return (input_shape[0], input_shape[1], self.k, input_shape[3])
-
-        from keras.layers import Lambda
-        return Lambda(kmaxpooling_output, kmaxpooling_output_shape, name='k-max')
 
     def build_model(self):
         '''
@@ -158,7 +132,7 @@ class DynamicCNN(object):
         # 1.输入层
         # 因为输入可以变长，所以 第2维为 None
         l_in = lasagne.layers.InputLayer(
-            shape=(self.batch_size, None),
+            shape=(self.batch_size, self.input_length),
         )
         # 2. embedding层
         # 将 索引 投影成 向量，first表示 将0作为填充字符
@@ -211,8 +185,8 @@ class DynamicCNN(object):
         )
 
         # allocate symbolic variables for the data
-        X_batch = T.matrix('x', dtype='int64')
-        y_batch = T.vector('y', dtype='int64')
+        X_batch = T.matrix('x', dtype='int32')
+        y_batch = T.vector('y', dtype='int32')
 
         # Kalchbrenner uses a fine-grained L2 regularization in the Matlab code, default values taken from Matlab code
         # Training objective
@@ -252,18 +226,6 @@ class DynamicCNN(object):
 
         self.test_model = theano.function(inputs=[X_batch, y_batch], outputs=correct_predictions)
 
-    def to_categorical(self, y):
-        '''
-        将y转成适合CNN的格式,即标签y展开成onehot编码,比如
-            y = [1,2]--> y = [[0,1 ],[1,0]]
-        :param y: 标签列表,比如: [1,1,2,3]
-        :type y: array1D-like
-        :return: y的onehot编码
-        :rtype: array2D-like
-        '''
-        from keras.utils import np_utils
-        y_onehot = np_utils.to_categorical(y, nb_classes=self.num_labels)
-        return y_onehot
 
     def fit(self, train_data, validation_data):
         '''
@@ -280,54 +242,62 @@ class DynamicCNN(object):
         batch_size = self.batch_size
 
         train_X, train_y = train_data
-        train_X = np.asarray(train_X)
+        train_X = np.asarray(train_X,dtype=np.int32)
+        train_y = np.asarray(train_y,dtype=np.int32)
         validation_X, validation_y = validation_data
-        validation_X = np.asarray(validation_X)
+        validation_X = np.asarray(validation_X,dtype=np.int32)
+        validation_y = np.asarray(validation_y,dtype=np.int32)
 
         n_train_samples = len(train_X)
         n_validation_samples = len(validation_X)
 
         # print train_X[:5]
         # print len(train_X)
-        train_X = np.concatenate((train_X,
-                                  np.asarray([np.zeros(len(train_X[0]), dtype=int)] * (
-                                  batch_size - n_train_samples % batch_size))),
-                                 axis=0,
-                                 )
-        train_y = np.concatenate((train_y,
-                                  np.zeros(batch_size - n_train_samples % batch_size, dtype=int)),
-                                 axis=0,
-                                 )
+        # train_X = np.concatenate((train_X,
+        #                           np.asarray([np.zeros(len(train_X[0]), dtype=int)] * (
+        #                           batch_size - n_train_samples % batch_size))),
+        #                          axis=0,
+        #                          )
+        # train_y = np.concatenate((train_y,
+        #                           np.zeros(batch_size - n_train_samples % batch_size, dtype=int)),
+        #                          axis=0,
+        #                          )
         n_train_batches = len(train_X) / batch_size
-
-        validation_X = np.concatenate((validation_X,
-                                       np.asarray([np.zeros(len(validation_X[0]), dtype=int)] * (
-                                           batch_size - n_validation_samples % batch_size))),
-                                      axis=0,
-                                      )
-
-        validation_y = np.concatenate((validation_y,
-                                       np.zeros(batch_size - n_validation_samples % batch_size, dtype=int)),
-                                      axis=0,
-                                      )
+        #
+        # validation_X = np.concatenate((validation_X,
+        #                                np.asarray([np.zeros(len(validation_X[0]), dtype=int)] * (
+        #                                    batch_size - n_validation_samples % batch_size))),
+        #                               axis=0,
+        #                               )
+        #
+        # validation_y = np.concatenate((validation_y,
+        #                                np.zeros(batch_size - n_validation_samples % batch_size, dtype=int)),
+        #                               axis=0,
+        #                               )
         n_validation_batches = len(validation_X) / batch_size
 
         best_validation_accuracy = 0
         epoch = 0
         while (epoch < self.nb_epoch):
             epoch = epoch + 1
-            permutation = np.random.RandomState(self.rand_seed).permutation(n_train_batches)
-            batch_counter = 0
+            permutation = np.random.permutation(n_train_batches)
+            # batch_counter = 0
             train_loss = 0
             # print batch_counter
 
-            for minibatch_index in permutation:
+            for counter,minibatch_index in enumerate(permutation):
                 x_input = train_X[minibatch_index * batch_size:(minibatch_index + 1) * batch_size]
                 y_input = train_y[minibatch_index * batch_size:(minibatch_index + 1) * batch_size]
                 loss, train_accu = self.train_model(x_input, y_input)
                 # print train_accu
                 train_loss += loss
-                batch_counter += 1
+                # -------------- print start : just print info -------------
+                if self.verbose > 2 :
+                    logging.debug('已处理%d个数据。训练误差为：%f'%(counter*self.batch_size,train_loss))
+                    print('已处理%d个数据。训练误差为：%f'%(counter*self.batch_size,train_loss))
+                # -------------- print end : just print info -------------
+                # batch_counter += 1
+
                 # quit()
             # 验证
             accuracy_valid = []
@@ -347,8 +317,7 @@ class DynamicCNN(object):
                 logging.debug(
                     'epoch %d，' % (epoch) + "Train loss, " + str(train_loss) + ", validation accuracy: " + str(
                         this_validation_accuracy * 100) + "%")
-                print 'epoch %d，' % (epoch) + "Train loss, " + str(train_loss) + ", validation accuracy: " + str(
-                    this_validation_accuracy * 100) + "%"
+                print('epoch %d，' % (epoch) + "Train loss, " + str(train_loss) + ", validation accuracy: " + str(this_validation_accuracy * 100) + "%")
 
                 # -------------- print end : just print info -------------
 
@@ -359,7 +328,7 @@ class DynamicCNN(object):
         :type path: 模型保存的路径
         :return:
         '''
-        pickle.dump(self.model_output, open(path, 'wb'))
+        pickle.dump(self.prediction, open(path, 'wb'))
 
     def model_from_pickle(self, path):
         '''
@@ -367,7 +336,7 @@ class DynamicCNN(object):
         :param path:
         :return: RandEmbeddingCNN object
         '''
-        self.model_output = pickle.load(file(path, 'rb'))
+        self.prediction = pickle.load(file(path, 'rb'))
 
     def batch_predict(self, sentences_index):
         '''
@@ -382,12 +351,12 @@ class DynamicCNN(object):
         # -------------- region start : 1. 检查数据合法性和转换格式等; -------------
         if self.verbose > 2:
             logging.debug('-' * 20)
-            print '-' * 20
+            print('-' * 20)
             logging.debug('1. 检查数据合法性和转换格式等;')
-            print '1. 检查数据合法性和转换格式等;'
+            print('1. 检查数据合法性和转换格式等;')
         # -------------- code start : 开始 -------------
 
-        sentences_index = np.asarray(sentences_index, dtype=int)
+        sentences_index = np.asarray(sentences_index, dtype=np.int32)
 
         assert len(sentences_index.shape) == 2, '输入的维度一定要是2维！'
 
@@ -395,15 +364,15 @@ class DynamicCNN(object):
         # -------------- code start : 结束 -------------
         if self.verbose > 2:
             logging.debug('-' * 20)
-            print '-' * 20
+            print('-' * 20)
         # -------------- region end : 1. 检查数据合法性和转换格式等; ---------------
 
-        # -------------- region start : 2&3. 对数据进行补全，直到是 self.batch_size的倍数;预测. -------------
+        # -------------- region start : 2. 对数据进行补全，直到是 self.batch_size的倍数 -------------
         if self.verbose > 2 :
             logging.debug('-' * 20)
-            print '-' * 20
-            logging.debug('2 & 3. 对数据进行补全，直到是 self.batch_size的倍数; 预测.')
-            print '2 & 3. 对数据进行补全，直到是 self.batch_size的倍数; 预测.'
+            print('-' * 20)
+            logging.debug('2. 对数据进行补全，直到是 self.batch_size的倍数;')
+            print('2. 对数据进行补全，直到是 self.batch_size的倍数; ')
         # -------------- code start : 开始 -------------
 
         # 样例个数
@@ -412,17 +381,39 @@ class DynamicCNN(object):
         num_need_padding = self.batch_size - num_sentences % self.batch_size
 
         x_input = np.concatenate(
-            (sentences_index, np.zeros((num_need_padding, sentence_length), dtype=int)), axis=0)
+            (sentences_index, np.zeros((num_need_padding, sentence_length), dtype=np.int32)), axis=0)
 
-        y_pred = self.prediction(x_input)[:num_sentences]
 
         # -------------- code start : 结束 -------------
         if self.verbose > 2 :
             logging.debug('-' * 20)
-            print '-' * 20
+            print('-' * 20)
         # -------------- region end : 2. 对数据进行补全，直到是 self.batch_size的倍数; ---------------
 
-        return y_pred
+        # -------------- region start : 3.预测 -------------
+        if self.verbose > 1 :
+            logging.debug('-' * 20)
+            print('-' * 20)
+            logging.debug('3.预测')
+            print('3.预测')
+        # -------------- code start : 开始 -------------
+
+        n_batches = len(x_input) / self.batch_size
+        y_pred = []
+        for minibatch_index in range(n_batches):
+            x_minibatch_input = x_input[minibatch_index * self.batch_size:(minibatch_index + 1) * self.batch_size]
+            y_pred.extend(self.prediction(x_minibatch_input))
+
+        y_pred = y_pred[:num_sentences]
+
+        # -------------- code start : 结束 -------------
+        if self.verbose > 1 :
+            logging.debug('-' * 20)
+            print('-' * 20)
+        # -------------- region end : 3.预测 ---------------
+        return np.asarray(y_pred)
+
+
 
     def predict(self, sentence_index):
         '''
@@ -431,11 +422,8 @@ class DynamicCNN(object):
         :param sentence_index: 测试句子,以字典索引的形式
         :type sentence_index: array-like
         '''
-        num_need_padding = self.batch_size - 1
-        x_input = np.concatenate(
-            (sentence_index.reshape(1, -1), np.zeros((num_need_padding, len(sentence_index)), dtype=int)), axis=0)
 
-        y_pred = self.prediction(x_input)[0]
+        y_pred = self.batch_predict([sentence_index])[0]
         return y_pred
 
     def accuracy(self, test_data):
@@ -444,6 +432,7 @@ class DynamicCNN(object):
                 1. 转换格式
                 2. 批量预测
                 3. 统计准确率等
+                4. 统计F1(macro) :统计各个类别的F1值，然后进行平均
 
         :param sentence_index: 测试句子,以字典索引的形式
         :type sentence_index: array-like
@@ -451,9 +440,9 @@ class DynamicCNN(object):
         # -------------- region start : 1. 转换格式 -------------
         if self.verbose > 1:
             logging.debug('-' * 20)
-            print '-' * 20
+            print('-' * 20)
             logging.debug('1. 转换格式')
-            print '1. 转换格式'
+            print('1. 转换格式')
         # -------------- code start : 开始 -------------
 
         test_X, test_y = test_data
@@ -462,21 +451,55 @@ class DynamicCNN(object):
         # -------------- code start : 结束 -------------
         if self.verbose > 1:
             logging.debug('-' * 20)
-            print '-' * 20
+            print('-' * 20)
         # -------------- region end : 1. 转换格式 ---------------
 
+        # -------------- region start : 2. 批量预测 -------------
+        if self.verbose > 1 :
+            logging.debug('-' * 20)
+            print('-' * 20)
+            logging.debug('2. 批量预测')
+            print('2. 批量预测')
+        # -------------- code start : 开始 -------------
 
         y_pred = self.batch_predict(sentences_index=test_X)
 
-        y_pred = self.model_output([test_X, 0])[0]
-        y_pred = y_pred.argmax(axis=-1)
+        is_correct = y_pred == test_y
+
+        # -------------- code start : 结束 -------------
+        if self.verbose > 1 :
+            logging.debug('-' * 20)
+            print('-' * 20)
+        # -------------- region end : 2. 批量预测 ---------------
+
+
+        # -------------- region start : 3 & 4. 计算准确率和F1值 -------------
+        if self.verbose > 1:
+            logging.debug('-' * 20)
+            print('-' * 20)
+            logging.debug('3 & 4. 计算准确率和F1值')
+            print('3 & 4. 计算准确率和F1值')
+        # -------------- code start : 开始 -------------
 
         is_correct = y_pred == test_y
         logging.debug('正确的个数:%d' % (sum(is_correct)))
-        print '正确的个数:%d' % (sum(is_correct))
+        print('正确的个数:%d' % (sum(is_correct)))
         accu = sum(is_correct) / (1.0 * len(test_y))
         logging.debug('准确率为:%f' % (accu))
-        print '准确率为:%f' % (accu)
+        print('准确率为:%f' % (accu))
+
+        f1 = f1_score(test_y, y_pred.tolist(), average=None)
+        logging.debug('F1为：%s' % (str(f1)))
+        print('F1为：%s' % (str(f1)))
+
+        # -------------- code start : 结束 -------------
+        if self.verbose > 1:
+            logging.debug('-' * 20)
+            print('-' * 20)
+        # -------------- region end : 3 & 4. 计算准确率和F1值 ---------------
+
+        return y_pred, is_correct, accu, f1
+
 
         return y_pred, is_correct, accu
 
@@ -506,40 +529,52 @@ if __name__ == '__main__':
     trian_y = [1, 3, 2, 2, 3]
     test_X = ['你好', '你好', '你妹']
     test_y = [3, 1, 1]
-    sentence_padding_length = 8
+    sentence_padding_length = 10
     feature_encoder = FeatureEncoder(train_data=train_X,
                                      sentence_padding_length=sentence_padding_length,
-                                     verbose=0)
-    # print feature_encoder.train_padding_index
+                                     verbose=0,
+                                     need_segmented=True,
+                                     full_mode=True,
+                                     remove_stopword=True,
+                                     replace_number=True,
+                                     lowercase=True,
+                                     zhs2zht=True,
+                                     remove_url=True,
+                                     padding_mode='center',
+                                     add_unkown_word=True,
+                                     mask_zero=True
+                                     )
+    print(feature_encoder.train_padding_index)
     # print map(feature_encoder.encoding_sentence,test_X)
     dcnn = DynamicCNN(
         rand_seed=1337,
-        verbose=1,
-        batch_size=2,
+        verbose=2,
+        batch_size=1,
         vocab_size=feature_encoder.train_data_dict_size,
         word_embedding_dim=10,
-        input_length=sentence_padding_length,
-        num_labels=5,
+        input_length=None,
+        # input_length=sentence_padding_length,
+        num_labels=4,
         conv_filter_type=[[100, 2, 'full'],
                           [100, 4, 'full'],
                           # [100,6,5,'valid'],
                           ],
-        ktop=2,
+        ktop=1,
         embedding_dropout_rate=0.5,
         output_dropout_rate=0.5,
-        nb_epoch=50,
+        nb_epoch=10,
         earlyStoping_patience=5,
     )
     dcnn.print_model_descibe()
     # 训练模型
+    # dcnn.model_from_pickle('model/modelA.pkl')
     dcnn.fit((feature_encoder.train_padding_index, trian_y),
              (map(feature_encoder.encoding_sentence, test_X), test_y))
-    print dcnn.predict(feature_encoder.encoding_sentence(test_X[0]))
-    print dcnn.batch_predict(map(feature_encoder.encoding_sentence, test_X))
-    quit()
+    print(dcnn.predict(feature_encoder.encoding_sentence(test_X[0])))
+    dcnn.accuracy((map(feature_encoder.encoding_sentence, test_X), test_y))
+    print(dcnn.batch_predict(map(feature_encoder.encoding_sentence, test_X)))
     # 保存模型
-    dcnn.save_model('model/modelA.pkl')
+    # dcnn.save_model('model/modelA.pkl')
 
     # 从保存的pickle中加载模型
-    # rand_embedding_cnn.model_from_pickle('model/modelA.pkl')
     # print rand_embedding_cnn.predict(feature_encoder.encoding_sentence('你好吗'))
