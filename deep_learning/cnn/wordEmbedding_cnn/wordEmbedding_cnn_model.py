@@ -22,6 +22,7 @@ class WordEmbeddingCNN(object):
     def __init__(self,
                  rand_seed=1337,
                  verbose=0,
+                 optimizers = 'sgd',
                  input_dim=None,
                  word_embedding_dim=None,
                  embedding_init_weight = None,
@@ -36,12 +37,14 @@ class WordEmbeddingCNN(object):
                  ):
         '''
             1. 初始化参数，并检验参数合法性。
-            2. 构建模型
+            2. 设置随机种子，构建模型
 
         :param rand_seed: 随机种子,假如设置为为None时,则随机取随机种子
         :type rand_seed: int
         :param verbose: 数值越大,输出更详细的信息
         :type verbose: int
+        :param optimizers: 数值越大,输出更详细的信息
+        :type optimizers: str
         :param input_dim: embedding层输入(onehot)的维度,即 字典大小+1,+1是为了留出0给填充用
         :type input_dim: int
         :param word_embedding_dim: cnn设置选项,embedding层词向量的维度(长度).
@@ -75,8 +78,9 @@ class WordEmbeddingCNN(object):
         :type earlyStoping_patience: int
         '''
 
-        self.verbose = verbose
         self.rand_seed = rand_seed
+        self.verbose = verbose
+        self.optimizers = optimizers
         self.verbose = verbose
         self.input_dim = input_dim
         self.word_embedding_dim = word_embedding_dim
@@ -95,6 +99,11 @@ class WordEmbeddingCNN(object):
         self.model = None
         # cnn model 的输出函数
         self.model_output = None
+        # 卷积层的输出，可以作为深度特征
+        self.conv1_feature_output = None
+        # 选定随机种子
+        if self.rand_seed is not None:
+            np.random.seed(self.rand_seed)
         # 构建模型
         self.build_model()
 
@@ -141,9 +150,6 @@ class WordEmbeddingCNN(object):
                 2.将所有层连接起来
         :return:
         '''
-
-        if self.rand_seed is not None:
-            np.random.seed(self.rand_seed)
 
         from keras.layers import Embedding, Convolution2D, Input, Activation, MaxPooling2D, Reshape, Dropout, Dense, \
             Flatten, Merge
@@ -195,8 +201,13 @@ class WordEmbeddingCNN(object):
         cnn_model = Sequential()
         cnn_model.add(Merge(conv_layers, mode='concat', concat_axis=1))
         cnn_model.add(Flatten())
-        # print cnn_model.summary()
-        # quit()
+        # -------------- print start : just print info -------------
+        if self.verbose > 1 :
+            logging.debug('打印卷积层详情')
+            print('打印卷积层详情')
+            cnn_model.summary()
+
+        # -------------- print end : just print info -------------
 
         # -------------- code start : 结束 -------------
         if self.verbose > 1 :
@@ -244,7 +255,11 @@ class WordEmbeddingCNN(object):
 
         self.model = Model(input=[model_input], output=[softmax_output])
 
+        # softmax层的输出
         self.model_output = K.function([model_input, K.learning_phase()],[softmax_output])
+
+        # 卷积层的输出，可以作为深度特征
+        self.conv1_feature_output = K.function([model_input, K.learning_phase()],[conv1_output])
 
         if self.verbose>1:
             self.model.summary()
@@ -281,7 +296,7 @@ class WordEmbeddingCNN(object):
         :type validation_data: (array-like,array-like)
         :return: None
         '''
-
+        from keras.optimizers import SGD
         from keras.callbacks import EarlyStopping
 
         # -------------- region start : 1. 设置优化算法,earlystop等 -------------
@@ -291,10 +306,11 @@ class WordEmbeddingCNN(object):
             logging.debug('1. 设置优化算法,earlystop等')
             print '1. 设置优化算法,earlystop等'
         # -------------- code start : 开始 -------------
-
-        # sgd = SGD(lr=0.1, decay=1e-6, momentum=0.9, nesterov=True)
-
-        self.model.compile(loss='categorical_crossentropy', optimizer='adadelta', metrics=['accuracy'])
+        if self.optimizers == 'sgd':
+            optimizers = SGD(lr=0.1, decay=1e-6, momentum=0.9, nesterov=True)
+        elif self.optimizers == 'adadelta':
+            optimizers = 'adadelta'
+        self.model.compile(loss='categorical_crossentropy', optimizer=optimizers, metrics=['accuracy'])
         early_stop = EarlyStopping(patience=self.earlyStoping_patience, verbose=self.verbose)
 
         # -------------- code start : 结束 -------------
@@ -375,6 +391,25 @@ class WordEmbeddingCNN(object):
         y_pred = self.model_output([np.asarray(sentence_index).reshape(1,-1),0])[0]
         y_pred = y_pred.argmax(axis=-1)[0]
         return y_pred
+
+    def get_conv1_feature(self,sentence_index):
+        '''
+            encoding,将句子以conv1的输出为编码
+
+        :param sentence_index: 测试句子,以字典索引的形式
+        :type sentence_index: array-like
+        '''
+        conv1_feature = self.conv1_feature_output([np.asarray(sentence_index).reshape(1,-1),0])[0]
+
+        conv1_feature = conv1_feature.flatten()
+
+        # -------------- print start : just print info -------------
+        if self.verbose > 2 :
+            logging.debug('句子表示成%d维的特征'%(conv1_feature.shape))
+            print('句子表示成%d维的特征'%(len(conv1_feature)))
+
+        # -------------- print end : just print info -------------
+        return conv1_feature
 
     def accuracy(self,test_data):
         '''
@@ -488,20 +523,22 @@ if __name__ == '__main__':
                                      add_unkown_word=True,
                                      mask_zero=True,
                                      )
+
     print feature_encoder.train_padding_index
     print map(feature_encoder.encoding_sentence,test_X)
     # quit()
+    word_embedding_dim = 50
     rand_embedding_cnn = WordEmbeddingCNN(
         rand_seed=1377,
-        verbose=2,
+        verbose=3,
         input_dim=feature_encoder.train_data_dict_size+1,
-        word_embedding_dim=50,
+        word_embedding_dim=word_embedding_dim,
         embedding_init_weight=feature_encoder.to_embedding_weight('/home/jdwang/PycharmProjects/corprocessor/word2vec/vector/ood_sentence_vector1191_50dim.gem'),
         input_length = sentence_padding_length,
         num_labels = 5,
-        conv_filter_type = [[100,2,10,'valid'],
-                            [100,4,10,'valid'],
-                            # [100,6,5,'valid'],
+        conv_filter_type = [[100,2,word_embedding_dim,'valid'],
+                            [100,4,word_embedding_dim,'valid'],
+                            [100,6,word_embedding_dim,'valid'],
                             ],
         k=1,
         embedding_dropout_rate= 0.5,
@@ -513,6 +550,9 @@ if __name__ == '__main__':
     # 训练模型
     rand_embedding_cnn.fit((feature_encoder.train_padding_index, trian_y),
                            (map(feature_encoder.encoding_sentence,test_X),test_y))
+
+    rand_embedding_cnn.get_conv1_feature(map(feature_encoder.encoding_sentence,test_X))
+    quit()
     rand_embedding_cnn.accuracy((map(feature_encoder.encoding_sentence,test_X),test_y))
     print rand_embedding_cnn.predict(map(feature_encoder.encoding_sentence,test_X))
     # 保存模型
