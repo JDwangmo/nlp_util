@@ -422,6 +422,8 @@ class WordEmbeddingCNN(object):
 
         :param sentence_index: 测试句子,以字典索引的形式
         :type sentence_index: array-like
+        :return: y_pred,is_correct,accu,f1
+        :rtype:tuple
         '''
         # -------------- region start : 1. 转换格式 -------------
         if self.verbose > 1 :
