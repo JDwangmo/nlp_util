@@ -14,7 +14,7 @@ from data_processing_util.jiebanlp.jieba_util import Jieba_Util
 
 class FeatureEncoder(object):
     '''
-        Onehot特征编码器,将句子转成onehot编码(以字典索引形式表示,补齐),包含以下函数：
+        BOW特征编码器,将句子转成 BOW（计算）或者TFIDF编码,包含以下主要函数：
             1. segment_sentence：对句子分词
             2. build_dictionary：构建字典
             3. sentence_to_index：将原始字符串句子转为字典索引列表
@@ -41,6 +41,9 @@ class FeatureEncoder(object):
                  lowercase = True,
                  zhs2zht = True,
                  remove_url = True,
+                 feature_method='bow',
+
+
                  sentence_padding_length=7,
                  padding_mode='center',
                  add_unkown_word=True,
@@ -89,6 +92,9 @@ class FeatureEncoder(object):
         self.lowercase = lowercase
         self.zhs2zht = zhs2zht
         self.remove_url = remove_url
+
+
+
         self.add_unkown_word = add_unkown_word
         self.sentence_padding_length = sentence_padding_length
         self.mask_zero = mask_zero
@@ -390,66 +396,26 @@ class FeatureEncoder(object):
         :type train_data: array-like.
         :return: 编码后的列表
         '''
-        logging.debug('=' * 20)
-        if train_data is None:
-            logging.debug('没有输入训练数据!')
-            print '没有输入训练数据!'
-            quit()
+        if config['model'] == 'tfidf':
+            vectorizer = TfidfVectorizer(analyzer="word",
+                                         token_pattern=u'(?u)\\b\w+\\b',
+                                         tokenizer=None,
+                                         preprocessor=None,
+                                         lowercase=False,
+                                         stop_words=None,
+                                         # vocabulary = tfidf_vocabulary,
+                                         max_features=config['max_keywords'])
 
-        self.train_data = train_data
-
-        # -------------- region start : 1.构建训练库字典 -------------
-        if self.verbose > 1:
-            logging.debug('-' * 20)
-            print '-' * 20
-            logging.debug('1.构建训练库字典')
-            print '1.构建训练库字典'
-        # -------------- code start : 开始 -------------
-
-        # 构建训练库字典
-        self.build_dictionary()
-
-        # -------------- code start : 结束 -------------
-        if self.verbose > 1:
-            logging.debug('-' * 20)
-            print '-' * 20
-        # -------------- region end : 1.构建训练库字典 ---------------
-
-        # -------------- region start : 2. 将句子转成字典索引形式 -------------
-        if self.verbose > 1:
-            logging.debug('-' * 20)
-            print '-' * 20
-            logging.debug('2. 将训练句子转成字典索引形式')
-            print '2. 将训练句子转成字典索引形式'
-        # -------------- code start : 开始 -------------
-
-        # 将训练库中所有句子的每个词映射到索引上,变成索引列表
-        self.train_index = map(self.sentence_to_index, self.segmented_sentences)
-        # print train_index[:5]
-
-        # -------------- code start : 结束 -------------
-        if self.verbose > 1:
-            logging.debug('-' * 20)
-            print '-' * 20
-        # -------------- region end : 2. 将训练句子转成字典索引形式 ---------------
-
-        # -------------- region start : 3. 将句子补齐到等长 -------------
-        if self.verbose > 1:
-            logging.debug('-' * 20)
-            print '-' * 20
-            logging.debug('3. 将句子补齐到等长')
-            print '3. 将句子补齐到等长'
-        # -------------- code start : 开始 -------------
-
-        # 将不等长的句子都对齐,超出padding_length长度的句子截断,小于的则补0
-        train_padding_index = np.asarray(map(self.sentence_padding, self.train_index))
-        self.train_padding_index = train_padding_index
-
-        # -------------- code start : 结束 -------------
-        if self.verbose > 1:
-            logging.debug('-' * 20)
-            print '-' * 20
-        # -------------- region end : 3. 将句子补齐到等长 ---------------
+        elif config['model'] == 'bow':
+            vectorizer = CountVectorizer(analyzer="word",
+                                         token_pattern=u'(?u)\\b\w+\\b',
+                                         tokenizer=None,
+                                         preprocessor=None,
+                                         lowercase=False,
+                                         stop_words=None,
+                                         # vocabulary = tfidf_vocabulary,
+                                         max_features=config['max_keywords']
+                                         )
         return train_padding_index
 
     def transform_sentence(self, sentence):

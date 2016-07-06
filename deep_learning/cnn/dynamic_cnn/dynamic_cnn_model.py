@@ -545,7 +545,7 @@ if __name__ == '__main__':
                                      mask_zero=True
                                      )
     print(feature_encoder.train_padding_index)
-    # print map(feature_encoder.encoding_sentence,test_X)
+    # print map(feature_encoder.transform_sentence,test_X)
     dcnn = DynamicCNN(
         rand_seed=1337,
         verbose=2,
@@ -569,12 +569,12 @@ if __name__ == '__main__':
     # 训练模型
     # dcnn.model_from_pickle('model/modelA.pkl')
     dcnn.fit((feature_encoder.train_padding_index, trian_y),
-             (map(feature_encoder.encoding_sentence, test_X), test_y))
-    print(dcnn.predict(feature_encoder.encoding_sentence(test_X[0])))
-    dcnn.accuracy((map(feature_encoder.encoding_sentence, test_X), test_y))
-    print(dcnn.batch_predict(map(feature_encoder.encoding_sentence, test_X)))
+             (map(feature_encoder.transform_sentence, test_X), test_y))
+    print(dcnn.predict(feature_encoder.transform_sentence(test_X[0])))
+    dcnn.accuracy((map(feature_encoder.transform_sentence, test_X), test_y))
+    print(dcnn.batch_predict(map(feature_encoder.transform_sentence, test_X)))
     # 保存模型
     # dcnn.save_model('model/modelA.pkl')
 
     # 从保存的pickle中加载模型
-    # print rand_embedding_cnn.predict(feature_encoder.encoding_sentence('你好吗'))
+    # print rand_embedding_cnn.predict(feature_encoder.transform_sentence('你好吗'))

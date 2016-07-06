@@ -8,20 +8,32 @@ import pandas as pd
 import logging
 import cPickle as pickle
 from data_processing_util.feature_encoder.onehot_feature_encoder import FeatureEncoder
+from commom.common_model_class import CommonModel
 import theano.tensor as T
 from sklearn.metrics import f1_score
 
-class WordEmbeddingCNN(object):
+class WordEmbeddingCNN(CommonModel):
     '''
         一层CNN模型,随机初始化词向量,CNN-rand模型.借助Keras和jieba实现。
         架构各个层次分别为: 输入层,embedding层,dropout层,卷积层,1-max pooling层,全连接层,dropout层,softmax层
         具体见:
             https://github.com/JDwangmo/coprocessor#2convolutional-neural-networks-for-sentence-classification
+        包含以下主要函数：
+            1. build_model：构建模型
+            2. fit：拟合和训练模型
+            3. transform：对输入进行转换
+            4. predict： 单句预测
+            5. batch_predict： 批量预测
+            6. save_model：保存模型
+            7. model_from_pickle：恢复模型
+            8. accuracy：模型验证
+            9. print_model_descibe：打印模型详情
     '''
 
     def __init__(self,
                  rand_seed=1337,
                  verbose=0,
+                 feature_encoder = None,
                  optimizers = 'sgd',
                  input_dim=None,
                  word_embedding_dim=None,
@@ -43,6 +55,8 @@ class WordEmbeddingCNN(object):
         :type rand_seed: int
         :param verbose: 数值越大,输出更详细的信息
         :type verbose: int
+        :param feature_encoder: 输入数据的设置选项，设置输入编码器
+        :type feature_encoder: onehot_feature_encoder.FeatureEncoder
         :param optimizers: 求解的优化算法，目前支持: ['sgd','adadelta']
         :type optimizers: str
         :param input_dim: embedding层输入(onehot)的维度,即 字典大小+1,+1是为了留出0给填充用
@@ -80,6 +94,7 @@ class WordEmbeddingCNN(object):
 
         self.rand_seed = rand_seed
         self.verbose = verbose
+        self.feature_encoder = feature_encoder
         self.optimizers = optimizers
         self.verbose = verbose
         self.input_dim = input_dim
@@ -284,11 +299,23 @@ class WordEmbeddingCNN(object):
         y_onehot = np_utils.to_categorical(y,nb_classes=self.num_labels)
         return y_onehot
 
-    def fit(self, train_data, validation_data):
+
+    def transform(self, data):
+        '''
+            批量转换数据转换数据
+
+        :param train_data: array-like,2D
+        :return:
+        '''
+
+        padding_index = self.feature_encoder.transform(data)
+        return padding_index
+
+    def fit(self, train_data=None, validation_data=None):
         '''
             cnn model 的训练
-                1. 设置优化算法,earlystop等
-                2. 对数据进行格式转换,比如 转换 y 的格式:转成onehot编码
+                1. 对数据进行格式转换,比如 转换 y 的格式:转成onehot编码
+                2. 设置优化算法,earlystop等
                 3. 模型训练
 
         :param train_data: 训练数据,格式为:(train_X, train_y),train_X中每个句子以字典索引的形式表示(使用data_processing_util.feature_encoder.onehot_feature_encoder编码器编码),train_y是一个整形列表.
@@ -297,16 +324,42 @@ class WordEmbeddingCNN(object):
         :type validation_data: (array-like,array-like)
         :return: None
         '''
-        from keras.optimizers import SGD
-        from keras.callbacks import EarlyStopping
+        # -------------- region start : 1. 对数据进行格式转换,比如 转换 y 的格式:转成onehot编码 -------------
+        if self.verbose > 1 :
+            logging.debug('-' * 20)
+            print '-' * 20
+            logging.debug('2. 对数据进行格式转换,比如 转换 y 的格式:转成onehot编码')
+            print '2. 对数据进行格式转换,比如 转换 y 的格式:转成onehot编码'
+        # -------------- code start : 开始 -------------
 
-        # -------------- region start : 1. 设置优化算法,earlystop等 -------------
+
+        train_X, train_y = train_data
+        train_X = np.asarray(train_X)
+        validation_X,validation_y =validation_data
+        validation_X = np.asarray(validation_X)
+
+
+
+        train_y = self.to_categorical(train_y)
+
+        validation_y = self.to_categorical(validation_y)
+
+        # -------------- code start : 结束 -------------
+        if self.verbose > 1 :
+            logging.debug('-' * 20)
+            print '-' * 20
+        # -------------- region end : 1. 对数据进行格式转换,比如 转换 y 的格式:转成onehot编码 ---------------
+
+        # -------------- region start : 2. 设置优化算法,earlystop等 -------------
         logging.debug('-' * 20)
         print '-' * 20
         if self.verbose > 1 :
             logging.debug('1. 设置优化算法,earlystop等')
             print '1. 设置优化算法,earlystop等'
         # -------------- code start : 开始 -------------
+
+        from keras.optimizers import SGD
+        from keras.callbacks import EarlyStopping
         if self.optimizers == 'sgd':
             optimizers = SGD(lr=1e-2, decay=1e-6, momentum=0.9, nesterov=True)
         elif self.optimizers == 'adadelta':
@@ -318,29 +371,8 @@ class WordEmbeddingCNN(object):
         if self.verbose > 1 :
             logging.debug('-' * 20)
             print '-' * 20
-        # -------------- region end : 1. 设置优化算法,earlystop等 ---------------
-        # -------------- region start : 2. 对数据进行格式转换,比如 转换 y 的格式:转成onehot编码 -------------
-        if self.verbose > 1 :
-            logging.debug('-' * 20)
-            print '-' * 20
-            logging.debug('2. 对数据进行格式转换,比如 转换 y 的格式:转成onehot编码')
-            print '2. 对数据进行格式转换,比如 转换 y 的格式:转成onehot编码'
-        # -------------- code start : 开始 -------------
+        # -------------- region end : 2. 设置优化算法,earlystop等 ---------------
 
-        train_X, train_y = train_data
-        train_X = np.asarray(train_X)
-        validation_X,validation_y =validation_data
-        validation_X = np.asarray(validation_X)
-
-        train_y = self.to_categorical(train_y)
-
-        validation_y = self.to_categorical(validation_y)
-
-        # -------------- code start : 结束 -------------
-        if self.verbose > 1 :
-            logging.debug('-' * 20)
-            print '-' * 20
-        # -------------- region end : 2. 对数据进行格式转换,比如 转换 y 的格式:转成onehot编码 ---------------
         # -------------- region start : 3. 模型训练 -------------
         if self.verbose > 1 :
             logging.debug('-' * 20)
@@ -382,25 +414,51 @@ class WordEmbeddingCNN(object):
         '''
         self.model_output = pickle.load(file(path,'rb'))
 
-    def predict(self,sentence_index):
+    def predict(self,sentence,transform_input=False):
         '''
-            预测,对输入的句子进行预测
+            预测一个句子的类别,对输入的句子进行预测
 
-        :param sentence_index: 测试句子,以字典索引的形式
-        :type sentence_index: array-like
+        :param sentence: 测试句子,原始字符串句子即可，内部已实现转换成字典索引的形式
+        :type sentence: str
         '''
-        y_pred = self.model_output([np.asarray(sentence_index).reshape(1,-1),0])[0]
-        y_pred = y_pred.argmax(axis=-1)[0]
+
+        y_pred = self.batch_predict([sentence],transform_input)[0]
+
         return y_pred
 
-    def get_conv1_feature(self,sentence_index):
+    def batch_predict(self,sentences,transform_input=False):
+        '''
+            批量预测句子的类别,对输入的句子进行预测
+
+        :param sentences: 测试句子,
+        :type sentences: array-like
+        :param transform: 是否转换句子，如果为True,输入原始字符串句子即可，内部已实现转换成字典索引的形式。
+        :type transform: array-like
+        '''
+        if transform_input:
+            sentences = self.transform(sentences)
+        sentences = np.asarray(sentences)
+        assert len(sentences.shape)==2,'shape必须是2维的！'
+
+
+        y_pred = self.model_output([sentences,0])[0]
+        y_pred = y_pred.argmax(axis=-1)
+        return y_pred
+
+    def get_conv1_feature(self,sentence,transform_input=False):
         '''
             encoding,将句子以conv1的输出为编码
 
-        :param sentence_index: 测试句子,以字典索引的形式
-        :type sentence_index: array-like
+        :param sentence: 一个测试句子,
+        :type sentence: array-like
+        :param transform: 是否转换句子，如果为True,输入原始字符串句子即可，内部已实现转换成字典索引的形式。
+        :type transform: array-like
         '''
-        conv1_feature = self.conv1_feature_output([np.asarray(sentence_index).reshape(1,-1),0])[0]
+
+        if transform_input:
+            sentence = self.transform(sentence)
+
+        conv1_feature = self.conv1_feature_output([np.asarray(sentence).reshape(1,-1),0])[0]
 
         conv1_feature = conv1_feature.flatten()
 
@@ -412,7 +470,7 @@ class WordEmbeddingCNN(object):
         # -------------- print end : just print info -------------
         return conv1_feature
 
-    def accuracy(self,test_data):
+    def accuracy(self,test_data,transform_input=False):
         '''
             预测,对输入的句子进行预测,并给出准确率
                 1. 转换格式
@@ -434,6 +492,8 @@ class WordEmbeddingCNN(object):
         # -------------- code start : 开始 -------------
 
         test_X, test_y = test_data
+        if transform_input:
+            test_X = self.transform(test_X)
         test_X = np.asarray(test_X)
 
 
@@ -515,7 +575,7 @@ if __name__ == '__main__':
     test_X = ['句子','你好','你妹']
     test_y = [2,3,0]
     sentence_padding_length = 8
-    feature_encoder = FeatureEncoder(train_data=train_X,
+    feature_encoder = FeatureEncoder(
                                      sentence_padding_length=sentence_padding_length,
                                      verbose=0,
                                      need_segmented=True,
@@ -527,14 +587,16 @@ if __name__ == '__main__':
                                      add_unkown_word=True,
                                      mask_zero=True,
                                      )
-
-    print feature_encoder.train_padding_index
-    print map(feature_encoder.encoding_sentence,test_X)
+    train_X_feature = feature_encoder.fit_transform(train_X)
+    test_X_feature = feature_encoder.transform(test_X)
+    # print feature_encoder.train_padding_index
+    # print map(feature_encoder.transform_sentence, test_X)
     # quit()
     word_embedding_dim = 50
     rand_embedding_cnn = WordEmbeddingCNN(
         rand_seed=1377,
         verbose=2,
+        feature_encoder=feature_encoder,
         # optimizers='adadelta',
         input_dim=feature_encoder.train_data_dict_size+1,
         word_embedding_dim=word_embedding_dim,
@@ -553,17 +615,16 @@ if __name__ == '__main__':
     )
     rand_embedding_cnn.print_model_descibe()
     # 训练模型
-    rand_embedding_cnn.fit((feature_encoder.train_padding_index, trian_y),
-                           (map(feature_encoder.encoding_sentence,test_X),test_y))
-
-    rand_embedding_cnn.get_conv1_feature(map(feature_encoder.encoding_sentence,test_X))
-    quit()
-    rand_embedding_cnn.accuracy((map(feature_encoder.encoding_sentence,test_X),test_y))
-    print rand_embedding_cnn.predict(map(feature_encoder.encoding_sentence,test_X))
+    # 从保存的pickle中加载模型
+    rand_embedding_cnn.model_from_pickle('model/modelA.pkl')
+    # rand_embedding_cnn.fit((train_X_feature, trian_y),
+    #                        (test_X_feature, test_y))
+    print rand_embedding_cnn.batch_predict(test_X_feature,transform_input=False)
+    print rand_embedding_cnn.batch_predict(test_X,transform_input=True)
+    print rand_embedding_cnn.predict(test_X[0],transform_input=True)
+    rand_embedding_cnn.get_conv1_feature(test_X_feature)
+    rand_embedding_cnn.accuracy((test_X, test_y),transform_input=True)
     # 保存模型
     rand_embedding_cnn.save_model('model/modelA.pkl')
 
-    quit()
-    # 从保存的pickle中加载模型
-    # rand_embedding_cnn.model_from_pickle('model/modelA.pkl')
-    print rand_embedding_cnn.predict(feature_encoder.encoding_sentence('你好吗'))
+    print rand_embedding_cnn.predict('你好吗',transform_input=True)
