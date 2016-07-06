@@ -102,7 +102,7 @@ class Jieba_Util(object):
         :type lowercase: bool
         :param zhs2zht: 出現繁体的時候，是否转简体
         :type zhs2zht: bool
-        :param remove_url: 是否移除 微博url，http://t.cn/开头的地址
+        :param remove_url: 是否移除 微博url，包含t.cn的url，比如：http://t.cn/开头的地址或者//t.cn/R50TdMg
         :type remove_url: bool
         :return: 返回分词后字符串,seg_srt
         :rtype: str
@@ -115,7 +115,8 @@ class Jieba_Util(object):
             # 繁体转简体
             sentence = self.convert_to_simple_chinese(sentence)
         if remove_url:
-            sentence = re.sub(u'http://t.cn/[a-zA-Z0-9]*$', '', sentence)
+            # sentence = re.sub(u'(http:)//t.cn/[a-zA-Z0-9]*$', '', sentence)
+            sentence = re.sub(u'(http:|)//t.cn/[a-zA-Z0-9]+', '', sentence)
 
         seg = []
         # 数字对模式匹配
@@ -162,7 +163,8 @@ if __name__ == '__main__':
     jieba_util = Jieba_Util()
     sent = u'我喜歡买手机啊........'
     sent = u'測試句子'
-    sent = u'睡了。失望至极，iphone se和5外观几乎没有区别。只是把6s的配置装到了原本的iphone5s里，取消了3D Touch'
+    sent = u'睡了。//t.cn/R50TdMgn你好'
+    sent = u'睡了。http://t.cn/R50TdMgn你好'
 
     # print seg(sent,sep='|',full_mode=False,remove_stopword=True)
     # sent = u'有哪些1000块的手机适合我'
