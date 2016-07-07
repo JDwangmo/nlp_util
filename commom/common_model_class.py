@@ -29,6 +29,9 @@ class CommonModel(object):
     def batch_predict(self,sentence):pass
 
     @abstractmethod
+    def batch_predict_bestn(self,sentence,bestn=1):pass
+
+    @abstractmethod
     def save_model(self, path):pass
 
     @abstractmethod

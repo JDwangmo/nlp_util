@@ -550,7 +550,7 @@ if __name__ == '__main__':
         rand_seed=1337,
         verbose=2,
         batch_size=1,
-        vocab_size=feature_encoder.train_data_dict_size,
+        vocab_size=feature_encoder.vocabulary_size,
         word_embedding_dim=10,
         # input_length=None,
         input_length=sentence_padding_length,

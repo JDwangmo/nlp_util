@@ -7,11 +7,11 @@ easy_install 3 eng
 八一双鹿 3 nz
 台中
 凱特琳 nz
-Edu Trust认证 2000
+edu trust认证 2000
 石墨烯 3
-2B a
 2b a
-妈B 2000 n
+2b a
+妈b 2000 n
 好用 a
 .. x
 杰伦 n

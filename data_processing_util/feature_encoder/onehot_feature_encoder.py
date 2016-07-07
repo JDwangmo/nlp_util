@@ -29,7 +29,7 @@ class FeatureEncoder(object):
 
         注意：
             1. 训练库中所有词，包括未知词字符（UNKOWN），的字典索引都是从1开始分配的，索引0是作为填充字符所用。
-            2. 训练库字典大小 （train_data_dict_size）是不计入索引0的，只计算训练库中所有词和未知词字符（UNKOWN）。
+            2. 训练库字典大小 （vocabulary_size）是不计入索引0的，只计算训练库中所有词和未知词字符（UNKOWN）。
     '''
 
     def __init__(self,
@@ -109,7 +109,7 @@ class FeatureEncoder(object):
         # 训练库提取出来的字典词汇列表
         self.vocabulary = None
         # 训练库提取出来的字典词汇个数
-        self.train_data_dict_size = None
+        self.vocabulary_size = None
         # 训练库句子的字典索引形式
         self.train_index = None
         # 训练库句子的补齐的字典索引形式
@@ -206,7 +206,7 @@ class FeatureEncoder(object):
         # 若mask_zero=True，则需要为0留出一个位置，所有索引加1,embedding权重多加一行
         # 若mask_zero=False，则不需要为0留出一个位置，不用加1
         leave_for_zero = int(self.mask_zero)
-        size = self.train_data_dict_size + leave_for_zero
+        size = self.vocabulary_size + leave_for_zero
         embedding_weights = np.zeros((size, self.word2vec_model.vector_size))
         for key,value in self.train_data_dict.token2id.items():
             embedding_weights[value+leave_for_zero,:] = self.get_w2vEmbedding(key)
@@ -260,7 +260,7 @@ class FeatureEncoder(object):
         if self.add_unkown_word:
             self.train_data_dict.add_documents([[u'UNKOWN']])
 
-        self.train_data_dict_size = len(self.train_data_dict.keys())
+        self.vocabulary_size = len(self.train_data_dict.keys())
         # 按索引从小到大排序
         self.vocabulary = [token for token,id in sorted(self.train_data_dict.token2id.items(),key=lambda x:x[1])]
 
@@ -364,7 +364,7 @@ class FeatureEncoder(object):
         :rtype: np.array()
         '''
 
-        onehot_array = np.zeros(self.train_data_dict_size+int(self.mask_zero),dtype=int)
+        onehot_array = np.zeros(self.vocabulary_size + int(self.mask_zero), dtype=int)
         onehot_array[index] = 1
 
         return onehot_array
@@ -386,7 +386,7 @@ class FeatureEncoder(object):
                 2. 将训练句子转成字典索引形式
                 3. 将句子补齐到等长,补齐长度为: self.sentence_padding_length
 
-        :param train_data: 训练句子列表:[[],[],...,[]]
+        :param train_data: 训练句子列表:['','',...,'']
         :type train_data: array-like.
         :return: 编码后的列表
         '''
@@ -464,6 +464,8 @@ class FeatureEncoder(object):
         :rtype: array-like
         '''
 
+        assert self.train_data_dict is not None,'请先fit_transform()模型'
+
         # -------------- region start : 1. 分词 -------------
         if self.verbose > 1:
             logging.debug('-' * 20)
@@ -513,7 +515,6 @@ class FeatureEncoder(object):
         :return: 补齐的字典索引
         :rtype: array-like
         '''
-        assert self.train_data_dict is not None,'请先fit_transform()模型'
 
         index = map(self.transform_sentence, data)
         # print train_index[:5]
@@ -536,7 +537,7 @@ class FeatureEncoder(object):
                   'replace_number': self.replace_number,
                   'sentence_padding_length': self.sentence_padding_length,
                   'padding_mode': 'center',
-                  'train_data_dict_size': self.train_data_dict_size,
+                  'vocabulary_size': self.vocabulary_size,
                   'add_unkown_word': True,
                   'mask_zero': True,
                   }
@@ -568,7 +569,7 @@ if __name__ == '__main__':
     # print embedding_weight.shape
     # print embedding_weight
     print feature_encoder.sentence_index_to_bow(feature_encoder.transform_sentence(test_data[0]))
-    print feature_encoder.train_data_dict_size
+    print feature_encoder.vocabulary_size
 
     quit()
 

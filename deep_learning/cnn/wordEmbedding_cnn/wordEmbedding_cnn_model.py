@@ -416,24 +416,30 @@ class WordEmbeddingCNN(CommonModel):
 
     def predict(self,sentence,transform_input=False):
         '''
-            预测一个句子的类别,对输入的句子进行预测
+            预测一个句子的类别,对输入的句子进行预测 best1
 
         :param sentence: 测试句子,原始字符串句子即可，内部已实现转换成字典索引的形式
         :type sentence: str
+        :param transform: 是否转换句子，如果为True,输入原始字符串句子即可，内部已实现转换成字典索引的形式。
+        :type transform: bool
+        :param bestn: 取结果的 best n个，默认只取 best 1。
+        :type bestn: bool
         '''
 
         y_pred = self.batch_predict([sentence],transform_input)[0]
 
         return y_pred
 
-    def batch_predict(self,sentences,transform_input=False):
+    def batch_predict_bestn(self,sentences,transform_input=False,bestn=1):
         '''
             批量预测句子的类别,对输入的句子进行预测
 
         :param sentences: 测试句子,
         :type sentences: array-like
         :param transform: 是否转换句子，如果为True,输入原始字符串句子即可，内部已实现转换成字典索引的形式。
-        :type transform: array-like
+        :type transform: bool
+        :param bestn: 预测，并取出bestn个结果。
+        :type bestn: int
         '''
         if transform_input:
             sentences = self.transform(sentences)
@@ -441,8 +447,24 @@ class WordEmbeddingCNN(CommonModel):
         assert len(sentences.shape)==2,'shape必须是2维的！'
 
 
-        y_pred = self.model_output([sentences,0])[0]
-        y_pred = y_pred.argmax(axis=-1)
+        y_pred_prob = self.model_output([sentences,0])[0]
+        y_pred_result = y_pred_prob.argsort(axis=-1)[:,::-1][:,:bestn]
+        y_pred_score = np.asarray([score[index] for score,index in zip(y_pred_prob,y_pred_result)])
+        return y_pred_result,y_pred_score
+
+    def batch_predict(self,sentences,transform_input=False):
+        '''
+            批量预测句子的类别,对输入的句子进行预测,只是输出 best1的将诶过
+
+        :param sentences: 测试句子,
+        :type sentences: array-like
+        :param transform: 是否转换句子，如果为True,输入原始字符串句子即可，内部已实现转换成字典索引的形式。
+        :type transform: bool
+        '''
+
+        y_pred,_ = self.batch_predict_bestn(sentences,transform_input,1)
+        y_pred = y_pred.flatten()
+
         return y_pred
 
     def get_conv1_feature(self,sentence,transform_input=False):
@@ -595,10 +617,10 @@ if __name__ == '__main__':
     word_embedding_dim = 50
     rand_embedding_cnn = WordEmbeddingCNN(
         rand_seed=1377,
-        verbose=2,
+        verbose=1,
         feature_encoder=feature_encoder,
         # optimizers='adadelta',
-        input_dim=feature_encoder.train_data_dict_size+1,
+        input_dim=feature_encoder.vocabulary_size + 1,
         word_embedding_dim=word_embedding_dim,
         embedding_init_weight=feature_encoder.to_embedding_weight('/home/jdwang/PycharmProjects/corprocessor/word2vec/vector/ood_sentence_vector1191_50dim.gem'),
         input_length = sentence_padding_length,
@@ -620,6 +642,7 @@ if __name__ == '__main__':
     # rand_embedding_cnn.fit((train_X_feature, trian_y),
     #                        (test_X_feature, test_y))
     print rand_embedding_cnn.batch_predict(test_X_feature,transform_input=False)
+    print rand_embedding_cnn.batch_predict_bestn(test_X_feature,transform_input=False,bestn=2)
     print rand_embedding_cnn.batch_predict(test_X,transform_input=True)
     print rand_embedding_cnn.predict(test_X[0],transform_input=True)
     rand_embedding_cnn.get_conv1_feature(test_X_feature)

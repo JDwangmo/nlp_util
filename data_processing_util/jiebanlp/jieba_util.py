@@ -84,6 +84,7 @@ class Jieba_Util(object):
             lowercase=True,
             zhs2zht=True,
             remove_url=True,
+            HMM = False,
             ):
         """
             使用 jieba 分词进行分词
@@ -104,6 +105,8 @@ class Jieba_Util(object):
         :type zhs2zht: bool
         :param remove_url: 是否移除 微博url，包含t.cn的url，比如：http://t.cn/开头的地址或者//t.cn/R50TdMg
         :type remove_url: bool
+        :param HMM: 是否启用HMM发现新词模式，默认为False
+        :type HMM: bool
         :return: 返回分词后字符串,seg_srt
         :rtype: str
 
@@ -118,35 +121,36 @@ class Jieba_Util(object):
             # sentence = re.sub(u'(http:)//t.cn/[a-zA-Z0-9]*$', '', sentence)
             sentence = re.sub(u'(http:|)//t.cn/[a-zA-Z0-9]+', '', sentence)
 
-        seg = []
         # 数字对模式匹配
         pattern = re.compile('[0-9][0-9\.]*$')
-        for items in jseg.lcut(sentence):
-            # print items.flag
-            # 利用词性标注去除标点符号
-            if items.flag in ['x']:
-                seg.append('')
-                if self.verbose > 1:
-                    logging.debug(u'句子（%s）将标点符号："%s"替换成""' % (sentence, items.word))
-
-            elif remove_stopword and items.word in self.stopword_list:
-                if self.verbose > 1:
-                    logging.debug(u'句子（%s）去除stopwords：%s' % (sentence, items))
-            elif pattern.match(items.word) and items.word not in self.exclude_word_list:
-                # 将数字替换成 NUM
-                if replace_number:
-                    seg.append('NUMBER')
+        words = []
+        for item in jieba.lcut(sentence, HMM=False):
+            if pattern.match(item):
+                if not replace_number:
+                    words.append(item)
+                elif item not in self.exclude_word_list:
+                    word = pattern.sub('NUMBER',item)
+                    words.append(word)
                     if self.verbose > 1:
-                        logging.debug(u'句子（%s）将数字："%s" 替换成标记："NUMBER"' % (sentence, items.word))
-                        print(u'句子（%s）将数字："%s" 替换成标记："NUMBER"' % (sentence, items.word))
-                else:
-                    seg.append(items.word)
+                        logging.debug(u'句子（%s）将数字："%s" 替换成标记："NUMBER"' % (sentence, item))
+                        print(u'句子（%s）将数字："%s" 替换成标记："NUMBER"' % (sentence, item))
+            elif remove_stopword and item in self.stopword_list:
+                if self.verbose > 1:
+                    logging.debug(u'句子（%s）去除stopwords：%s' % (sentence, item))
             else:
-                seg.append(items.word)
-        # sentence = [items.word for items in jseg.lcut(sentence) if items.flag!='x']
+                is_x = False
+                for word,pos in jseg.lcut(item, HMM=HMM):
+                    # print word,pos
+                    if pos in ['x']:
+                        is_x=True
+                        # words.append(word)
+                        if self.verbose > 1:
+                            logging.debug(u'句子（%s）将标点符号："%s"替换成""' % (sentence, ''))
+                if not is_x:
+                    words.append(item)
 
 
-        sentence = ' '.join(seg)
+        sentence = ' '.join(words)
         # print sentence
         # print sentence
         seg_list = jieba.lcut(sentence, cut_all=full_mode)
@@ -160,21 +164,35 @@ class Jieba_Util(object):
 
 if __name__ == '__main__':
     # 使用样例
-    jieba_util = Jieba_Util()
+    jieba_util = Jieba_Util(verbose=0)
     sent = u'我喜歡买手机啊........'
     sent = u'測試句子'
+    sent = u'这手机好用吗'
     sent = u'睡了。//t.cn/R50TdMgn你好'
     sent = u'睡了。http://t.cn/R50TdMgn你好'
+    sent = u'2b的200元。不想买了。'
 
     # print seg(sent,sep='|',full_mode=False,remove_stopword=True)
     # sent = u'有哪些1000块的手机适合我'
     # print seg(sent,sep='|',full_mode=False,remove_stopword=True)
-    # sent = u'妈B'
-    print ','.join(jieba.cut(sent))
+    sent = u'妈B'
+    sent = u'2000元'
+    # sent = u'2000元'
+    # print ','.join(jieba.cut(sent,HMM=True))
+    # print ','.join(jieba.cut(sent,HMM=False))
 
-    print(jieba_util.seg(sent, sep='|',
+    print(jieba_util.seg(sent,
+                         sep='|',
                          full_mode=True,
                          remove_stopword=True,
-                         replace_number=True,
+                         replace_number=False,
+                         HMM=False
                          ))
-    print jieba_util.seg(sent, sep='|', full_mode=False)
+    print(jieba_util.seg(sent,
+                         sep='|',
+                         full_mode=False,
+                         remove_stopword=True,
+                         replace_number=True,
+                         HMM=True
+                         ))
+    # print jieba_util.seg(sent, sep='|', full_mode=False)
