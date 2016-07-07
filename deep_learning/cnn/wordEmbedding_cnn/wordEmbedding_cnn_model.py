@@ -8,7 +8,7 @@ import pandas as pd
 import logging
 import cPickle as pickle
 from data_processing_util.feature_encoder.onehot_feature_encoder import FeatureEncoder
-from commom.common_model_class import CommonModel
+from base.common_model_class import CommonModel
 import theano.tensor as T
 from sklearn.metrics import f1_score
 

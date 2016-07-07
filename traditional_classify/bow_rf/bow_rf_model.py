@@ -10,7 +10,7 @@ import pandas as pd
 import logging
 import timeit
 from sklearn.ensemble import RandomForestClassifier
-from commom.common_model_class import CommonModel
+from base.common_model_class import CommonModel
 from data_processing_util.feature_encoder.bow_feature_encoder import FeatureEncoder
 from sklearn.metrics import f1_score
 import cPickle as pickle

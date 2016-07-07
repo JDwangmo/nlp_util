@@ -111,6 +111,9 @@ class Jieba_Util(object):
         :rtype: str
 
         """
+        # 先去除所有空格
+        sentence = sentence.replace(' ','')
+
         if lowercase:
             # 转成小写
             sentence = sentence.lower()
@@ -170,13 +173,13 @@ if __name__ == '__main__':
     sent = u'这手机好用吗'
     sent = u'睡了。//t.cn/R50TdMgn你好'
     sent = u'睡了。http://t.cn/R50TdMgn你好'
-    sent = u'2b的200元。不想买了。'
+    sent = u'2 b 的 2 0 0 元 。 不 想 买      了  。'
 
     # print seg(sent,sep='|',full_mode=False,remove_stopword=True)
     # sent = u'有哪些1000块的手机适合我'
     # print seg(sent,sep='|',full_mode=False,remove_stopword=True)
-    sent = u'妈B'
-    sent = u'2000元'
+    # sent = u'妈 B'
+    # sent = u'2000元'
     # sent = u'2000元'
     # print ','.join(jieba.cut(sent,HMM=True))
     # print ','.join(jieba.cut(sent,HMM=False))
@@ -193,6 +196,6 @@ if __name__ == '__main__':
                          full_mode=False,
                          remove_stopword=True,
                          replace_number=True,
-                         HMM=True
+                         HMM=False
                          ))
     # print jieba_util.seg(sent, sep='|', full_mode=False)

@@ -13,7 +13,9 @@
 - Python: 2.7.6版本.
 - python lib: 
     - jieba 0.38: 分词工具
+        - 官网： https://github.com/fxsjy/jieba
     - Keras 1.0.4: 神经网络的框架
+        - 官网： https://github.com/fchollet/keras
     - OpenCC 0.2: Open Chinese Convert 開放中文轉換
         - 官网： https://github.com/BYVoid/OpenCC 和 [Python 接口](https://github.com/lepture/opencc-python)
         - 安装方法：sudo pip install OpenCC
@@ -35,12 +37,13 @@
 
 - [jiebanlp:](https://github.com/JDwangmo/nlp_util/tree/master/data_processing_util/jiebanlp)
     - describe: jieba分词
-    - 依赖包: jieba 0.38
+    - 依赖包: jieba 0.38,OpenCC 0.2
     - 项目结构:
         - stopword.txt: 中文停止词表.
         - userdict.txt: 用户自定义字典
         - jieba_util.py: jieba分词工具类,自封装了一层,即包装成一个 Jieba_Util类,这个类主要在原 jieba 分词的基础上对扩展：
             - 增加用户字典
+            - 是否转为小写
             - 是否移除stopwords，
             - 是否统一替换数字 
             - 是否繁体转简体
