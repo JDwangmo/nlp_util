@@ -7,10 +7,6 @@ from sklearn.metrics import f1_score
 __author__ = 'jdwang'
 __date__ = 'create date: 2016-06-29'
 __email__ = '383287471@qq.com'
-# encoding=utf8
-__author__ = 'jdwang'
-__date__ = 'create date: 2016-06-23'
-__email__ = '383287471@qq.com'
 
 import numpy as np
 import pandas as pd
