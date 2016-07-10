@@ -174,6 +174,8 @@ if __name__ == '__main__':
     sent = u'睡了。//t.cn/R50TdMgn你好'
     sent = u'睡了。http://t.cn/R50TdMgn你好'
     sent = u'2 b 的 2 0 0 元 。 不 想 买      了  。'
+    sent = u'哪台手机好'
+    sent = u'哪款好'
 
     # print seg(sent,sep='|',full_mode=False,remove_stopword=True)
     # sent = u'有哪些1000块的手机适合我'
