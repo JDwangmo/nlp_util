@@ -125,31 +125,38 @@ class Jieba_Util(object):
             sentence = re.sub(u'(http:|)//t.cn/[a-zA-Z0-9]+', '', sentence)
 
         # 数字对模式匹配
-        pattern = re.compile('[0-9][0-9\.]*$')
+        num_pattern = re.compile('[0-9][0-9\.]*$')
         words = []
         for item in jieba.lcut(sentence, HMM=False):
-            if pattern.match(item):
+            if num_pattern.match(item):
+                # 匹配上数字
                 if not replace_number:
                     words.append(item)
                 elif item not in self.exclude_word_list:
-                    word = pattern.sub('NUMBER',item)
+                    word = num_pattern.sub('NUMBER',item)
                     words.append(word)
                     if self.verbose > 1:
                         logging.debug(u'句子（%s）将数字："%s" 替换成标记："NUMBER"' % (sentence, item))
                         print(u'句子（%s）将数字："%s" 替换成标记："NUMBER"' % (sentence, item))
             elif remove_stopword and item in self.stopword_list:
+                # 移除 stop words
                 if self.verbose > 1:
                     logging.debug(u'句子（%s）去除stopwords：%s' % (sentence, item))
             else:
+                # 其他词如果词性是 x， 则识别到标点符号
                 is_x = False
                 for word,pos in jseg.lcut(item, HMM=HMM):
                     # print word,pos
                     if pos in ['x']:
                         is_x=True
                         # words.append(word)
-                        if self.verbose > 1:
-                            logging.debug(u'句子（%s）将标点符号："%s"替换成""' % (sentence, ''))
-                if not is_x:
+
+                if is_x :
+                    # 标点符号
+                    # print item
+                    if self.verbose > 1:
+                        logging.debug(u'句子（%s）将标点符号："%s"替换成""' % (sentence, ''))
+                else:
                     words.append(item)
 
 
@@ -168,14 +175,14 @@ class Jieba_Util(object):
 if __name__ == '__main__':
     # 使用样例
     jieba_util = Jieba_Util(verbose=0)
-    sent = u'我喜歡买手机啊........'
-    sent = u'測試句子'
-    sent = u'这手机好用吗'
-    sent = u'睡了。//t.cn/R50TdMgn你好'
-    sent = u'睡了。http://t.cn/R50TdMgn你好'
-    sent = u'2 b 的 2 0 0 元 。 不 想 买      了  。'
-    sent = u'哪台手机好'
-    sent = u'哪款好'
+    sent = u'我喜歡买手机啊!!........'
+    # sent = u'測試句子...'
+    # sent = u'这手机,好用吗?'
+    # sent = u'睡了。//t.cn/R50TdMgn你好'
+    # sent = u'睡了。http://t.cn/R50TdMgn你好'
+    # sent = u'2 b 的 2 0 0 元 。 不 想 买      了  。'
+    # sent = u'哪台手机好'
+    # sent = u'哪款好'
 
     # print seg(sent,sep='|',full_mode=False,remove_stopword=True)
     # sent = u'有哪些1000块的手机适合我'
@@ -187,17 +194,19 @@ if __name__ == '__main__':
     # print ','.join(jieba.cut(sent,HMM=False))
 
     print(jieba_util.seg(sent,
-                         sep='|',
-                         full_mode=True,
-                         remove_stopword=True,
+                         full_mode=False,
+                         remove_stopword=False,
                          replace_number=False,
+                         lowercase=True,
+                         zhs2zht=True,
+                         remove_url=False,
                          HMM=False
                          ))
     print(jieba_util.seg(sent,
                          sep='|',
                          full_mode=False,
                          remove_stopword=True,
-                         replace_number=True,
+                         replace_number=False,
                          HMM=False
                          ))
     # print jieba_util.seg(sent, sep='|', full_mode=False)
