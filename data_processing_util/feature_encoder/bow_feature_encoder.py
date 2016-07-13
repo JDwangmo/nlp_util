@@ -32,7 +32,7 @@ class FeatureEncoder(object):
     '''
 
     def __init__(self,
-                 rand_seed=1337,
+                 # rand_seed=1337,
                  verbose=0,
                  need_segmented=True,
                  full_mode=True,
@@ -50,8 +50,6 @@ class FeatureEncoder(object):
             1. 初始化参数，并验证参数合法性
             2. build feature encoder
 
-            :param rand_seed: 随机种子,假如设置为为None时,则随机取随机种子
-            :type rand_seed: int
             :param verbose: 数值越大,输出越详细
             :type verbose: int
             :param need_segmented: 数据处理选项,是否需要经过分词处理;如果为False,那么输入的数据不需要分词,提供的数据的每个句子的每个词要以空格分割.比如: ['我 要 买 手机','你好','早上 好'];如果为True,提供原始输入句子即可,比如:['我要买手机','你好','早上好'].
@@ -75,7 +73,7 @@ class FeatureEncoder(object):
 
 
         '''
-        self.rand_seed = rand_seed
+        # self.rand_seed = rand_seed
         self.verbose = verbose
         self.full_mode = full_mode
         self.remove_stopword = remove_stopword
@@ -289,7 +287,7 @@ class FeatureEncoder(object):
                   'need_segmented': self.need_segmented,
                   'vocabulary_size': self.vocabulary_size,
                   'verbose': self.verbose,
-                  'rand_seed': self.rand_seed,
+                  # 'rand_seed': self.rand_seed,
                   'full_mode': self.full_mode,
                   'remove_stopword': self.remove_stopword,
                   'replace_number': self.replace_number,
@@ -306,7 +304,7 @@ class FeatureEncoder(object):
 if __name__ == '__main__':
     train_data = ['你好，你好', '測試句子','无聊', '测试句子', '今天天气不错','买手机','你要买手机']
     test_data = ['你好，你好,si','无聊']
-    feature_encoder = FeatureEncoder(rand_seed=1337,
+    feature_encoder = FeatureEncoder(
                                      verbose=0,
                                      need_segmented=True,
                                      full_mode=True,
@@ -318,7 +316,7 @@ if __name__ == '__main__':
                                      feature_method='bow',
                                      max_features = 100,
                                      )
-    train_features = feature_encoder.fit_transform(train_data=train_data).toarray()
+    train_features = feature_encoder.fit_transform(train_data=train_data)
     print ','.join(feature_encoder.vocabulary)
     print train_features
     test_features = feature_encoder.transform(test_data)
