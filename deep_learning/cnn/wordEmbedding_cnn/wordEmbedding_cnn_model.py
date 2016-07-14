@@ -533,8 +533,7 @@ class WordEmbeddingCNN(CommonModel):
             print '2. 批量预测'
         # -------------- code start : 开始 -------------
 
-        y_pred = self.model_output([test_X,0])[0]
-        y_pred = y_pred.argmax(axis=-1)
+        y_pred = self.batch_predict(test_X)
 
         # -------------- code start : 结束 -------------
         if self.verbose > 1 :
