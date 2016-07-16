@@ -281,7 +281,7 @@ if __name__ == '__main__':
     test_X = ['句子','你好','你妹']
     test_y = [2,3,0]
 
-    feature_encoder = FeatureEncoder(rand_seed=1337,
+    feature_encoder = FeatureEncoder(
                                      verbose=0,
                                      need_segmented=False,
                                      full_mode=True,

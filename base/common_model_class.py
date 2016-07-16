@@ -17,7 +17,9 @@ class CommonModel(object):
     @abstractmethod
     def __init__(self,
                  rand_seed=1337,
-                 verbose=0):pass
+                 verbose=0):
+        self.rand_seed = rand_seed
+        self.verbose = verbose
 
     @abstractmethod
     def fit(self,train_data=None, validation_data=None):pass

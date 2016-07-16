@@ -123,6 +123,8 @@ class WordEmbeddingCNN(CommonModel):
 
         # cnn model
         self.model = None
+        # cnn model early_stop
+        self.early_stop = None
         # cnn model 的输出函数
         self.model_output = None
         # 卷积层的输出，可以作为深度特征
@@ -258,7 +260,8 @@ class WordEmbeddingCNN(CommonModel):
                 8. output Dropout层
                 9. softmax 分类层
 
-            2.compile模型
+            2. compile模型
+            3. 设置优化算法,earlystop等
 
         :return:
         '''
@@ -267,6 +270,8 @@ class WordEmbeddingCNN(CommonModel):
             Flatten, Merge
         from keras.models import Sequential, Model
         from keras import backend as K
+        from keras.optimizers import SGD
+        from keras.callbacks import EarlyStopping
 
         # 1. 输入层
         model_input = Input((self.input_length,), dtype='int32')
@@ -328,7 +333,31 @@ class WordEmbeddingCNN(CommonModel):
         if self.verbose > 1:
             logging.debug('-' * 20)
             print '-' * 20
-            # -------------- region end : 2.将所有层连接起来 ---------------
+        # -------------- region end : 2.将所有层连接起来 ---------------
+
+        # -------------- region start : 3. 设置优化算法,earlystop等 -------------
+        logging.debug('-' * 20)
+        print '-' * 20
+        if self.verbose > 1:
+            logging.debug('3. 设置优化算法,earlystop等')
+            print '3. 设置优化算法,earlystop等'
+        # -------------- code start : 开始 -------------
+
+
+        if self.optimizers == 'sgd':
+            optimizers = SGD(lr=self.lr, decay=1e-6, momentum=0.9, nesterov=True)
+        elif self.optimizers == 'adadelta':
+            optimizers = 'adadelta'
+        else:
+            optimizers = 'adadelta'
+        self.model.compile(loss='categorical_crossentropy', optimizer=optimizers, metrics=['accuracy'])
+        self.early_stop = EarlyStopping(patience=self.earlyStoping_patience, verbose=self.verbose)
+
+        # -------------- code start : 结束 -------------
+        if self.verbose > 1:
+            logging.debug('-' * 20)
+            print '-' * 20
+        # -------------- region end : 3. 设置优化算法,earlystop等 ---------------
 
     def to_categorical(self, y):
         '''
@@ -358,8 +387,7 @@ class WordEmbeddingCNN(CommonModel):
         '''
             cnn model 的训练
                 1. 对数据进行格式转换,比如 转换 y 的格式:转成onehot编码
-                2. 设置优化算法,earlystop等
-                3. 模型训练
+                2. 模型训练
 
         :param train_data: 训练数据,格式为:(train_X, train_y),train_X中每个句子以字典索引的形式表示(使用data_processing_util.feature_encoder.onehot_feature_encoder编码器编码),train_y是一个整形列表.
         :type train_data: (array-like,array-like)
@@ -391,31 +419,7 @@ class WordEmbeddingCNN(CommonModel):
             print '-' * 20
         # -------------- region end : 1. 对数据进行格式转换,比如 转换 y 的格式:转成onehot编码 ---------------
 
-        # -------------- region start : 2. 设置优化算法,earlystop等 -------------
-        logging.debug('-' * 20)
-        print '-' * 20
-        if self.verbose > 1:
-            logging.debug('1. 设置优化算法,earlystop等')
-            print '1. 设置优化算法,earlystop等'
-        # -------------- code start : 开始 -------------
-
-        from keras.optimizers import SGD
-        from keras.callbacks import EarlyStopping
-        if self.optimizers == 'sgd':
-
-            optimizers = SGD(lr=self.lr, decay=1e-6, momentum=0.9, nesterov=True)
-        elif self.optimizers == 'adadelta':
-            optimizers = 'adadelta'
-        self.model.compile(loss='categorical_crossentropy', optimizer=optimizers, metrics=['accuracy'])
-        early_stop = EarlyStopping(patience=self.earlyStoping_patience, verbose=self.verbose)
-
-        # -------------- code start : 结束 -------------
-        if self.verbose > 1:
-            logging.debug('-' * 20)
-            print '-' * 20
-        # -------------- region end : 2. 设置优化算法,earlystop等 ---------------
-
-        # -------------- region start : 3. 模型训练 -------------
+        # -------------- region start : 2. 模型训练 -------------
         if self.verbose > 1:
             logging.debug('-' * 20)
             print '-' * 20
@@ -430,14 +434,14 @@ class WordEmbeddingCNN(CommonModel):
                        validation_data=(validation_X, validation_y),
                        shuffle=True,
                        batch_size=self.batch_size,
-                       callbacks=[early_stop]
+                       callbacks=[self.early_stop]
                        )
 
         # -------------- code start : 结束 -------------
         if self.verbose > 1:
             logging.debug('-' * 20)
             print '-' * 20
-            # -------------- region end : 3. 模型训练 ---------------
+        # -------------- region end : 2. 模型训练 ---------------
 
     def save_model(self, path):
         '''
