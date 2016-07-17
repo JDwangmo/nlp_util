@@ -677,4 +677,4 @@ if __name__ == '__main__':
     # dcnn.save_model('model/modelA.pkl')
 
     # 从保存的pickle中加载模型
-    # print rand_embedding_cnn.predict(feature_encoder.transform_sentence('你好吗'))
+    # print onehot_cnn.predict(feature_encoder.transform_sentence('你好吗'))

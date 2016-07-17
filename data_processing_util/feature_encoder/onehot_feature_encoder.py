@@ -45,6 +45,7 @@ class FeatureEncoder(object):
                  padding_mode='center',
                  add_unkown_word=True,
                  mask_zero = True,
+                 to_onehot_array=False,
                  ):
         '''
             1. 初始化参数
@@ -78,6 +79,8 @@ class FeatureEncoder(object):
                                         3. right：如果小于sentence_padding_length的话往右边补0;如果超出sentence_padding_length的话，直接在后面截断。
                                         4. none：不补齐。
             :type padding_mode: str
+            :param to_onehot_array: 是否输出为onehot向量，默认为False，输出字典索引
+            :type to_onehot_array: bool
 
 
         '''
@@ -93,6 +96,7 @@ class FeatureEncoder(object):
         self.sentence_padding_length = sentence_padding_length
         self.mask_zero = mask_zero
         self.padding_mode = padding_mode
+        self.to_onehot_array = to_onehot_array
 
         # 检验参数合法性
         assert self.padding_mode in ['center','left','right','none'],'padding mode 只能取: center,left,right,none'
@@ -115,7 +119,7 @@ class FeatureEncoder(object):
         # 训练库句子的补齐的字典索引形式
         self.train_padding_index = None
         # 训练库句子装成onehot array
-        self.onehot_array = None
+        self.train_onehot_array = None
         # word2vec 模型
         self.word2vec_model = None
 
@@ -336,7 +340,7 @@ class FeatureEncoder(object):
 
         return sentence
 
-    def word_index_to_onehot(self, index):
+    def sentence_index_to_onehot(self, index):
         '''
             注意:该方法跟[sentence_index_to_bow]的区别。
             将词的索引转成 onehot 编码,比如：
@@ -344,13 +348,24 @@ class FeatureEncoder(object):
 
         :param index: 一个词的字典索引
         :type index: int
-        :return: onehot 编码，长度为 字典长度
+        :return: onehot 编码，shape为 (句子长度，字典长度)
         :rtype: np.array()
         '''
-        # todo
-        pass
 
-        return None
+        onehot_array = []
+
+        for item in index:
+            temp = np.zeros(self.vocabulary_size, dtype=int)
+            if item == 0:
+                pass
+            else:
+                temp[item-1] = 1
+
+            onehot_array.append(temp)
+
+        # onehot_array = np.concatenate(onehot_array,axis=1)
+        onehot_array = np.asarray(onehot_array)
+        return onehot_array
 
     def sentence_index_to_bow(self, index):
         '''
@@ -370,13 +385,14 @@ class FeatureEncoder(object):
         return onehot_array
 
 
-    def to_onehot_array(self):
+    def batch_sentence_index_to_onehot_array(self,sentence_indexs):
         '''
             将所有训练库句子转成onehot编码的数组，保存在 self.onehot_array 中
 
         :return: onehot编码的数组
         '''
-        self.onehot_array = np.asarray(map(self.sentence_index_to_bow, self.train_index))
+
+        self.onehot_array = np.asarray(map(self.sentence_index_to_onehot, sentence_indexs))
         return self.onehot_array
 
     def fit_transform(self,train_data=None):
@@ -385,6 +401,7 @@ class FeatureEncoder(object):
                 1. 构建训练库字典
                 2. 将训练句子转成字典索引形式
                 3. 将句子补齐到等长,补齐长度为: self.sentence_padding_length
+                4. 将每个词的字典索引变成onehot向量
 
         :param train_data: 训练句子列表:['','',...,'']
         :type train_data: array-like.
@@ -450,13 +467,38 @@ class FeatureEncoder(object):
             logging.debug('-' * 20)
             print '-' * 20
         # -------------- region end : 3. 将句子补齐到等长 ---------------
-        return train_padding_index
+
+
+        # -------------- region start : 4. 将每个词的字典索引变成onehot向量 -------------
+        if self.verbose > 1 :
+            logging.debug('-' * 20)
+            print('-' * 20)
+            logging.debug('4. 将每个词的字典索引变成onehot向量')
+            print('4. 将每个词的字典索引变成onehot向量')
+        # -------------- code start : 开始 -------------
+
+        if self.to_onehot_array:
+            train_onehot_array = self.batch_sentence_index_to_onehot_array(train_padding_index)
+            self.train_onehot_array = train_onehot_array
+        else:
+            train_onehot_array = train_padding_index
+
+        # -------------- code start : 结束 -------------
+        if self.verbose > 1 :
+            logging.debug('-' * 20)
+            print('-' * 20)
+        # -------------- region end : 4. 将每个词的字典索引变成onehot向量 ---------------
+
+
+
+        return train_onehot_array
 
     def transform_sentence(self, sentence):
         '''
             转换一个句子的格式。跟训练数据一样的操作,对输入句子进行 padding index 编码,将sentence转为补齐的字典索引
                 1. 分词
                 2. 转为字典索引列表,之后补齐,输入为补齐的字典索引列表
+                3. 每个词的字典索引变成onehot向量
 
         :param sentence: 输入句子,不用分词,进来后会有分词处理
         :type sentence: str
@@ -486,11 +528,11 @@ class FeatureEncoder(object):
             print '-' * 20
         # -------------- region end : 1. 分词 ---------------
 
-        # -------------- region start : 2. 转为字典索引列表,之后补齐,输入为补齐的字典索引列表 -------------
+        # -------------- region start : 2. 转为字典索引列表,之后补齐,输出为补齐的字典索引列表 -------------
         if self.verbose > 1:
             logging.debug('-' * 20)
             print '-' * 20
-            logging.debug('2. 转为字典索引列表,之后补齐,输入为补齐的字典索引列表')
+            logging.debug('2. 转为字典索引列表,之后补齐,输出为补齐的字典索引列表')
             print '2. 转为字典索引列表,之后补齐,输入为补齐的字典索引列表'
         # -------------- code start : 开始 -------------
 
@@ -501,9 +543,31 @@ class FeatureEncoder(object):
         if self.verbose > 1:
             logging.debug('-' * 20)
             print '-' * 20
-        # -------------- region end : 2. 转为字典索引列表,之后补齐,输入为补齐的字典索引列表 ---------------
+        # -------------- region end : 2. 转为字典索引列表,之后补齐,输出为补齐的字典索引列表 ---------------
 
-        return sentence_padding_index
+        # -------------- region start : 3. 将每个词的字典索引变成onehot向量 -------------
+        if self.verbose > 1 :
+            logging.debug('-' * 20)
+            print('-' * 20)
+            logging.debug('3. 将每个词的字典索引变成onehot向量')
+            print('3. 将每个词的字典索引变成onehot向量')
+        # -------------- code start : 开始 -------------
+
+        if self.to_onehot_array:
+            onehot_array = self.sentence_index_to_onehot(sentence_padding_index)
+        else:
+            onehot_array = sentence_padding_index
+
+        # -------------- code start : 结束 -------------
+        if self.verbose > 1 :
+            logging.debug('-' * 20)
+            print('-' * 20)
+        # -------------- region end : 3. 将每个词的字典索引变成onehot向量 ---------------
+
+
+
+        return onehot_array
+
 
     def transform(self, data):
         '''
@@ -516,7 +580,7 @@ class FeatureEncoder(object):
         :rtype: array-like
         '''
 
-        index = map(self.transform_sentence, data)
+        index = map(lambda x :self.transform_sentence(x), data)
         # print train_index[:5]
 
         return np.asarray(index)
@@ -549,7 +613,7 @@ if __name__ == '__main__':
     train_data = ['你好，你好', '測試句子','无聊', '测试句子', '今天天气不错','买手机','你要买手机']
     test_data = ['你好，你好,si','无聊']
     feature_encoder = FeatureEncoder(verbose=0,
-                                     padding_mode='none',
+                                     padding_mode='center',
                                      need_segmented=True,
                                      full_mode=True,
                                      remove_stopword=True,
@@ -560,11 +624,15 @@ if __name__ == '__main__':
                                      mask_zero=True,
                                      zhs2zht=True,
                                      )
-    train_padding_index = feature_encoder.fit_transform(train_data=train_data)
+    train_padding_index = feature_encoder.fit_transform(train_data=train_data,to_onehot_array=False)
+
     print ','.join(feature_encoder.vocabulary)
+
     print train_padding_index
-    test_padding_index = feature_encoder.transform(test_data)
+    print(train_padding_index[0])
+    test_padding_index = feature_encoder.transform(test_data,True)
     print test_padding_index
+    quit()
     # embedding_weight = feature_encoder.to_embedding_weight('/home/jdwang/PycharmProjects/corprocessor/word2vec/vector/ood_sentence_vector1191_50dim.gem')
     # print embedding_weight.shape
     # print embedding_weight
