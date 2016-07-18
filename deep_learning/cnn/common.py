@@ -10,13 +10,40 @@ from __future__ import print_function
 import cPickle as pickle
 import logging
 import numpy as np
-
+from keras.engine.topology import Layer
+from keras import backend as K
 import theano.tensor as T
 from sklearn.metrics import f1_score
 
 from base.common_model_class import CommonModel
 
 
+class BowLayer(Layer):
+    def __init__(self, size, **kwargs):
+        self.size = size
+        super(BowLayer, self).__init__(**kwargs)
+
+    def build(self, input_shape):
+        self.num_batch = input_shape[0]
+        self.num_channel = input_shape[1]
+        self.input_length = input_shape[2]
+        self.input_dim = input_shape[3]
+        self.output_length = self.input_length - self.size + 1
+
+
+
+    def call(self, x, mask=None):
+        start = range(0, self.output_length)
+        # print(start)
+        y = []
+        for s in start:
+            # initial_weight_value =
+            y.append( K.sum(x[:, :, s:s + 2, :],axis=2))
+        y = K.concatenate(y,axis=2)
+        return y
+
+    def get_output_shape_for(self, input_shape):
+        return (input_shape[0], input_shape[1],self.output_length*input_shape[3])
 
 class CnnBaseClass(CommonModel):
     '''
@@ -169,10 +196,10 @@ class CnnBaseClass(CommonModel):
         :param convolution_filter_type: 卷积层的类型.一种 size对应一个 list
 
             for example:每个列表代表一种类型(size)的卷积核,和 max pooling 的size
-                - 每一维的分别对应：nb_filter, nb_row, nb_col, border_mode, k。如果nb_col设置-1的话，则nb_col=input_shape[-1]
-                conv_filter_type = [[100,2,2,'valid', (1, 1)],
-                                    [100,4,2,'valid', (1, 1)],
-                                    [100,6,2,'valid', (1, 1)],
+                - 每一维的分别对应：nb_filter, nb_row, nb_col, border_mode, k,dropout_rate。如果nb_col设置-1的话，则nb_col=input_shape[-1]
+                conv_filter_type = [[100,2,2,'valid', (1, 1),0.5],
+                                    [100,4,2,'valid', (1, 1),0.5],
+                                    [100,6,2,'valid', (1, 1),0.5],
                                    ]
         :type convolution_filter_type: array-like
         :param input_shape: 输入的 shape，3D，类似一张图，(channel,row,col)比如 （1,5,5）表示单通道5*5的图片
@@ -186,48 +213,48 @@ class CnnBaseClass(CommonModel):
         assert len(
             input_shape) == 3, 'warning: 因为必须是一个4D的输入，(n_batch,channel,row,col)，所以input shape必须是一个3D-array，(channel,row,col)!'
 
-        from keras.layers import Convolution2D, Activation, MaxPooling2D, Merge
+        from keras.layers import Convolution2D, Activation, Dropout, Merge,Reshape
         from keras.models import Sequential
-
+        dropout_rate = convolution_filter_type[0][-1]
         # 构建第一层卷积层和1-max pooling
         conv_layers = []
         for items in convolution_filter_type:
 
-            nb_filter, nb_row, nb_col, border_mode, k = items
+            nb_filter, nb_row, nb_col, border_mode, k,_dropout_rate = items
             if nb_col == -1:
                 # 如果nb_col 设为-1的话，则nb_col==input_shape[-1]
                 nb_col = input_shape[-1]
             m = Sequential()
-            m.add(Convolution2D(nb_filter,
-                                nb_row,
-                                nb_col,
-                                border_mode=border_mode,
-                                input_shape=input_shape,
-                                ))
+            if border_mode == 'bow':
+                # bow convolution,来自 zhang tong paper
+                output_shape = (input_shape[0], input_shape[1] - nb_row + 1, input_shape[2])
+                m.add(BowLayer(nb_row,input_shape=input_shape))
+                m.add(Reshape(output_shape))
+                m.add(Convolution2D(nb_filter,
+                                    1,
+                                    nb_col,
+                                    border_mode='valid',
+                                    input_shape=output_shape,
+                                    ))
+            else:
+                m.add(Convolution2D(nb_filter,
+                                    nb_row,
+                                    nb_col,
+                                    border_mode=border_mode,
+                                    input_shape=input_shape,
+                                    ))
             m.add(Activation('relu'))
 
-            # 1-max
-            if k[0] == 1:
-                if border_mode == 'valid':
-                    pool_size = (input_shape[1] - nb_row + 1, k[1])
-                elif border_mode == 'same':
-                    pool_size = (input_shape[1], k[1])
-                else:
-                    pool_size = (input_shape[1] - nb_row + 1, k[1])
-                m.add(MaxPooling2D(pool_size=pool_size, name='1-max'))
-            elif k[0] == 0:
-                m.add(MaxPooling2D(pool_size=(2, k[1])))
-            else:
-                # k-max pooling
-                # todo
-                # 因为kmax需要用到Lambda,而pickle无法dump function对象,所以使用该模型的时候,保存不了模型,待解决.
-                m.add(self.kmaxpooling(k=k[0]))
+            m.add(self.create_max_pooling_layer(input_shape,nb_row, nb_col, border_mode, k))
             # m.summary()
+
             conv_layers.append(m)
 
         # 卷积的结果进行拼接
-        cnn_model = Sequential()
+        cnn_model = Sequential(name='multi_size_convolution_layer')
         cnn_model.add(Merge(conv_layers, mode='concat', concat_axis=2))
+        if dropout_rate > 0:
+            cnn_model.add(Dropout(p=dropout_rate))
         # -------------- print start : just print info -------------
         if self.verbose > 1 :
            cnn_model.summary()
@@ -235,12 +262,45 @@ class CnnBaseClass(CommonModel):
         print(cnn_model.get_output_shape_at(-1))
         return cnn_model
 
+    def create_max_pooling_layer(self, input_shape,nb_row, nb_col, border_mode, k):
+        '''
+            创建 max pooling层，在原有基础上封装，使之可以创建更多样的max pooling
+
+        :param input_shape:
+        :param nb_row:
+        :param nb_col:
+        :param border_mode:
+        :param k:
+        :return: Layer
+        '''
+        from keras.layers import MaxPooling2D
+
+        if k[0] == 1:
+            # 1-max
+            if border_mode == 'valid':
+                pool_size = (input_shape[1] - nb_row + 1, k[1])
+            elif border_mode == 'same':
+                pool_size = (input_shape[1], k[1])
+            else:
+                pool_size = (input_shape[1] - nb_row + 1, k[1])
+            output_layer = MaxPooling2D(pool_size=pool_size, name='1-max')
+        elif k[0] < 0:
+            output_layer = MaxPooling2D(pool_size=(abs(k[0]), k[1]))
+        elif k[0] > 1:
+            # k-max pooling
+            # todo
+            # 因为kmax需要用到Lambda,而pickle无法dump function对象,所以使用该模型的时候,保存不了模型,待解决.
+            output_layer = self.kmaxpooling(k=k[0])
+        else:
+            output_layer = MaxPooling2D(pool_size=(2, 1))
+        return output_layer
 
     def create_convolution_layer(
                 self,
                 input_shape=None,
                 input=None,
                 convolution_filter_type=None,
+
     ):
         '''
             创建一个卷积层模型，在keras的Convolution2D基础进行封装，使得可以创建多size和多size的卷积层
@@ -248,30 +308,53 @@ class CnnBaseClass(CommonModel):
         :param input_shape: 上一层的shape
         :param input: 上一层
         :param convolution_filter_type: 卷积核类型，可以多size和单size，比如：
-            - 每一维的分别对应：nb_filter, nb_row, nb_col, border_mode, k。如果nb_col设置-1的话，则nb_col=input_shape[-1]
+            - 每一维的分别对应：nb_filter, nb_row, nb_col, border_mode, k。如果nb_col设置-1的话，则nb_col=input_shape[-1],
+            - k[0]<0的话，使用普通 max pooling，size为( abs(k[0]) , k[1] )
+            - k[0]>1,使用k-max pooling
+            - k[0]==1,使用 1-max pooling
+
             1. 多size：每个列表代表一种类型(size)的卷积核,
-                conv_filter_type = [[100,2,1,'valid',(k,1)],
-                                    [100,4,1,'valid'],
-                                    [100,6,1,'valid'],
+                conv_filter_type = [[100,2,1,'valid',(k,1),dropout_rate ],
+                                    [100,4,1,'valid',(k,1),dropout_rate ],
+                                    [100,6,1,'valid',(k,1),dropout_rate],
                                    ]
-            2. 单size：一个列表即可。[[100,2,1,'valid',(k,1)]]
+            2. 单size：一个列表即可。[[100,2,1,'valid',(k,1),dropout_rate]]
         :param k: k-max-pooling 的 k值
         :return: kera TensorVariable,output,output_shape
         '''
 
-        from keras.layers import Convolution2D, MaxPooling2D
+        from keras.layers import Convolution2D, Dropout,Reshape
         from keras.models import Sequential
 
         assert input_shape is not None, 'input shape 不能为空！'
-        if len(convolution_filter_type) == 1:
-            nb_filter, nb_row, nb_col, border_mode, k = convolution_filter_type[0]
+        if len(convolution_filter_type) == 0:
+            output = input
+            output_shape = list(input_shape)
+            output_shape.insert(0,None)
+
+        elif len(convolution_filter_type) == 1:
+            nb_filter, nb_row, nb_col, border_mode, k,dropout_rate = convolution_filter_type[0]
             # 单size 卷积层
             if nb_col == -1:
                 # 如果nb_col 设为-1的话，则nb_col==input_shape[-1]
                 nb_col = input_shape[-1]
-            output_layer = Sequential()
-            output_layer.add(Convolution2D(nb_filter, nb_row, nb_col, border_mode=border_mode, input_shape=input_shape))
-            output_layer.add(MaxPooling2D(pool_size=k))
+            output_layer = Sequential(name='one_size_convolution_layer')
+            if border_mode == 'bow':
+                conv_output_shape = (input_shape[0], input_shape[1] - nb_row + 1, input_shape[2])
+                output_layer.add(BowLayer(nb_row,input_shape=input_shape))
+                output_layer.add(Reshape(conv_output_shape))
+                output_layer.add(Convolution2D(nb_filter,
+                                    1,
+                                    nb_col,
+                                    border_mode='valid',
+                                    input_shape=conv_output_shape,
+                                    ))
+            else:
+                output_layer.add(Convolution2D(nb_filter, nb_row, nb_col, border_mode=border_mode, input_shape=input_shape))
+                output_layer.add(self.create_max_pooling_layer(input_shape,nb_row, nb_col, border_mode, k))
+                if dropout_rate >0:
+                    output_layer.add(Dropout(p=dropout_rate))
+
             output = output_layer(input)
             output_shape = output_layer.get_output_shape_at(-1)
             # output_layer.summary()
@@ -281,6 +364,7 @@ class CnnBaseClass(CommonModel):
                 input_shape=input_shape,
                 convolution_filter_type=convolution_filter_type
             )
+
             output_shape = output_layer.get_output_shape_at(-1)
             output = output_layer([input] * len(convolution_filter_type))
 
@@ -410,7 +494,6 @@ class CnnBaseClass(CommonModel):
                          self.word_embedding_dim
                          ),
             convolution_filter_type=self.conv_filter_type,
-            k=self.k
         )
         # cnn_model.summary()
         conv1_output = cnn_model([embedding_4_dim] * len(self.conv_filter_type))
@@ -480,8 +563,11 @@ class CnnBaseClass(CommonModel):
 
         train_X, train_y = train_data
         train_X = np.asarray(train_X)
+        # train_X = np.transpose(train_X,(0,2,1))
+        # print(train_X.shape)
         validation_X, validation_y = validation_data
         validation_X = np.asarray(validation_X)
+        # validation_X = np.transpose(validation_X,(0,2,1))
 
         train_y = self.to_categorical(train_y)
 
@@ -510,7 +596,7 @@ class CnnBaseClass(CommonModel):
                        batch_size=self.batch_size,
                        callbacks=[self.early_stop]
                        )
-
+        print(self.model.evaluate(train_X, train_y))
         # -------------- code start : 结束 -------------
         if self.verbose > 1:
             logging.debug('-' * 20)

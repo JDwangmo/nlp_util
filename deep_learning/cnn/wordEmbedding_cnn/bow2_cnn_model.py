@@ -8,10 +8,11 @@ import numpy as np
 from deep_learning.cnn.common import CnnBaseClass
 import logging
 import cPickle as pickle
+from keras import backend as K
+from keras.engine.topology import Layer
 from data_processing_util.feature_encoder.onehot_feature_encoder import FeatureEncoder
 import theano.tensor as T
 from sklearn.metrics import f1_score
-
 
 
 class OnehotCNN(CnnBaseClass):
@@ -66,9 +67,9 @@ class OnehotCNN(CnnBaseClass):
         :param conv1_filter_type: cnn设置选项,卷积层的类型.
 
             for example:每个列表代表一种类型(size)的卷积核,
-                conv1_filter_type = [[100,2,word_embedding_dim,'valid',(1,1)],
-                                    [100,4,word_embedding_dim,'valid',(1,1)],
-                                    [100,6,word_embedding_dim,'valid',(1,1)],
+                conv1_filter_type = [[100,2,word_embedding_dim,'valid',(1,1),dropout],
+                                    [100,4,word_embedding_dim,'valid',(1,1),dropout],
+                                    [100,6,word_embedding_dim,'valid',(1,1),dropout],
                                    ]
 
         :type conv1_filter_type: array-like
@@ -103,6 +104,7 @@ class OnehotCNN(CnnBaseClass):
         # 构建模型
         self.build_model()
 
+
     def create_network(self):
         '''
             1. 创建 CNN 网络
@@ -126,19 +128,20 @@ class OnehotCNN(CnnBaseClass):
         # 1. 输入层
         l1_input_shape = ( self.input_length,self.feature_encoder.vocabulary_size)
         l1_input = Input(shape=l1_input_shape)
-
         # 2. Reshape层： 将embedding转换4-dim的shape
         l2_reshape_output_shape = (1, l1_input_shape[0], l1_input_shape[1])
         l2_reshape= Reshape(l2_reshape_output_shape)(l1_input)
         print(l2_reshape_output_shape)
+
         # 3. 第一层卷积层：多size卷积层（含1-max pooling），使用三种size.
         l3_cnn_model,l3_cnn_model_out_shape = self.create_convolution_layer(
             input_shape=l2_reshape_output_shape,
             convolution_filter_type=self.conv1_filter_type,
             input=l2_reshape,
         )
-        l3_cnn_model = Dropout(0.5)(l3_cnn_model)
+        # l3_cnn_model = Dropout(0.5)(l3_cnn_model)
         print(l3_cnn_model_out_shape)
+
         # 4. 第二层卷积层：单size卷积层 和 max pooling 层
         l4_conv, l4_conv_output_shape = self.create_convolution_layer(
             input_shape=l3_cnn_model_out_shape,
@@ -147,7 +150,7 @@ class OnehotCNN(CnnBaseClass):
         )
         print(l4_conv_output_shape)
 
-        l4_conv = Dropout(0.5)(l4_conv)
+        # l4_conv = Dropout(0.5)(l4_conv)
         # 5. Flatten层： 卷积的结果进行拼接,变成一列隐含层
         l5_flatten = Flatten()(l4_conv)
         # 6. 全连接层
@@ -231,11 +234,14 @@ if __name__ == '__main__':
         optimizers='sgd',
         input_length=sentence_padding_length,
         num_labels=5,
-        conv1_filter_type=[[4, 2, -1, 'valid',(-2,1)],
-                          [4, 3, -1, 'valid',(-2,1)],
-                          [4, 4, -1, 'valid',(-2,1)],
+        conv1_filter_type=[
+            # [4, 2, -1, 'valid',(-2,1)],
+            #               [4, 3, -1, 'valid',(-2,1)],
+                          [4, 1, -1, 'valid',(-1,1)],
                           ],
-        conv2_filter_type=[[16, 2, -1, 'valid',(-3,1)]],
+        conv2_filter_type=[
+            # [16, 2, -1, 'valid',(-3,1)]
+                           ],
         full_connected_layer_units=[50],
         embedding_dropout_rate=0.5,
         output_dropout_rate=0.5,

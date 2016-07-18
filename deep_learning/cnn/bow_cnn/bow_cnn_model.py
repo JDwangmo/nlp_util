@@ -612,7 +612,7 @@ class BowCNN(CommonModel):
 if __name__ == '__main__':
     train_X = ['你好', '无聊', '测试句子', '今天天气不错', '我要买手机']
     trian_y = [1, 3, 2, 2, 3]
-    test_X = ['句子', '你好', '你妹']
+    test_X = ['句子,句子', '你好', '你妹']
     test_y = [2, 3, 0]
 
     feature_encoder = FeatureEncoder(
@@ -631,6 +631,7 @@ if __name__ == '__main__':
     test_X_feature = feature_encoder.transform(test_X)
     print(','.join(feature_encoder.vocabulary))
     print(train_X_feature)
+    print(test_X_feature)
     bow_cnn = BowCNN(
         rand_seed=1337,
         verbose=1,
@@ -654,7 +655,7 @@ if __name__ == '__main__':
                 (test_X_feature,test_y))
 
 
-    bow_cnn.predict()
+    # bow_cnn.predict()
 
     quit()
 
