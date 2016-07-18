@@ -84,7 +84,7 @@ class CnnBaseClass(CommonModel):
                  earlyStoping_patience=50,
                  **kwargs
                  ):
-        '''
+        """
             1. 初始化参数，并检验参数合法性。
             2. 设置随机种子，构建模型
 
@@ -104,7 +104,9 @@ class CnnBaseClass(CommonModel):
         :type nb_epoch: int
         :param earlyStoping_patience: cnn设置选项,earlyStoping的设置,如果迭代次数超过这个耐心值,依旧不下降,则stop.
         :type earlyStoping_patience: int
-        '''
+        :param kwargs: 目前有 lr , batch_size
+        :type kwargs: dict
+        """
 
         self.rand_seed = rand_seed
         self.verbose = verbose
@@ -182,6 +184,7 @@ class CnnBaseClass(CommonModel):
     def create_multi_size_convolution_layer(self,
                                             input_shape=None,
                                             convolution_filter_type=None,
+                                            **kwargs
                                             ):
 
 
@@ -228,6 +231,7 @@ class CnnBaseClass(CommonModel):
             if border_mode == 'bow':
                 # bow convolution,来自 zhang tong paper
                 output_shape = (input_shape[0], input_shape[1] - nb_row + 1, input_shape[2])
+                print(output_shape)
                 m.add(BowLayer(nb_row,input_shape=input_shape))
                 m.add(Reshape(output_shape))
                 m.add(Convolution2D(nb_filter,
@@ -251,7 +255,7 @@ class CnnBaseClass(CommonModel):
             conv_layers.append(m)
 
         # 卷积的结果进行拼接
-        cnn_model = Sequential(name='multi_size_convolution_layer')
+        cnn_model = Sequential(**kwargs)
         cnn_model.add(Merge(conv_layers, mode='concat', concat_axis=2))
         if dropout_rate > 0:
             cnn_model.add(Dropout(p=dropout_rate))
@@ -266,15 +270,17 @@ class CnnBaseClass(CommonModel):
         '''
             创建 max pooling层，在原有基础上封装，使之可以创建更多样的max pooling
 
-        :param input_shape:
-        :param nb_row:
-        :param nb_col:
+        :param input_shape: 卷积层的输入
+        :param nb_row: 卷积核的行
+        :param nb_col: 卷积核的列
         :param border_mode:
         :param k:
+            - k[0]<0的话，使用普通 max pooling，size为( abs(k[0]) , k[1] )
+            - k[0]>1,使用k-max pooling
+            - k[0]==1,使用 1-max pooling
         :return: Layer
         '''
         from keras.layers import MaxPooling2D
-
         if k[0] == 1:
             # 1-max
             if border_mode == 'valid':
@@ -296,11 +302,11 @@ class CnnBaseClass(CommonModel):
         return output_layer
 
     def create_convolution_layer(
-                self,
-                input_shape=None,
-                input=None,
-                convolution_filter_type=None,
-
+            self,
+            input_shape=None,
+            input=None,
+            convolution_filter_type=None,
+            **kwargs
     ):
         '''
             创建一个卷积层模型，在keras的Convolution2D基础进行封装，使得可以创建多size和多size的卷积层
@@ -322,12 +328,12 @@ class CnnBaseClass(CommonModel):
         :param k: k-max-pooling 的 k值
         :return: kera TensorVariable,output,output_shape
         '''
-
         from keras.layers import Convolution2D, Dropout,Reshape
         from keras.models import Sequential
 
         assert input_shape is not None, 'input shape 不能为空！'
         if len(convolution_filter_type) == 0:
+            # 卷积类型为空，则直接返回
             output = input
             output_shape = list(input_shape)
             output_shape.insert(0,None)
@@ -338,22 +344,41 @@ class CnnBaseClass(CommonModel):
             if nb_col == -1:
                 # 如果nb_col 设为-1的话，则nb_col==input_shape[-1]
                 nb_col = input_shape[-1]
-            output_layer = Sequential(name='one_size_convolution_layer')
+            output_layer = Sequential(**kwargs)
             if border_mode == 'bow':
-                conv_output_shape = (input_shape[0], input_shape[1] - nb_row + 1, input_shape[2])
+                # bow-convolution
+                conv_input_shape = (input_shape[0],
+                                    input_shape[1] - nb_row + 1,
+                                    input_shape[2]
+                                    )
+                print(conv_input_shape)
+                # 卷积核的行设置为1
                 output_layer.add(BowLayer(nb_row,input_shape=input_shape))
-                output_layer.add(Reshape(conv_output_shape))
+                output_layer.add(Reshape(conv_input_shape))
+                nb_row = 1
                 output_layer.add(Convolution2D(nb_filter,
-                                    1,
-                                    nb_col,
-                                    border_mode='valid',
-                                    input_shape=conv_output_shape,
-                                    ))
+                                               nb_row,
+                                               nb_col,
+                                               border_mode='valid',
+                                               input_shape=conv_input_shape,
+                                               ))
+
+
             else:
+                # 普通2D卷积
+                conv_input_shape = input_shape
                 output_layer.add(Convolution2D(nb_filter, nb_row, nb_col, border_mode=border_mode, input_shape=input_shape))
-                output_layer.add(self.create_max_pooling_layer(input_shape,nb_row, nb_col, border_mode, k))
-                if dropout_rate >0:
-                    output_layer.add(Dropout(p=dropout_rate))
+
+            # 增加一个max pooling层
+            output_layer.add(self.create_max_pooling_layer(conv_input_shape,
+                                                           nb_row,
+                                                           nb_col,
+                                                           border_mode,
+                                                           k,
+                                                           ))
+
+            if dropout_rate >0:
+                output_layer.add(Dropout(p=dropout_rate))
 
             output = output_layer(input)
             output_shape = output_layer.get_output_shape_at(-1)
@@ -362,7 +387,8 @@ class CnnBaseClass(CommonModel):
             # 多size 卷积层
             output_layer = self.create_multi_size_convolution_layer(
                 input_shape=input_shape,
-                convolution_filter_type=convolution_filter_type
+                convolution_filter_type=convolution_filter_type,
+                **kwargs
             )
 
             output_shape = output_layer.get_output_shape_at(-1)
@@ -389,7 +415,7 @@ class CnnBaseClass(CommonModel):
         from keras.models import Sequential
         from keras.layers import Dense
 
-        output_layer = Sequential()
+        output_layer = Sequential(name='full_connected_layer')
         output_layer.add(Dense(
             output_dim=units[0],
             init="glorot_uniform",

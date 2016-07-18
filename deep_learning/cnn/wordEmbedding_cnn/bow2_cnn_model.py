@@ -79,7 +79,10 @@ class OnehotCNN(CnnBaseClass):
         :type nb_epoch: int
         :param earlyStoping_patience: cnn设置选项,earlyStoping的设置,如果迭代次数超过这个耐心值,依旧不下降,则stop.
         :type earlyStoping_patience: int
+        :param kwargs: 目前有 lr , batch_size
+        :type kwargs: dict
         '''
+
         CnnBaseClass.__init__(
             self,
             rand_seed=rand_seed,
@@ -90,6 +93,7 @@ class OnehotCNN(CnnBaseClass):
             num_labels=num_labels,
             nb_epoch=nb_epoch,
             earlyStoping_patience=earlyStoping_patience,
+            **kwargs
         )
         self.input_length = input_length
 
@@ -138,6 +142,7 @@ class OnehotCNN(CnnBaseClass):
             input_shape=l2_reshape_output_shape,
             convolution_filter_type=self.conv1_filter_type,
             input=l2_reshape,
+            name='conv1',
         )
         # l3_cnn_model = Dropout(0.5)(l3_cnn_model)
         print(l3_cnn_model_out_shape)
@@ -147,6 +152,7 @@ class OnehotCNN(CnnBaseClass):
             input_shape=l3_cnn_model_out_shape,
             input=l3_cnn_model,
             convolution_filter_type=self.conv2_filter_type,
+            name='conv2',
         )
         print(l4_conv_output_shape)
 
@@ -227,7 +233,7 @@ if __name__ == '__main__':
     # print map(feature_encoder.transform_sentence, test_X)
     # quit()
     onehot_cnn = OnehotCNN(
-        rand_seed=1377,
+        rand_seed=0,
         verbose=1,
         feature_encoder=feature_encoder,
         # optimizers='adadelta',
@@ -237,15 +243,15 @@ if __name__ == '__main__':
         conv1_filter_type=[
             # [4, 2, -1, 'valid',(-2,1)],
             #               [4, 3, -1, 'valid',(-2,1)],
-                          [4, 1, -1, 'valid',(-1,1)],
+                          [4, 1, -1, 'bow',(-1,1),0.5],
                           ],
         conv2_filter_type=[
             # [16, 2, -1, 'valid',(-3,1)]
                            ],
         full_connected_layer_units=[50],
-        embedding_dropout_rate=0.5,
+        input_rate=0.5,
         output_dropout_rate=0.5,
-        nb_epoch=100,
+        nb_epoch=30,
         nb_batch=5,
         earlyStoping_patience=20,
         lr=1e-2,
