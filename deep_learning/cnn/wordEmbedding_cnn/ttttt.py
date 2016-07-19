@@ -4,18 +4,18 @@ __author__ = 'jdwang'
 __date__ = 'create date: 2016-06-23'
 __email__ = '383287471@qq.com'
 
-import numpy as np
-from deep_learning.cnn.common import CnnBaseClass
 import logging
-import cPickle as pickle
-from keras import backend as K
-from keras.engine.topology import Layer
+import numpy as np
+np.random.seed(0)
+
 from data_processing_util.feature_encoder.onehot_feature_encoder import FeatureEncoder
-import theano.tensor as T
-from sklearn.metrics import f1_score
+from deep_learning.cnn.common import CnnBaseClass
 
 
-class OnehotCNN(CnnBaseClass):
+
+
+
+class OnehotBowCNN(CnnBaseClass):
     '''
         一层CNN模型,随机初始化词向量,CNN-seq模型.借助Keras和jieba实现。
         架构各个层次分别为: 输入层,卷积层,1-max pooling层,全连接层,dropout层,softmax层
@@ -83,6 +83,9 @@ class OnehotCNN(CnnBaseClass):
         :type kwargs: dict
         '''
 
+
+
+
         CnnBaseClass.__init__(
             self,
             rand_seed=rand_seed,
@@ -104,9 +107,11 @@ class OnehotCNN(CnnBaseClass):
         self.kwargs = kwargs
 
         self.conv1_feature_output = None
-
         # 构建模型
         self.build_model()
+
+
+
 
 
     def create_network(self):
@@ -125,7 +130,8 @@ class OnehotCNN(CnnBaseClass):
         :return: cnn model network
         '''
 
-        from keras.layers import Input, Activation, Reshape, Dropout, Flatten
+
+        from keras.layers import Input, Activation, Reshape, Dropout, Flatten,Convolution2D
         from keras.models import Model
         from keras import backend as K
 
@@ -135,42 +141,47 @@ class OnehotCNN(CnnBaseClass):
         # 2. Reshape层： 将embedding转换4-dim的shape
         l2_reshape_output_shape = (1, l1_input_shape[0], l1_input_shape[1])
         l2_reshape= Reshape(l2_reshape_output_shape)(l1_input)
-        print(l2_reshape_output_shape)
-
+        # print(l2_reshape_output_shape)
         # 3. 第一层卷积层：多size卷积层（含1-max pooling），使用三种size.
-        l3_cnn_model,l3_cnn_model_out_shape = self.create_convolution_layer(
-            input_shape=l2_reshape_output_shape,
-            convolution_filter_type=self.conv1_filter_type,
-            input=l2_reshape,
-            name='conv1',
-        )
-        # l3_cnn_model = Dropout(0.5)(l3_cnn_model)
-        print(l3_cnn_model_out_shape)
 
-        # 4. 第二层卷积层：单size卷积层 和 max pooling 层
-        l4_conv, l4_conv_output_shape = self.create_convolution_layer(
-            input_shape=l3_cnn_model_out_shape,
-            input=l3_cnn_model,
+        l3_conv = self.create_convolution_layer(
+            input_layer=l2_reshape,
+            # input_shape= l2_reshape_output_shape,
+            convolution_filter_type=self.conv1_filter_type,
+            # name='conv1',
+        )
+
+
+
+        # l3_cnn_model = Dropout(0.5)(l3_cnn_model)
+
+        # # 4. 第二层卷积层：单size卷积层 和 max pooling 层
+        l4_conv = self.create_convolution_layer(
+            input_layer=l3_conv,
             convolution_filter_type=self.conv2_filter_type,
             name='conv2',
         )
-        print(l4_conv_output_shape)
+        # model = Model(input=[l1_input], output=[l4_conv])
+        # print(model.get_output_shape_at(-1))
+        # model.summary()
+        # quit()
+        # print(l4_conv_output_shape)
 
         # l4_conv = Dropout(0.5)(l4_conv)
         # 5. Flatten层： 卷积的结果进行拼接,变成一列隐含层
         l5_flatten = Flatten()(l4_conv)
         # 6. 全连接层
 
-        l6_full_connected_layer,l6_full_connected_layer_output_shape = self.create_full_connected_layer(
-            input=l5_flatten,
-            input_shape=np.prod(l4_conv_output_shape),
+        l6_full_connected_layer = self.create_full_connected_layer(
+            input_layer=l5_flatten,
+            # input_shape=np.prod([8,7,1]),
             units=self.full_connected_layer_units+[self.num_labels],
         )
 
-        # 8. output Dropout层
-        l8_dropout = Dropout(p=self.output_dropout_rate)(l6_full_connected_layer)
+        # 7. output Dropout层
+        l7_dropout = Dropout(p=self.output_dropout_rate)(l6_full_connected_layer)
         # 9. softmax 分类层
-        l9_softmax_output = Activation("softmax")(l8_dropout)
+        l9_softmax_output = Activation("softmax")(l7_dropout)
         model = Model(input=[l1_input], output=[l9_softmax_output])
 
         # softmax层的输出
@@ -207,8 +218,7 @@ class OnehotCNN(CnnBaseClass):
         return detail
 
 
-if __name__ == '__main__':
-    # 使用样例
+def test1():
     train_X = ['你好', '无聊', '测试句子', '今天天气不错', '我要买手机']
     trian_y = [1, 3, 2, 2, 3]
     test_X = ['句子', '你好', '你妹']
@@ -216,7 +226,7 @@ if __name__ == '__main__':
     sentence_padding_length = 8
     feature_encoder = FeatureEncoder(
         sentence_padding_length=sentence_padding_length,
-        verbose=0,
+        verbose=1,
         need_segmented=True,
         full_mode=True,
         replace_number=True,
@@ -225,15 +235,15 @@ if __name__ == '__main__':
         padding_mode='left',
         add_unkown_word=True,
         mask_zero=True,
-        to_onehot_array = True,
+        to_onehot_array=True,
     )
     train_X_feature = feature_encoder.fit_transform(train_X)
     test_X_feature = feature_encoder.transform(test_X)
     # print train_X_feature.shape
     # print map(feature_encoder.transform_sentence, test_X)
     # quit()
-    onehot_cnn = OnehotCNN(
-        rand_seed=0,
+    onehot_cnn = OnehotBowCNN(
+        rand_seed=10000,
         verbose=1,
         feature_encoder=feature_encoder,
         # optimizers='adadelta',
@@ -241,21 +251,26 @@ if __name__ == '__main__':
         input_length=sentence_padding_length,
         num_labels=5,
         conv1_filter_type=[
-            # [4, 2, -1, 'valid',(-2,1)],
-            #               [4, 3, -1, 'valid',(-2,1)],
-                          [4, 1, -1, 'bow',(-1,1),0.5],
-                          ],
+            [4, 2, 1, 'valid',(-2,1),0.5],
+            # [5, 2, -1, 'bow',(-2,1),0.5],
+            # [5, 2, -1, 'bow',(-2,1),0.5],
+            # [5, 8, -1, 'bow',(-1,1),0.],
+            [4, 2, 1, 'valid', (-2, 1), 0.1]
+
+        ],
         conv2_filter_type=[
-            # [16, 2, -1, 'valid',(-3,1)]
-                           ],
-        full_connected_layer_units=[50],
-        input_rate=0.5,
-        output_dropout_rate=0.5,
+            [32, 2, 2, 'valid',(-2,1),0.5],
+            # [32, 2, 2, 'valid',(-2,1),0.]
+        ],
+        full_connected_layer_units=[100,50],
+        output_dropout_rate=0.,
         nb_epoch=30,
         nb_batch=5,
         earlyStoping_patience=20,
         lr=1e-2,
     )
+    print('---\n判断是否同个模型，如果这里的数值一样，模型是一样的：%d\n---' % np.random.randint(0, 100))
+    # quit()
     onehot_cnn.print_model_descibe()
     # 训练模型
     # 从保存的pickle中加载模型
@@ -264,8 +279,8 @@ if __name__ == '__main__':
                    (test_X_feature, test_y))
     print(trian_y)
     # loss, train_accuracy = onehot_cnn.model.evaluate(train_X_feature, trian_y)
-
-    onehot_cnn.accuracy((train_X_feature, trian_y), transform_input=False)
+    y_pred, is_correct, accu, f1 = onehot_cnn.accuracy((train_X_feature, trian_y), transform_input=False)
+    print(y_pred)
     quit()
     print onehot_cnn.batch_predict(test_X_feature, transform_input=False)
     print onehot_cnn.batch_predict_bestn(test_X_feature, transform_input=False, bestn=2)
@@ -274,5 +289,10 @@ if __name__ == '__main__':
     onehot_cnn.accuracy((test_X, test_y), transform_input=True)
     # 保存模型
     # onehot_cnn.save_model('model/modelA.pkl')
-
     print onehot_cnn.predict('你好吗', transform_input=True)
+
+
+if __name__ == '__main__':
+    # 使用样例
+
+    test1()

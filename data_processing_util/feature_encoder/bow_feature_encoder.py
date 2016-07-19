@@ -10,24 +10,21 @@ import timeit
 from gensim.models import Word2Vec
 from gensim.corpora.dictionary import Dictionary
 from data_processing_util.jiebanlp.jieba_util import Jieba_Util
-from sklearn.feature_extraction.text import CountVectorizer,TfidfVectorizer
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 
 
 class FeatureEncoder(object):
     '''
+        ## 简介
         BOW特征编码器:基于sklearn的CountVectorizer,TfidfVectorizer实现，将句子转成 BOW（计算）或者TFIDF编码。
+        ## 目前支持两种粒度的切分： 字(word) 和 分词后的词(seg)
         包含以下主要函数：
             1. segment_sentence：对句子分词
-            2. build_dictionary：构建字典
-            3. sentence_to_index：将原始字符串句子转为字典索引列表
-            4. sentence_padding：将句子补齐
-            5. fit_transform：构建编码器并转换数据
-            6. transform_sentence：对句子编码
-            7. get_sentence_length：对句子长度计算
-            8. print_sentence_length_detail： 打印训练库句子详情.
-            9. print_model_descibe: 打印模型的详情.
-            10. sentence_index_to_bow: 将索引转为onehot数据
-            11. to_onehot_array： 生成训练库句子的onehot编码
+            2. transform_sentence：buildin，对一个句子编码
+            3. fit_transform：构建编码器并转换数据
+            4. transform： 转换数据
+            5. print_sentence_length_detail： todo,打印训练库句子详情.
+            6. print_model_descibe: 打印模型的详情.
 
     '''
 
@@ -38,12 +35,12 @@ class FeatureEncoder(object):
                  full_mode=True,
                  remove_stopword=True,
                  replace_number=True,
-                 lowercase = True,
-                 zhs2zht = True,
-                 remove_url = True,
+                 lowercase=True,
+                 zhs2zht=True,
+                 remove_url=True,
                  feature_method='bow',
-                 max_features = None,
-
+                 feature_type = 'seg',
+                 max_features=None,
 
                  ):
         '''
@@ -68,6 +65,10 @@ class FeatureEncoder(object):
             :type remove_url: bool
             :param feature_method: 模型设置选项,选择 bow或者tfidf 特征计算方法
             :type feature_method: str
+            :param feature_type: 模型设置选项,选择不同粒度的特征单位， 目前只支持 word或者seg。
+                - word：直接以字为单位，比如 我要买手机--->我 要 买 手 机
+                - seg：分词后的词单元为单位，比如 我要买手机--->我 要 买 手机
+            :type feature_type: str
             :param max_features: 模型设置选项,特征选择的最大特征词数
             :type max_features: int
 
@@ -83,18 +84,17 @@ class FeatureEncoder(object):
         self.zhs2zht = zhs2zht
         self.remove_url = remove_url
         self.feature_method = feature_method
+        self.feature_type = feature_type
         self.max_features = max_features
 
-
-
         # 检验参数合法性
-        assert self.feature_method in ['bow','tfidf'],'feature method 只能取: bow,tfidf'
-
+        assert self.feature_method in ['bow', 'tfidf'], 'feature method 只能取: bow,tfidf'
+        assert self.feature_type in ['word', 'seg'], 'feature type 只能取: word,seg'
 
         # 原始训练数据
-        self.train_data =None
+        self.train_data = None
         # 特征编码器:
-        self.feature_encoder=None
+        self.feature_encoder = None
         # 初始化jieba分词器
         if need_segmented:
             self.jieba_seg = Jieba_Util(verbose=self.verbose)
@@ -124,19 +124,39 @@ class FeatureEncoder(object):
         :rtype: str
         '''
 
-        segmented_sentence = self.jieba_seg.seg(sentence,
-                                                sep=' ',
-                                                full_mode=self.full_mode,
-                                                remove_stopword=self.remove_stopword,
-                                                replace_number=self.replace_number,
-                                                lowercase = self.lowercase,
-                                                zhs2zht= self.zhs2zht,
-                                                remove_url=self.remove_url,
-                                                )
+        if self.feature_type == 'seg':
+            segmented_sentence = self.jieba_seg.seg(
+                sentence,
+                sep=' ',
+                full_mode=self.full_mode,
+                remove_stopword=self.remove_stopword,
+                replace_number=self.replace_number,
+                lowercase=self.lowercase,
+                zhs2zht=self.zhs2zht,
+                remove_url=self.remove_url,
+            )
+        elif self.feature_type == 'word':
+            # 将句子切分为 以字为单元 以空格分割
+            # 1. 先使用jieba进行预处理，将数字替换等
+            segmented_sentence = self.jieba_seg.seg(
+                sentence,
+                sep='',
+                full_mode=self.full_mode,
+                remove_stopword=self.remove_stopword,
+                replace_number=self.replace_number,
+                lowercase=self.lowercase,
+                zhs2zht=self.zhs2zht,
+                remove_url=self.remove_url,
+            )
+            # 2. 按字切分
+            segmented_sentence = ' '.join(list(segmented_sentence))
+        else:
+            assert False, '不支持其他粒度的切分！'
+
         return segmented_sentence
 
 
-    def fit_transform(self,train_data=None):
+    def fit_transform(self, train_data=None):
         '''
             build feature encoder
                 1. 转换数据格式，并分词
@@ -152,26 +172,27 @@ class FeatureEncoder(object):
             print 'build feature encoder...'
 
         # -------------- region start : 1. 转换数据格式，并分词 -------------
-        if self.verbose > 2 :
+        if self.verbose > 2:
             logging.debug('-' * 20)
             print('-' * 20)
             logging.debug('1. 转换数据格式，并分词')
             print('1. 转换数据格式，并分词')
         # -------------- code start : 开始 -------------
 
-        assert train_data is not None,'没有输入训练数据!'
+        assert train_data is not None, '没有输入训练数据!'
 
         train_data = np.asarray(train_data)
         self.train_data = train_data
 
         if self.need_segmented:
             # 分词
-            train_segmented_sentences = map(self.segment_sentence,train_data)
+            train_segmented_sentences = map(self.segment_sentence, train_data)
+
         else:
             train_segmented_sentences = train_data
 
         # -------------- code start : 结束 -------------
-        if self.verbose > 2 :
+        if self.verbose > 2:
             logging.debug('-' * 20)
             print('-' * 20)
         # -------------- region end : 1. 转换数据格式，并分词 ---------------
@@ -197,7 +218,8 @@ class FeatureEncoder(object):
                                          # vocabulary = tfidf_vocabulary,
                                          max_features=self.max_features,
                                          )
-
+        else:
+            vectorizer = None
         train_features = vectorizer.fit_transform(train_segmented_sentences).toarray()
 
         self.train_features = train_features
@@ -218,8 +240,6 @@ class FeatureEncoder(object):
         :return: 补齐的字典索引
         :rtype: array-like
         '''
-
-
 
         # -------------- region start : 1. 分词 -------------
         if self.verbose > 1:
@@ -295,27 +315,30 @@ class FeatureEncoder(object):
                   'zhs2zht': self.zhs2zht,
                   'remove_url': self.remove_url,
                   'feature_method': self.feature_method,
+                  'feature_type': self.feature_type,
                   'max_features': self.max_features,
                   }
         pprint.pprint(detail)
         logging.debug(detail)
         return detail
 
+
 if __name__ == '__main__':
-    train_data = ['你好，你好', '測試句子','无聊', '测试句子', '今天天气不错','买手机','你要买手机']
-    test_data = ['你好，你好,si','无聊']
+    train_data = ['你好，你好', '測試句子', '无聊', '测试句子', '今天天气不错', '买手机', '你要买手机']
+    test_data = ['你好，你好,si', '无聊']
     feature_encoder = FeatureEncoder(
-                                     verbose=0,
-                                     need_segmented=True,
-                                     full_mode=True,
-                                     remove_stopword=True,
-                                     replace_number=True,
-                                     lowercase = True,
-                                     zhs2zht = True,
-                                     remove_url = True,
-                                     feature_method='bow',
-                                     max_features = 100,
-                                     )
+        verbose=0,
+        need_segmented=True,
+        full_mode=True,
+        remove_stopword=True,
+        replace_number=True,
+        lowercase=True,
+        zhs2zht=True,
+        remove_url=True,
+        feature_method='bow',
+        feature_type='seg',
+        max_features=100,
+    )
     train_features = feature_encoder.fit_transform(train_data=train_data)
     print ','.join(feature_encoder.vocabulary)
     print train_features
@@ -323,5 +346,3 @@ if __name__ == '__main__':
     print test_features
     print feature_encoder.vocabulary_size
     feature_encoder.print_model_descibe()
-
-
