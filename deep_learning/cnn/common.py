@@ -1,45 +1,19 @@
-# encoding=utf8
-
-__author__ = 'jdwang'
-__date__ = 'create date: 2016-06-23'
-__email__ = '383287471@qq.com'
+#encoding=utf8
+"""
+    Author:  'jdwang'
+    Date:    'create date: 2016-06-23'
+    Email:   '383287471@qq.com'
+    Describe:
+"""
 
 import logging
 import numpy as np
-from keras.engine.topology import Layer
-from keras import backend as K
-import theano.tensor as T
+
 from sklearn.metrics import f1_score
-
+import pickle as pickle
 from base.common_model_class import CommonModel
-
-
-class BowLayer(Layer):
-    def __init__(self, size, **kwargs):
-        self.size = size
-        super(BowLayer, self).__init__(**kwargs)
-
-    def build(self, input_shape):
-        self.num_batch = input_shape[0]
-        self.num_channel = input_shape[1]
-        self.input_length = input_shape[2]
-        self.input_dim = input_shape[3]
-        self.output_length = self.input_length - self.size + 1
-
-
-
-    def call(self, x, mask=None):
-        start = range(0, self.output_length)
-        # print(start)
-        y = []
-        for s in start:
-            # initial_weight_value =
-            y.append( K.sum(x[:, :, s:s + 2, :],axis=2))
-        y = K.concatenate(y,axis=2)
-        return y
-
-    def get_output_shape_for(self, input_shape):
-        return (input_shape[0], input_shape[1],self.output_length*input_shape[3])
+import sys
+sys.setrecursionlimit(15000)
 
 class CnnBaseClass(CommonModel):
     '''
@@ -136,46 +110,6 @@ class CnnBaseClass(CommonModel):
         # 构建模型
         # self.build_model()
 
-    def kmaxpooling(self, k=1):
-        """
-            分别定义 kmax 的output 和output shape
-            !但是k-max的实现用到Lambda,而pickle无法dump function对象,所以使用该模型的时候,保存不了模型,待解决.
-        :param k: 设置 k-max 层 的k
-        :type k: int
-        :return:  Lambda
-        """
-
-        def kmaxpooling_output(input_layer):
-            """
-                实现 k-max pooling
-                    1. 先排序
-                    2. 再分别取出前k个值
-            :param k: k top higiest value
-            :type k: int
-            :return:
-            """
-            input_layer = T.transpose(input_layer, axes=(0, 1, 3, 2))
-            sorted_values = T.argsort(input_layer, axis=3)
-            topmax_indexes = sorted_values[:, :, :, -k:]
-            # sort indexes so that we keep the correct order within the sentence
-            topmax_indexes_sorted = T.sort(topmax_indexes)
-
-            # given that topmax only gives the index of the third dimension, we need to generate the other 3 dimensions
-            dim0 = T.arange(0, input_layer.shape[0]).repeat(input_layer.shape[1] * input_layer.shape[2] * k)
-            dim1 = T.arange(0, input_layer.shape[1]).repeat(k * input_layer.shape[2]).reshape((1, -1)).repeat(input_layer.shape[0],
-                                                                                                  axis=0).flatten()
-            dim2 = T.arange(0, input_layer.shape[2]).repeat(k).reshape((1, -1)).repeat(input_layer.shape[0] * input_layer.shape[1],
-                                                                                 axis=0).flatten()
-            dim3 = topmax_indexes_sorted.flatten()
-            return T.transpose(
-                input_layer[dim0, dim1, dim2, dim3].reshape((input_layer.shape[0], input_layer.shape[1], input_layer.shape[2], k)),
-                axes=(0, 1, 3, 2))
-
-        def kmaxpooling_output_shape(input_shape):
-            return (input_shape[0], input_shape[1], k, input_shape[3])
-
-        from keras.layers import Lambda
-        return Lambda(kmaxpooling_output, kmaxpooling_output_shape, name='k-max')
 
     def create_multi_size_convolution_layer(self,
                                             # input_shape=None,
@@ -222,7 +156,6 @@ class CnnBaseClass(CommonModel):
             nb_filter, nb_row, nb_col, border_mode, k,_ = items
             m = self.create_one_size_convolution_layer(
                 input_layer,
-                # input_shape,
                 nb_filter,
                 nb_row,
                 nb_col,
@@ -248,59 +181,22 @@ class CnnBaseClass(CommonModel):
         # print(cnn_model.get_output_shape_at(-1))
         return output
 
-    def create_max_pooling_layer(self,input_layer, nb_row, nb_col, border_mode, k):
-        '''
-            创建 max pooling层，在原有基础上封装，使之可以创建更多样的max pooling
 
-        :param input_shape: 卷积层的输入
-        :param nb_row: 卷积核的行
-        :param nb_col: 卷积核的列
-        :param border_mode:
-        :param k:
-            - k[0]<0的话，使用普通 max pooling，size为( abs(k[0]) , k[1] )
-            - k[0]>1,使用k-max pooling
-            - k[0]==1,使用 1-max pooling
-        :return: Layer
-        '''
-        from keras.layers import MaxPooling2D
-        if k[0] == 1:
-            # 1-max
-            if border_mode == 'valid':
-                pool_size = (input_shape[1] - nb_row + 1, k[1])
-            elif border_mode == 'same':
-                pool_size = (input_shape[1], k[1])
-            else:
-                pool_size = (input_shape[1] - nb_row + 1, k[1])
-            output_layer = MaxPooling2D(pool_size=pool_size, name='1-max')
-        elif k[0] < 0:
-            output = MaxPooling2D(pool_size=(abs(k[0]), k[1]))(input_layer)
-        elif k[0] > 1:
-            # k-max pooling
-            # todo
-            # 因为kmax需要用到Lambda,而pickle无法dump function对象,所以使用该模型的时候,保存不了模型,待解决.
-            output_layer = self.kmaxpooling(k=k[0])
-        else:
-            output_layer = MaxPooling2D(pool_size=(2, 1))
-        return output
+    def create_one_size_convolution_layer(
+            self,
+            input_layer,
+            nb_filter,
+            nb_row,
+            nb_col,
+            border_mode,
+            k,
+            dropout_rate,
+            **kwargs
+    ):
 
-    def create_one_size_convolution_layer(self,
-                                          input_layer,
-                                          # input_shape,
-                                          nb_filter,
-                                          nb_row,
-                                          nb_col,
-                                          border_mode,
-                                          k,
-                                          dropout_rate,
-                                          **kwargs
-                                          ):
+        from keras.layers import Dropout, Reshape
+        from custom_layers import Convolution2DWrapper,MaxPooling2DWrapper,BowLayer
 
-        from keras.layers import Convolution2D, Dropout, Reshape
-
-        # if nb_col == -1:
-            # 如果nb_col 设为-1的话，则nb_col==input_shape[-1]
-            # nb_col = input_shape[-1]
-        # output_layer = Sequential(**kwargs)
         if border_mode == 'bow':
             # bow-convolution
             # todo
@@ -310,8 +206,7 @@ class CnnBaseClass(CommonModel):
             #                     )
             # print(conv_input_shape)
             # 卷积核的行设置为1
-            # bow_output = BowLayer(nb_row)(input_layer)
-            quit()
+            bow_output = BowLayer(nb_row)(input_layer)
             # output = Reshape(conv_input_shape)(bow_output)
             # nb_row = 1
             # output_layer.add(Convolution2D(nb_filter,
@@ -324,8 +219,7 @@ class CnnBaseClass(CommonModel):
             conv_output = None
         else:
             # 普通2D卷积
-            # conv_input_shape = input_shape
-            conv_output = Convolution2D(
+            conv_output = Convolution2DWrapper(
                 nb_filter,
                 nb_row,
                 nb_col,
@@ -334,12 +228,8 @@ class CnnBaseClass(CommonModel):
             )(input_layer)
 
         # 增加一个max pooling层
-        output = self.create_max_pooling_layer(conv_output,
-                                                       nb_row,
-                                                       nb_col,
-                                                       border_mode,
-                                                       k,
-                                                       )
+        output = MaxPooling2DWrapper(pool_size=k)(conv_output)
+
         if dropout_rate > 0:
             output= Dropout(p=dropout_rate)(output)
 
@@ -376,15 +266,13 @@ class CnnBaseClass(CommonModel):
         if len(convolution_filter_type) == 0:
             # 卷积类型为空，则直接返回
             output = input_layer
-            # output_shape = list(input_shape)
-            # output_shape.insert(0,None)
 
         elif len(convolution_filter_type) == 1:
             # 单size 卷积层
             nb_filter, nb_row, nb_col, border_mode, k,dropout_rate = convolution_filter_type[0]
+
             output = self.create_one_size_convolution_layer(
                 input_layer,
-                # input_shape,
                 nb_filter,
                 nb_row,
                 nb_col,
@@ -399,17 +287,11 @@ class CnnBaseClass(CommonModel):
             # output_layer.summary()
         else:
             # 多size 卷积层
-
-
             output = self.create_multi_size_convolution_layer(
-                # input_shape=input_shape,
                 input_layer = input_layer,
                 convolution_filter_type=convolution_filter_type,
                 **kwargs
             )
-
-            # output_shape = output_layer.get_output_shape_at(-1)
-            # output = output_layer([input_layer] * len(convolution_filter_type))
 
         return output
 
@@ -422,7 +304,6 @@ class CnnBaseClass(CommonModel):
         '''
             创建多层的全连接层
 
-        :param input_shape: 上一层的shape
         :param input_layer: 上一层
         :param units: 每一层全连接层的单元数，比如:[100,20]
         :type units: array-like
@@ -505,12 +386,12 @@ class CnnBaseClass(CommonModel):
         '''
 
         print('这是common类的create_network函数，如需创建特定任务的模型，请覆盖该方法！')
-        from keras.layers import Embedding, input_layer, Activation, Reshape, Dropout, Dense, Flatten
+        from keras.layers import Embedding,Input, Activation, Reshape, Dropout, Dense, Flatten
         from keras.models import  Model
         from keras import backend as K
 
         # 1. 输入层
-        model_input = input_layer((self.input_length,), dtype='int32')
+        model_input = Input((self.input_length,), dtype='int32')
         # 2. Embedding层
         if self.embedding_init_weight is None:
             weight = None
@@ -576,7 +457,7 @@ class CnnBaseClass(CommonModel):
         '''
             批量转换数据转换数据
 
-        :param train_data: array-like,2D
+        :param data: array-like,2D
         :return: feature
         '''
 
@@ -593,7 +474,7 @@ class CnnBaseClass(CommonModel):
         :type train_data: (array-like,array-like)
         :param validation_data: 验证数据,格式为:(validation_X, validation_y),如果模型要求输入多个输入，则validation_X中可用列表的方式存放多个输入即可,validation_y是一个整形列表.
         :type validation_data: (array-like,array-like)
-        :return: None
+        :return: train_loss,train_accuracy,val_loss,val_accuracy
         '''
         # -------------- region start : 1. 对数据进行格式转换,比如 转换 y 的格式:转成onehot编码 -------------
         if self.verbose > 1:
@@ -609,7 +490,7 @@ class CnnBaseClass(CommonModel):
 
         train_y = self.to_categorical(train_y)
         validation_y = self.to_categorical(validation_y)
-
+        # print(train_X.shape)
         # -------------- code start : 结束 -------------
         if self.verbose > 1:
             logging.debug('-' * 20)
@@ -635,14 +516,14 @@ class CnnBaseClass(CommonModel):
                        )
 
         train_loss,train_accuracy = self.model.evaluate(train_X, train_y,verbose=0)
-        train_loss,train_accuracy = self.model.evaluate(validation_X, validation_y,verbose=0)
+        val_loss,val_accuracy = self.model.evaluate(validation_X, validation_y,verbose=0)
 
         # -------------- code start : 结束 -------------
         if self.verbose > 1:
             logging.debug('-' * 20)
             print('-' * 20)
         # -------------- region end : 2. 模型训练 ---------------
-        return train_loss,train_accuracy
+        return train_loss,train_accuracy,val_loss,val_accuracy
 
     def save_model(self, path):
         '''
@@ -651,7 +532,10 @@ class CnnBaseClass(CommonModel):
         :type path: 模型保存的路径
         :return:
         '''
-        pickle.dump(self.model_output, open(path, 'wb'))
+
+        model_file = open(path, 'wb')
+        pickle.dump(self.feature_encoder, model_file)
+        pickle.dump(self.model,  model_file)
 
     def model_from_pickle(self, path):
         '''
@@ -659,7 +543,10 @@ class CnnBaseClass(CommonModel):
         :param path:
         :return: RandEmbeddingCNN object
         '''
-        self.model_output = pickle.load(file(path, 'rb'))
+
+        model_file = file(path, 'rb')
+        self.feature_encoder = pickle.load(model_file)
+        self.model = pickle.load(model_file)
 
     def predict(self, sentence, transform_input=False):
         '''
@@ -667,10 +554,8 @@ class CnnBaseClass(CommonModel):
 
         :param sentence: 测试句子,原始字符串句子即可，内部已实现转换成字典索引的形式
         :type sentence: str
-        :param transform: 是否转换句子，如果为True,输入原始字符串句子即可，内部已实现转换成字典索引的形式。
-        :type transform: bool
-        :param bestn: 取结果的 best n个，默认只取 best 1。
-        :type bestn: bool
+        :param transform_input: 是否转换句子，如果为True,输入原始字符串句子即可，内部已实现转换成字典索引的形式。
+        :type transform_input: bool
         '''
 
         y_pred = self.batch_predict([sentence], transform_input)[0]
@@ -683,8 +568,8 @@ class CnnBaseClass(CommonModel):
 
         :param sentences: 测试句子,
         :type sentences: array-like
-        :param transform: 是否转换句子，如果为True,输入原始字符串句子即可，内部已实现转换成字典索引的形式。
-        :type transform: bool
+        :param transform_input: 是否转换句子，如果为True,输入原始字符串句子即可，内部已实现转换成字典索引的形式。
+        :type transform_input: bool
         :param bestn: 预测，并取出bestn个结果。
         :type bestn: int
         '''
@@ -705,8 +590,8 @@ class CnnBaseClass(CommonModel):
 
         :param sentences: 测试句子,
         :type sentences: array-like
-        :param transform: 是否转换句子，如果为True,输入原始字符串句子即可，内部已实现转换成字典索引的形式。
-        :type transform: bool
+        :param transform_input: 是否转换句子，如果为True,输入原始字符串句子即可，内部已实现转换成字典索引的形式。
+        :type transform_input: bool
         '''
 
         y_pred, _ = self.batch_predict_bestn(sentences, transform_input, 1)
@@ -715,7 +600,7 @@ class CnnBaseClass(CommonModel):
         return y_pred
 
     def accuracy(self, test_data, transform_input=False):
-        '''
+        """
             预测,对输入的句子进行预测,并给出准确率
                 1. 转换格式
                 2. 批量预测
@@ -726,15 +611,14 @@ class CnnBaseClass(CommonModel):
         :type sentence_index: array-like
         :return: y_pred,is_correct,accu,f1,test_loss
         :rtype:tuple
-        '''
+        """
+
         # -------------- region start : 1. 转换格式 -------------
         if self.verbose > 1:
             logging.debug('-' * 20)
-            print
-            '-' * 20
+            print('-' * 20)
             logging.debug('1. 转换格式')
-            print
-            '1. 转换格式'
+            print('1. 转换格式')
         # -------------- code start : 开始 -------------
 
         test_X, test_y = test_data
@@ -791,8 +675,7 @@ class CnnBaseClass(CommonModel):
         # -------------- code start : 结束 -------------
         if self.verbose > 1:
             logging.debug('-' * 20)
-            print
-            '-' * 20
+            print('-' * 20)
         # -------------- region end : 3 & 4. 计算准确率和F1值 ---------------
 
         return y_pred, is_correct, accu, f1,test_loss

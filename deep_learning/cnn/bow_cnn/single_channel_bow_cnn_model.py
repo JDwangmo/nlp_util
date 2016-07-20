@@ -8,20 +8,29 @@
 from __future__ import print_function
 
 import logging
-import numpy as np
 from deep_learning.cnn.common import CnnBaseClass
 from data_processing_util.feature_encoder.bow_feature_encoder import FeatureEncoder
 
 class SingleChannelBowCNN(CnnBaseClass):
     """
         ## 简介：
-        CNN(multi-channel BOW)模型，以 BOW 计数向量或 tfidf向量作为输入，以CNN为分类模型。
-        该模型为双通道BOW的CNN模型，通道1为字的BOW向量通道，通道2为词（经过分词）的 BOW
-        模型架构为：
 
+        1. CNN(multi-channel BOW)模型,CNN-BOW(L)单通道模型，以 BOW 计数向量或 tfidf向量作为输入，以CNN为分类模型。
+
+        2. BOW的切分粒度(feature type)有三种选择：
+            - 字(word),
+            - 词(seg),
+            - 字词组合(word_seg)
+
+        3. 模型架构为：
             1. 输入层： shape 为： (1, vocabulary_size ,1)
-            2. 多size的卷积和pooling层：
-            3.
+            2. reshape层：
+            3. 第一层卷积层：多核卷积层:
+            4. 第二层卷积层：单核卷积层
+            5. flatten层
+            6. 全连接层
+            7. 输出Dropout层
+            8. softmax分类层
 
     """
 
@@ -67,7 +76,7 @@ class SingleChannelBowCNN(CnnBaseClass):
                 1. 输入层：( self.input_length, )
                 2. reshape层：
                 3. 第一层卷积层：多核卷积层:
-                4. 单核卷积层
+                4. 第二层卷积层：单核卷积层
                 5. flatten层
                 6. 全连接层
                 7. 输出Dropout层
@@ -94,14 +103,14 @@ class SingleChannelBowCNN(CnnBaseClass):
             convolution_filter_type=self.l1_conv_filter_type,
             )
 
-        # model = Model(input=l1_input, output=[l2_conv_word])
+        # model = Model(input=l1_input, output=[l3_conv])
         # model.summary()
         # quit()
         # 4. 单核卷积层
         l4_conv = self.create_convolution_layer(
             input_layer=l3_conv,
             convolution_filter_type=self.l2_conv_filter_type,
-            )
+        )
         # 5. flatten层
         l5_flatten = Flatten()(l4_conv)
         # 6. 全连接层
@@ -177,11 +186,14 @@ if __name__ == '__main__':
         feature_encoder=feature_encoder,
         num_labels=4,
         input_length=feature_encoder.vocabulary_size,
-        l1_conv_filter_type=[[5, 2, 1, 'valid',(-2,1),0.5],
-                             [5, 4, 1, 'valid',(-2,1),0.],
-                             [5, 6, 1, 'valid',(-2,1),0.],
-                             ],
-        l2_conv_filter_type = [[3, 3, 1, 'valid',(-2,1),0.]],
+        l1_conv_filter_type=[
+            [5, 2, 1, 'valid',(-2,1),0.5],
+            # [5, 4, 1, 'valid',(-2,1),0.],
+            # [5, 6, 1, 'valid',(-2,1),0.],
+        ],
+        l2_conv_filter_type = [
+            [3, 2, 1, 'valid',(-1,1),0.]
+        ],
         full_connected_layer_units = [50,100],
         output_dropout_rate=0.5,
         nb_epoch=30,
@@ -190,6 +202,7 @@ if __name__ == '__main__':
         batch_size=2,
     )
     bow_cnn.print_model_descibe()
+    # bow_cnn.model_from_pickle('model/AA.pkl')
     print(bow_cnn.fit(
         (train_X_feature, trian_y),
         (test_X_feature, test_y)))
@@ -201,6 +214,8 @@ if __name__ == '__main__':
 
 
     print(bow_cnn.batch_predict(test_X_feature, False))
+
+    bow_cnn.save_model('model/AA.pkl')
 
 
 

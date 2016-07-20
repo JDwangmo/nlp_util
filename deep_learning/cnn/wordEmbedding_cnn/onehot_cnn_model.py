@@ -7,11 +7,7 @@ __email__ = '383287471@qq.com'
 import numpy as np
 from deep_learning.cnn.common import CnnBaseClass
 import logging
-import cPickle as pickle
 from data_processing_util.feature_encoder.onehot_feature_encoder import FeatureEncoder
-import theano.tensor as T
-from sklearn.metrics import f1_score
-
 
 
 class OnehotCNN(CnnBaseClass):
@@ -40,8 +36,8 @@ class OnehotCNN(CnnBaseClass):
                  optimizers='sgd',
                  input_length=None,
                  num_labels=None,
-                 conv1_filter_type=None,
-                 conv2_filter_type=None,
+                 l1_conv_filter_type=None,
+                 l2_conv_filter_type=None,
                  output_dropout_rate=0.5,
                  nb_epoch=100,
                  earlyStoping_patience=50,
@@ -63,7 +59,7 @@ class OnehotCNN(CnnBaseClass):
         :type input_length: int
         :param num_labels: cnn设置选项,最后输出层的大小,即分类类别的个数.
         :type num_labels: int
-        :param conv1_filter_type: cnn设置选项,卷积层的类型.
+        :param l1_conv_filter_type: cnn设置选项,卷积层的类型.
 
             for example:每个列表代表一种类型(size)的卷积核,
                 conv1_filter_type = [[100,2,word_embedding_dim,'valid',(1,1)],
@@ -71,7 +67,7 @@ class OnehotCNN(CnnBaseClass):
                                     [100,6,word_embedding_dim,'valid',(1,1)],
                                    ]
 
-        :type conv1_filter_type: array-like
+        :type l1_conv_filter_type: array-like
         :param output_dropout_rate: cnn设置选项,dropout层的的dropout rate,对输出层进入dropuout,如果为0,则不dropout
         :type output_dropout_rate: float
         :param nb_epoch: cnn设置选项,cnn迭代的次数.
@@ -92,8 +88,8 @@ class OnehotCNN(CnnBaseClass):
         )
         self.input_length = input_length
 
-        self.conv1_filter_type = conv1_filter_type
-        self.conv2_filter_type = conv2_filter_type
+        self.l1_conv_filter_type = l1_conv_filter_type
+        self.l2_conv_filter_type = l2_conv_filter_type
         self.full_connected_layer_units = full_connected_layer_units
         self.output_dropout_rate = output_dropout_rate
         self.kwargs = kwargs
@@ -130,44 +126,35 @@ class OnehotCNN(CnnBaseClass):
         # 2. Reshape层： 将embedding转换4-dim的shape
         l2_reshape_output_shape = (1, l1_input_shape[0], l1_input_shape[1])
         l2_reshape= Reshape(l2_reshape_output_shape)(l1_input)
-        print(l2_reshape_output_shape)
-        # 3. 第一层卷积层：多size卷积层（含1-max pooling），使用三种size.
-        l3_cnn_model,l3_cnn_model_out_shape = self.create_convolution_layer(
-            input_shape=l2_reshape_output_shape,
-            convolution_filter_type=self.conv1_filter_type,
-            input=l2_reshape,
-        )
-        l3_cnn_model = Dropout(0.5)(l3_cnn_model)
-        print(l3_cnn_model_out_shape)
-        # 4. 第二层卷积层：单size卷积层 和 max pooling 层
-        l4_conv, l4_conv_output_shape = self.create_convolution_layer(
-            input_shape=l3_cnn_model_out_shape,
-            input=l3_cnn_model,
-            convolution_filter_type=self.conv2_filter_type,
-        )
-        print(l4_conv_output_shape)
 
-        l4_conv = Dropout(0.5)(l4_conv)
+        # 3. 第一层卷积层：多size卷积层（含1-max pooling），使用三种size.
+        l3_conv = self.create_convolution_layer(
+            input_layer=l2_reshape,
+            convolution_filter_type=self.l1_conv_filter_type,
+        )
+        # 4. 第二层卷积层：单size卷积层 和 max pooling 层
+        l4_conv = self.create_convolution_layer(
+            input_layer=l3_conv,
+            convolution_filter_type=self.l2_conv_filter_type,
+        )
+        # model = Model(input=l1_input, output=[l3_conv])
+        # model.summary()
+        # quit()
         # 5. Flatten层： 卷积的结果进行拼接,变成一列隐含层
         l5_flatten = Flatten()(l4_conv)
         # 6. 全连接层
-
-        l6_full_connected_layer,l6_full_connected_layer_output_shape = self.create_full_connected_layer(
-            input=l5_flatten,
-            input_shape=np.prod(l4_conv_output_shape),
-            units=self.full_connected_layer_units+[self.num_labels],
+        l6_full_connected_layer = self.create_full_connected_layer(
+            input_layer=l5_flatten,
+            units=self.full_connected_layer_units + [self.num_labels]
         )
 
-        # 8. output Dropout层
-        l8_dropout = Dropout(p=self.output_dropout_rate)(l6_full_connected_layer)
-        # 9. softmax 分类层
-        l9_softmax_output = Activation("softmax")(l8_dropout)
-        model = Model(input=[l1_input], output=[l9_softmax_output])
+        # 7. 输出Dropout层
+        l6_dropout = Dropout(p=self.output_dropout_rate)(l6_full_connected_layer)
 
-        # softmax层的输出
-        self.model_output = K.function([l1_input, K.learning_phase()], [l9_softmax_output])
-        # 卷积层的输出，可以作为深度特征
-        # self.conv1_feature_output = K.function([l1_input, K.learning_phase()], [l6_flatten])
+        # 8. softmax分类层
+        l8_softmax_output = Activation("softmax")(l6_dropout)
+
+        model = Model(input=l1_input, output=[l8_softmax_output])
 
         if self.verbose > 0:
             model.summary()
@@ -184,8 +171,8 @@ class OnehotCNN(CnnBaseClass):
                   'input_dim': self.feature_encoder.vocabulary_size,
                   'input_length': self.input_length,
                   'num_labels': self.num_labels,
-                  'conv1_filter_type': self.conv1_filter_type,
-                  'conv2_filter_type': self.conv2_filter_type,
+                  'conv1_filter_type': self.l1_conv_filter_type,
+                  'conv2_filter_type': self.l2_conv_filter_type,
                   'full_connected_layer_units':self.full_connected_layer_units,
                   'output_dropout_rate': self.output_dropout_rate,
                   'nb_epoch': self.nb_epoch,
@@ -231,15 +218,18 @@ if __name__ == '__main__':
         optimizers='sgd',
         input_length=sentence_padding_length,
         num_labels=5,
-        conv1_filter_type=[[4, 2, -1, 'valid',(-2,1)],
-                          [4, 3, -1, 'valid',(-2,1)],
-                          [4, 4, -1, 'valid',(-2,1)],
-                          ],
-        conv2_filter_type=[[16, 2, -1, 'valid',(-3,1)]],
+        l1_conv_filter_type=[
+            [5, 2, 1, 'valid', (2, 1), 0.5],
+            # [5, 4, 1, 'valid', (-2, 1), 0.],
+            # [5, 6, 1, 'valid', (-2, 1), 0.],
+        ],
+        l2_conv_filter_type=[
+            [16, 2, -1, 'valid',(2,1),0.5]
+        ],
         full_connected_layer_units=[50],
         embedding_dropout_rate=0.5,
         output_dropout_rate=0.5,
-        nb_epoch=100,
+        nb_epoch=30,
         nb_batch=5,
         earlyStoping_patience=20,
         lr=1e-2,
