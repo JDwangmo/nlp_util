@@ -65,9 +65,10 @@ class FeatureEncoder(object):
             :type remove_url: bool
             :param feature_method: 模型设置选项,选择 bow或者tfidf 特征计算方法
             :type feature_method: str
-            :param feature_type: 模型设置选项,选择不同粒度的特征单位， 目前只支持 word或者seg。
+            :param feature_type: 模型设置选项,选择不同粒度的特征单位， 目前只支持 word,seg和 word_seg。
                 - word：直接以字为单位，比如 我要买手机--->我 要 买 手 机
                 - seg：分词后的词单元为单位，比如 我要买手机--->我 要 买 手机
+                - word_seg：分词后的字和词为单位，比如 我要买手机--->我 要 买 手机 手 机
             :type feature_type: str
             :param max_features: 模型设置选项,特征选择的最大特征词数
             :type max_features: int
@@ -89,7 +90,7 @@ class FeatureEncoder(object):
 
         # 检验参数合法性
         assert self.feature_method in ['bow', 'tfidf'], 'feature method 只能取: bow,tfidf'
-        assert self.feature_type in ['word', 'seg'], 'feature type 只能取: word,seg'
+        assert self.feature_type in ['word', 'seg','word_seg'], 'feature type 只能取: word,seg和word_seg'
 
         # 原始训练数据
         self.train_data = None
@@ -150,6 +151,23 @@ class FeatureEncoder(object):
             )
             # 2. 按字切分
             segmented_sentence = ' '.join(list(segmented_sentence))
+        elif self.feature_type == 'word_seg':
+            # 将句子切分为 以字和词为单元，相同则去重 以空格分割
+            # 1. 先使用jieba进行预处理，将数字替换等
+            segmented_sentence = self.jieba_seg.seg(
+                sentence,
+                sep=' ',
+                full_mode=self.full_mode,
+                remove_stopword=self.remove_stopword,
+                replace_number=self.replace_number,
+                lowercase=self.lowercase,
+                zhs2zht=self.zhs2zht,
+                remove_url=self.remove_url,
+            )
+            # 2. 按字切分
+            seg = list(segmented_sentence.replace(' ',''))
+            word = segmented_sentence.split()
+            segmented_sentence = ' '.join(set(seg+word))
         else:
             assert False, '不支持其他粒度的切分！'
 
@@ -323,9 +341,30 @@ class FeatureEncoder(object):
         return detail
 
 
-if __name__ == '__main__':
-    train_data = ['你好，你好', '測試句子', '无聊', '测试句子', '今天天气不错', '买手机', '你要买手机']
-    test_data = ['你好，你好,si', '无聊']
+def test_word_bow_feature():
+    feature_encoder = FeatureEncoder(
+        verbose=0,
+        need_segmented=True,
+        full_mode=True,
+        remove_stopword=True,
+        replace_number=True,
+        lowercase=True,
+        zhs2zht=True,
+        remove_url=True,
+        feature_method='bow',
+        feature_type='word',
+        max_features=100,
+    )
+    train_features = feature_encoder.fit_transform(train_data=train_data)
+    print ','.join(feature_encoder.vocabulary)
+    print train_features
+    test_features = feature_encoder.transform(test_data)
+    print test_features
+    print feature_encoder.vocabulary_size
+    feature_encoder.print_model_descibe()
+
+
+def test_seg_bow_feature():
     feature_encoder = FeatureEncoder(
         verbose=0,
         need_segmented=True,
@@ -346,3 +385,37 @@ if __name__ == '__main__':
     print test_features
     print feature_encoder.vocabulary_size
     feature_encoder.print_model_descibe()
+
+def test_word_seg_bow_feature():
+    feature_encoder = FeatureEncoder(
+        verbose=0,
+        need_segmented=True,
+        full_mode=True,
+        remove_stopword=True,
+        replace_number=True,
+        lowercase=True,
+        zhs2zht=True,
+        remove_url=True,
+        feature_method='bow',
+        feature_type='word_seg',
+        max_features=100,
+    )
+    train_features = feature_encoder.fit_transform(train_data=train_data)
+    print ','.join(feature_encoder.vocabulary)
+    print train_features
+    test_features = feature_encoder.transform(test_data)
+    print test_features
+    print feature_encoder.vocabulary_size
+    feature_encoder.print_model_descibe()
+
+
+
+if __name__ == '__main__':
+    train_data = ['你好，你好', '測試句子', '无聊', '测试句子', '今天天气不错', '买手机', '你要买手机']
+    test_data = ['你好，你好,si', '无聊']
+    # 测试字的bow向量编码
+    # test_word_bow_feature()
+    # 测试词的bow向量编码
+    # test_seg_bow_feature()
+    # 测试以字和词为单位的向量编码
+    test_word_seg_bow_feature()

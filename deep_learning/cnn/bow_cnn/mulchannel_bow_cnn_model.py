@@ -9,7 +9,6 @@ from __future__ import print_function
 
 import logging
 import numpy as np
-import theano.tensor as T
 from deep_learning.cnn.common import CnnBaseClass
 from data_processing_util.feature_encoder.bow_feature_encoder import FeatureEncoder
 
@@ -29,7 +28,8 @@ class MultiChannelBowCNN(CnnBaseClass):
     def __init__(self,
                  rand_seed=1337,
                  verbose=0,
-                 feature_encoder=None,
+                 seg_feature_encoder=None,
+                 word_feature_encoder=None,
                  optimizers='sgd',
                  num_labels=None,
                  nb_epoch=100,
@@ -48,7 +48,7 @@ class MultiChannelBowCNN(CnnBaseClass):
         super(MultiChannelBowCNN, self).__init__(
             rand_seed,
             verbose,
-            feature_encoder,
+            None,
             optimizers,
             0,
             num_labels,
@@ -56,6 +56,8 @@ class MultiChannelBowCNN(CnnBaseClass):
             earlyStoping_patience,
             **kwargs)
 
+        self.word_feature_encoder = word_feature_encoder
+        self.seg_feature_encoder = seg_feature_encoder
         self.word_input_length = word_input_length
         self.seg_input_length = seg_input_length
         self.l1_conv_word_filter_type = l1_conv_word_filter_type
@@ -87,29 +89,17 @@ class MultiChannelBowCNN(CnnBaseClass):
         # -------------- code start : 开始 -------------
 
 
-        train_X1, train_X2, train_y = train_data
+        [train_X1, train_X2], train_y = train_data
         train_X1 = np.asarray(train_X1)
-        train_X1 = train_X1.reshape(train_X1.shape[0],
-                                    1,
-                                    train_X1.shape[1],
-                                    1)
+
         train_X2 = np.asarray(train_X2)
-        train_X2 = train_X2.reshape(train_X2.shape[0],
-                                    1,
-                                    train_X2.shape[1],
-                                    1)
+
         # print(train_X.shape)
-        validation_X1, validation_X2, validation_y = validation_data
+        [validation_X1, validation_X2], validation_y = validation_data
         validation_X1 = np.asarray(validation_X1)
-        validation_X1 = validation_X1.reshape(validation_X1.shape[0],
-                                              1,
-                                              validation_X1.shape[1],
-                                              1)
+
         validation_X2 = np.asarray(validation_X2)
-        validation_X2 = validation_X2.reshape(validation_X2.shape[0],
-                                              1,
-                                              validation_X2.shape[1],
-                                              1)
+
 
         return super(MultiChannelBowCNN,self).fit(
             ([train_X1,train_X2],train_y),
@@ -119,22 +109,26 @@ class MultiChannelBowCNN(CnnBaseClass):
     def create_network(self):
 
 
-        from keras.layers import Input, Activation, merge, Dense, Flatten, Dropout
+        from keras.layers import Input, Activation, merge, Flatten, Dropout,Reshape
         from keras.models import Model
         from keras import backend as K
 
         # 1. 输入层：(1,self.input_length,1)
-        l1_input_word_shape = (1, self.word_input_length, 1)
-        l1_input_seg_shape = (1, self.seg_input_length, 1)
+        l1_input_word_shape = ( self.word_input_length, )
+        l1_input_seg_shape = ( self.seg_input_length, )
 
         l1_input_word = Input(shape=l1_input_word_shape)
         l1_input_seg = Input(shape=l1_input_seg_shape)
 
-        l2_conv_word = self.create_convolution_layer(l1_input_word,
+        # 2. reshape层
+        l2_reshape_word = Reshape((1,l1_input_word_shape[0],1))(l1_input_word)
+        l2_reshape_seg = Reshape((1,l1_input_seg_shape[0],1))(l1_input_seg)
+
+        l2_conv_word = self.create_convolution_layer(l2_reshape_word,
                                                      self.l1_conv_word_filter_type
                                                      )
 
-        l2_conv_seg = self.create_convolution_layer(l1_input_seg,
+        l2_conv_seg = self.create_convolution_layer(l2_reshape_seg,
                                                  self.l1_conv_seg_filter_type
                                                  )
         l3_merge = merge((l2_conv_word,l2_conv_seg),mode='concat',concat_axis=2)
@@ -157,26 +151,51 @@ class MultiChannelBowCNN(CnnBaseClass):
         l8_softmax_output = Activation("softmax")(l6_dropout)
 
         model = Model(input=[l1_input_word,l1_input_seg], output=[l8_softmax_output])
-        model.summary()
+
         # softmax层的输出
-        self.model_output = K.function([l1_input_word,l1_input_seg, K.learning_phase()], [l8_softmax_output])
+        # self.model_output = K.function([l1_input_word,l1_input_seg, K.learning_phase()], [l8_softmax_output])
+        if self.verbose>0:
+            model.summary()
 
         return model
 
-    def accuracy(self, test_data, transform_input=False):
-        test_X1,test_X2, test_y = test_data
-        # if transform_input:
-        #     test_X = self.transform(test_X)
-        test_X1 = np.asarray(test_X1)
-        test_X1 = test_X1.reshape(test_X1.shape[0],1,test_X1.shape[1],1)
-        test_X2 = np.asarray(test_X2)
-        test_X2 = test_X2.reshape(test_X2.shape[0],1,test_X2.shape[1],1)
+    def transform(self, data):
+        '''
+            批量转换数据转换数据
 
-        test_y = self.to_categorical(test_y)
+        :param train_data: array-like,2D
+        :return: feature
+        '''
 
-        result = self.model.evaluate([test_X1, test_X2], test_y)
-        print(result)
-        return result
+        word_feature = self.word_feature_encoder.transform(data)
+        seg_feature = self.seg_feature_encoder.transform(data)
+        # print(word_feature)
+        # print(seg_feature)
+        return [word_feature,seg_feature]
+
+
+    def print_model_descibe(self):
+        import pprint
+        detail = {'rand_seed': self.rand_seed,
+                  'verbose': self.verbose,
+                  'optimizers': self.optimizers,
+                  'input_length': self.input_length,
+                  'num_labels': self.num_labels,
+                  'nb_epoch': self.nb_epoch,
+                  'earlyStoping_patience': self.earlyStoping_patience,
+                  'lr': self.lr,
+                  'batch_size': self.batch_size,
+                  'seg_input_length': self.seg_input_length,
+                  'word_input_length': self.word_input_length,
+                  'l2_conv_filter_type':self.l2_conv_filter_type,
+                  'l1_conv_word_filter_type':self.l1_conv_word_filter_type,
+                  'l1_conv_seg_filter_type':self.l1_conv_seg_filter_type,
+                  'full_connected_layer_units':self.full_connected_layer_units,
+                  'output_dropout_rate': self.output_dropout_rate,
+                  }
+        pprint.pprint(detail)
+        logging.debug(detail)
+        return detail
 
 
 if __name__ == '__main__':
@@ -226,7 +245,7 @@ if __name__ == '__main__':
     print(train_word_X_feature)
     print(test_word_X_feature)
     bow_cnn = MultiChannelBowCNN(
-        rand_seed=0,
+        rand_seed=1337,
         verbose=1,
         seg_feature_encoder=seg_feature_encoder,
         word_feature_encoder=word_feature_encoder,
@@ -250,11 +269,18 @@ if __name__ == '__main__':
         batch_size=2,
     )
     bow_cnn.print_model_descibe()
-
     print(bow_cnn.fit(
-        (train_word_X_feature,train_seg_X_feature,trian_y),
-        (test_word_X_feature,test_seg_X_feature,test_y)))
+        ([train_word_X_feature,train_seg_X_feature],trian_y),
+        ([test_word_X_feature,test_seg_X_feature],test_y)))
 
-    bow_cnn.accuracy((test_word_X_feature,test_seg_X_feature,test_y))
+
+    print(bow_cnn.predict('你好',transform_input=True))
+    bow_cnn.accuracy(([test_word_X_feature,test_seg_X_feature],test_y))
+    print(bow_cnn.batch_predict(test_X,True))
+
+
+    print(bow_cnn.batch_predict([test_word_X_feature,test_seg_X_feature],False))
+
+
 
 

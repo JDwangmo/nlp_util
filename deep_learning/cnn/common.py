@@ -633,7 +633,10 @@ class CnnBaseClass(CommonModel):
                        batch_size=self.batch_size,
                        callbacks=[self.early_stop]
                        )
+
         train_loss,train_accuracy = self.model.evaluate(train_X, train_y,verbose=0)
+        train_loss,train_accuracy = self.model.evaluate(validation_X, validation_y,verbose=0)
+
         # -------------- code start : 结束 -------------
         if self.verbose > 1:
             logging.debug('-' * 20)
@@ -687,12 +690,13 @@ class CnnBaseClass(CommonModel):
         '''
         if transform_input:
             sentences = self.transform(sentences)
-        sentences = np.asarray(sentences)
+        # sentences = np.asarray(sentences)
         # assert len(sentences.shape) == 2, 'shape必须是2维的！'
 
-        y_pred_prob = self.model_output([sentences, 0])[0]
+        y_pred_prob = self.model.predict(sentences)
         y_pred_result = y_pred_prob.argsort(axis=-1)[:, ::-1][:, :bestn]
         y_pred_score = np.asarray([score[index] for score, index in zip(y_pred_prob, y_pred_result)])
+
         return y_pred_result, y_pred_score
 
     def batch_predict(self, sentences, transform_input=False):
@@ -720,7 +724,7 @@ class CnnBaseClass(CommonModel):
 
         :param sentence_index: 测试句子,以字典索引的形式
         :type sentence_index: array-like
-        :return: y_pred,is_correct,accu,f1
+        :return: y_pred,is_correct,accu,f1,test_loss
         :rtype:tuple
         '''
         # -------------- region start : 1. 转换格式 -------------
@@ -736,7 +740,7 @@ class CnnBaseClass(CommonModel):
         test_X, test_y = test_data
         if transform_input:
             test_X = self.transform(test_X)
-        test_X = np.asarray(test_X)
+        # test_X = np.asarray(test_X)
 
         # -------------- code start : 结束 -------------
         if self.verbose > 1:
@@ -747,20 +751,22 @@ class CnnBaseClass(CommonModel):
         # -------------- region start : 2. 批量预测 -------------
         if self.verbose > 1:
             logging.debug('-' * 20)
-            print
-            '-' * 20
+            print('-' * 20)
             logging.debug('2. 批量预测')
-            print
-            '2. 批量预测'
+            print('2. 批量预测')
         # -------------- code start : 开始 -------------
 
         y_pred = self.batch_predict(test_X)
+        test_loss,test_accuracy = self.model.evaluate(
+            test_X,
+            self.to_categorical(test_y),
+            verbose=0,
+        )
 
         # -------------- code start : 结束 -------------
         if self.verbose > 1:
             logging.debug('-' * 20)
-            print
-            '-' * 20
+            print('-' * 20)
         # -------------- region end : 2. 批量预测 ---------------
 
         # -------------- region start : 3 & 4. 计算准确率和F1值 -------------
@@ -777,7 +783,7 @@ class CnnBaseClass(CommonModel):
         accu = sum(is_correct) / (1.0 * len(test_y))
         logging.debug('准确率为:%f' % (accu))
         print('准确率为:%f' % (accu))
-
+        print('测试误差为：%f'%test_loss)
         f1 = f1_score(test_y, y_pred.tolist(), average=None)
         logging.debug('F1为：%s' % (str(f1)))
         print('F1为：%s' % (str(f1)))
@@ -789,7 +795,7 @@ class CnnBaseClass(CommonModel):
             '-' * 20
         # -------------- region end : 3 & 4. 计算准确率和F1值 ---------------
 
-        return y_pred, is_correct, accu, f1
+        return y_pred, is_correct, accu, f1,test_loss
 
     def print_model_descibe(self):
         import pprint
