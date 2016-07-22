@@ -298,6 +298,7 @@ class BowRandomForest(CommonModel):
         word2vec_to_solve_oov = kwargs['word2vec_to_solve_oov']
         word2vec_model_file_path = kwargs['word2vec_model_file_path']
         n_estimators = kwargs['n_estimators']
+        fout = open(result_file_path,'w')
 
         from data_processing_util.feature_encoder.bow_feature_encoder import FeatureEncoder
         from data_processing_util.cross_validation_util import transform_cv_data
@@ -318,20 +319,25 @@ class BowRandomForest(CommonModel):
             word2vec_model_file_path=word2vec_model_file_path,
         )
 
-        all_cv_data = transform_cv_data(feature_encoder, cv_data, test_data)
+        all_cv_data = transform_cv_data(feature_encoder, cv_data, test_data,**kwargs)
 
         for estimators in n_estimators:
             print('K折交叉验证开始...')
+            fout.write('K折交叉验证开始...\n')
 
             counter = 0
             ave_acc = []
             for dev_X, dev_y, val_X, val_y in all_cv_data:
                 print('-' * 80)
+                fout.write('-' * 80+'\n')
+
                 if counter == 0:
                     # 第一个数据是训练，之后是交叉验证
                     print('训练:')
+                    fout.write('训练:\n')
                 else:
                     print('第%d个验证' % counter)
+                    fout.write('第%d个验证\n' % counter)
 
                 bow_rf = BowRandomForest(
                     # rand_seed=seed,
@@ -343,16 +349,20 @@ class BowRandomForest(CommonModel):
                 )
                 bow_rf.fit(train_data=(dev_X, dev_y),
                            validation_data=(val_X, val_y))
-                bow_rf.accuracy((dev_X, dev_y), False)
-                _,_,val_accuracy, f1 = bow_rf.accuracy((val_X, val_y),False)
+                _, _, dev_accuracy, _ = bow_rf.accuracy((dev_X, dev_y), False)
+                _,_,val_accuracy, _ = bow_rf.accuracy((val_X, val_y),False)
+                fout.write('dev:%f\nval:%f\n'%(dev_accuracy,val_accuracy))
 
                 ave_acc.append(val_accuracy)
                 counter += 1
+                fout.flush()
 
             print('k折验证结果：%s' % ave_acc)
             print('验证中平均准确率：%f' % np.average(ave_acc[1:]))
             print('-' * 80)
-
+            fout.write('k折验证结果：%s\n' % ave_acc)
+            fout.write('验证中平均准确率：%f\n' % np.average(ave_acc[1:]))
+            fout.write('-' * 80 + '\n')
 
 
 if __name__ == '__main__':

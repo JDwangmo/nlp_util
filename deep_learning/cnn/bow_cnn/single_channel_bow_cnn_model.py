@@ -186,7 +186,7 @@ class SingleChannelBowCNN(CnnBaseClass):
             max_features=2000,
         )
 
-        all_cv_data = transform_cv_data(feature_encoder,cv_data,test_data)
+        all_cv_data = transform_cv_data(feature_encoder,cv_data,test_data,**kwargs)
 
         for layer1 in kwargs['layer1']:
             for layer2 in kwargs['layer2']:

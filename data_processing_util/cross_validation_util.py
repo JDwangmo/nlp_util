@@ -55,6 +55,7 @@ def transform_cv_data(feature_encoder=None,
                       cv_data=None,
                       test_data=None,
                       word2vec_model_file_path=None,
+                      **kwargs
                       ):
     '''
         将cv_data中的 k份数据创建 K份交叉验证的数据，每次取1份做测试，剩下做训练。
@@ -81,9 +82,10 @@ def transform_cv_data(feature_encoder=None,
     # 训练和测试数据
     x_features = feature_encoder.fit_transform(train_x)
     test_x_features = feature_encoder.transform(test_x)
-    # print(','.join(feature_encoder.vocabulary))
+    if kwargs['verbose']>0:
+        print(','.join(feature_encoder.vocabulary))
 
-    if word2vec_model_file_path is not None:
+    if kwargs.has_key('to_embedding_weight'):
         init_weight = feature_encoder.to_embedding_weight(word2vec_model_file_path)
         all_cv_data.append((x_features, train_y, test_x_features, test_y,init_weight))
     else:
@@ -102,9 +104,10 @@ def transform_cv_data(feature_encoder=None,
         # 转为特征向量
         dev_X = feature_encoder.fit_transform(dev_X)
         val_X = feature_encoder.transform(val_X)
-        # print(','.join(feature_encoder.vocabulary))
+        if kwargs['verbose']>0:
+            print(','.join(feature_encoder.vocabulary))
 
-        if word2vec_model_file_path is not None:
+        if kwargs.has_key('to_embedding_weight'):
             init_weight = feature_encoder.to_embedding_weight(word2vec_model_file_path)
             all_cv_data.append((dev_X, dev_y, val_X, val_y, init_weight))
         else:

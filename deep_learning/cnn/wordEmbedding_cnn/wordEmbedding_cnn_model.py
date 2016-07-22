@@ -230,9 +230,11 @@ class WordEmbeddingCNN(CnnBaseClass):
         l1_conv_filter_type = kwargs['l1_conv_filter_type']
         l2_conv_filter_type = kwargs['l2_conv_filter_type']
         k = kwargs['k']
+        kwargs['to_embedding_weight'] = True
         word_embedding_dim = kwargs['word_embedding_dim']
         sentence_padding_length = kwargs['sentence_padding_length']
         word2vec_model_file_path = kwargs['word2vec_model_file_path']% word_embedding_dim
+        kwargs['word2vec_model_file_path'] = word2vec_model_file_path
         print(word2vec_model_file_path)
 
         # 详细结果保存到...
@@ -274,7 +276,7 @@ class WordEmbeddingCNN(CnnBaseClass):
         all_cv_data = transform_cv_data(feature_encoder,
                                         cv_data,
                                         test_data,
-                                        word2vec_model_file_path
+                                        **kwargs
                                         )
 
         for layer1 in kwargs['layer1']:
