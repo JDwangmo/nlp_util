@@ -850,7 +850,7 @@ class OnehotBowCNN(CnnBaseClass):
         :param conv1_filter_type: cnn设置选项,卷积层的类型.
 
             for example:每个列表代表一种类型(size)的卷积核,
-                conv1_filter_type = [[100,2,word_embedding_dim,'valid',(1,1),dropout],
+                l1_conv_filter_type = [[100,2,word_embedding_dim,'valid',(1,1),dropout],
                                     [100,4,word_embedding_dim,'valid',(1,1),dropout],
                                     [100,6,word_embedding_dim,'valid',(1,1),dropout],
                                    ]
@@ -979,8 +979,8 @@ class OnehotBowCNN(CnnBaseClass):
                   'input_dim': self.feature_encoder.vocabulary_size,
                   'input_length': self.input_length,
                   'num_labels': self.num_labels,
-                  'conv1_filter_type': self.conv1_filter_type,
-                  'conv2_filter_type': self.conv2_filter_type,
+                  'l1_conv_filter_type': self.conv1_filter_type,
+                  'l2_conv_filter_type': self.conv2_filter_type,
                   'full_connected_layer_units':self.full_connected_layer_units,
                   'output_dropout_rate': self.output_dropout_rate,
                   'nb_epoch': self.nb_epoch,

@@ -43,8 +43,8 @@ class WordEmbeddingCNN(CnnBaseClass):
                  embedding_init_weight=None,
                  input_length=None,
                  num_labels=None,
-                 conv1_filter_type=None,
-                 conv2_filter_type=None,
+                 l1_conv_filter_type=None,
+                 l2_conv_filter_type=None,
                  embedding_dropout_rate=0.5,
                  output_dropout_rate=0.5,
                  nb_epoch=100,
@@ -75,15 +75,15 @@ class WordEmbeddingCNN(CnnBaseClass):
         :type input_length: int
         :param num_labels: cnn设置选项,最后输出层的大小,即分类类别的个数.
         :type num_labels: int
-        :param conv1_filter_type: cnn设置选项,卷积层的类型.
+        :param l1_conv_filter_type: cnn设置选项,卷积层的类型.
 
             for example:每个列表代表一种类型(size)的卷积核,
-                conv1_filter_type = [[100,2,word_embedding_dim,'valid',(1,1)],
+                l1_conv_filter_type = [[100,2,word_embedding_dim,'valid',(1,1)],
                                     [100,4,word_embedding_dim,'valid',(1,1)],
                                     [100,6,word_embedding_dim,'valid',(1,1)],
                                    ]
 
-        :type conv1_filter_type: array-like
+        :type l1_conv_filter_type: array-like
         :param k: cnn设置选项,k-max pooling层的的k值,即设置要获取 前k个 值 ,默认为 1-max
         :type k: int
         :param embedding_dropout_rate: cnn设置选项,dropout层的的dropout rate,对embedding层进入dropuout,如果为0,则不dropout
@@ -111,8 +111,8 @@ class WordEmbeddingCNN(CnnBaseClass):
         self.embedding_init_weight = embedding_init_weight
         self.input_length = input_length
 
-        self.conv1_filter_type = conv1_filter_type
-        self.conv2_filter_type = conv2_filter_type
+        self.l1_conv_filter_type = l1_conv_filter_type
+        self.l2_conv_filter_type = l2_conv_filter_type
         self.full_connected_layer_units = full_connected_layer_units
         self.embedding_dropout_rate = embedding_dropout_rate
         self.output_dropout_rate = output_dropout_rate
@@ -168,33 +168,29 @@ class WordEmbeddingCNN(CnnBaseClass):
             l3_dropout = Dropout(p=self.embedding_dropout_rate)(l2_embedding)
         else:
             l3_dropout = l2_embedding
-
         # 4. Reshape层： 将embedding转换4-dim的shape
         l4_reshape= Reshape((1, self.input_length, self.word_embedding_dim))(l3_dropout)
         # 5. 第一层卷积层：多size卷积层（含1-max pooling），使用三种size.
-        l5_cnn_model,l5_cnn_model_out_shape = self.create_convolution_layer(
-            input_shape=(1,
-                         self.input_length,
-                         self.word_embedding_dim
-                         ),
-            convolution_filter_type=self.conv1_filter_type,
-            input=l4_reshape,
+        l5_cnn = self.create_convolution_layer(
+            input_layer=l4_reshape,
+            convolution_filter_type=self.l1_conv_filter_type,
         )
+        # model = Model(input=l1_input, output=[l5_cnn])
+        # model.summary()
+        # quit()
 
         # 6. 第二层卷积层：单size卷积层 和 max pooling 层
-        l6_conv, l6_conv_output_shape = self.create_convolution_layer(
-            input_shape=l5_cnn_model_out_shape,
-            input=l5_cnn_model,
-            convolution_filter_type=self.conv2_filter_type,
+        l6_conv = self.create_convolution_layer(
+            input_layer=l5_cnn,
+            convolution_filter_type=self.l2_conv_filter_type,
         )
 
         # 6. Flatten层： 卷积的结果进行拼接,变成一列隐含层
         l6_flatten = Flatten()(l6_conv)
-        # 7. 全连接层
 
-        l7_full_connected_layer,l7_full_connected_layer_output_shape = self.create_full_connected_layer(
-            input=l6_flatten,
-            input_shape=np.prod(l6_conv_output_shape),
+        # 7. 全连接层
+        l7_full_connected_layer = self.create_full_connected_layer(
+            input_layer=l6_flatten,
             units=self.full_connected_layer_units+[self.num_labels],
         )
 
@@ -209,11 +205,153 @@ class WordEmbeddingCNN(CnnBaseClass):
         # 卷积层的输出，可以作为深度特征
         self.conv1_feature_output = K.function([l1_input, K.learning_phase()], [l6_flatten])
 
-        if self.verbose > 1:
+        if self.verbose > 0:
             model.summary()
 
         return model
 
+    @staticmethod
+    def cross_validation(cv_data, test_data, result_file_path, **kwargs):
+        '''
+            进行参数的交叉验证
+
+        :param cv_data: k份训练数据
+        :type cv_data: array-like
+        :param test_data: 测试数据
+        :type test_data: array-like
+        :return:
+        '''
+
+        nb_epoch = kwargs['nb_epoch']
+        verbose = kwargs['verbose']
+        num_labels = 24
+        feature_type = 'word_seg'
+        rand_seed = kwargs['rand_seed']
+        l1_conv_filter_type = kwargs['l1_conv_filter_type']
+        l2_conv_filter_type = kwargs['l2_conv_filter_type']
+        k = kwargs['k']
+        word_embedding_dim = kwargs['word_embedding_dim']
+        sentence_padding_length = kwargs['sentence_padding_length']
+        word2vec_model_file_path = kwargs['word2vec_model_file_path']% word_embedding_dim
+        print(word2vec_model_file_path)
+
+        # 详细结果保存到...
+        detail_result_file_path = result_file_path % feature_type
+        fout = open(detail_result_file_path, 'w')
+
+        print('=' * 150)
+        print('feature_type:%s\nnb_epoch:%d\nrand_seed:%d' % (feature_type, nb_epoch, rand_seed))
+        print('l1_conv_filter_type:%s' % l1_conv_filter_type)
+        print('l2_conv_filter_type:%s' % l2_conv_filter_type)
+        print('k:%s' % k)
+        print('=' * 150)
+
+        fout.write('=' * 150 + '\n')
+        fout.write('single单通道CNN-embedding cv结果:\n')
+        fout.write('feature_type:%s\nnb_epoch:%d\nrand_seed:%d\n' % (feature_type, nb_epoch, rand_seed))
+        fout.write('l1_conv_filter_type:%s\n' % l1_conv_filter_type)
+        fout.write('l2_conv_filter_type:%s\n' % l2_conv_filter_type)
+        fout.write('k:%s\n' % k)
+        fout.write('=' * 150 + '\n')
+
+        from data_processing_util.feature_encoder.onehot_feature_encoder import FeatureEncoder
+        from data_processing_util.cross_validation_util import transform_cv_data
+        feature_encoder = FeatureEncoder(
+            sentence_padding_length=sentence_padding_length,
+            verbose=1,
+            need_segmented=True,
+            full_mode=True,
+            remove_stopword=False,
+            replace_number=True,
+            lowercase=True,
+            zhs2zht=True,
+            remove_url=True,
+            padding_mode='center',
+            add_unkown_word=True,
+            mask_zero=True,
+        )
+
+        all_cv_data = transform_cv_data(feature_encoder,
+                                        cv_data,
+                                        test_data,
+                                        word2vec_model_file_path
+                                        )
+
+        for layer1 in kwargs['layer1']:
+            for layer2 in kwargs['layer2']:
+                for hidden1 in kwargs['hidden1']:
+                    for hidden2 in kwargs['hidden2']:
+
+                        print('layer1:%d,layer2:%d,hidden1:%d,hidden2:%d' % (layer1, layer2, hidden1, hidden2))
+
+                        fout.write('=' * 150 + '\n')
+                        fout.write('layer1:%d,layer2:%d,hidden1:%d,hidden2:%d\n' % (layer1,
+                                                                                    layer2,
+                                                                                    hidden1,
+                                                                                    hidden2
+                                                                                    ))
+                        # 五折
+                        print('K折交叉验证开始...')
+                        counter = 0
+                        ave_acc = []
+                        for dev_X, dev_y, val_X, val_y,init_weight in all_cv_data:
+                            # print(dev_X.shape)
+                            print('-' * 80)
+                            fout.write('-' * 80 + '\n')
+                            if counter == 0:
+                                # 第一个数据是训练，之后是交叉验证
+                                print('训练:')
+                                fout.write('训练\n')
+                            else:
+                                print('第%d个验证' % counter)
+                                fout.write('第%d个验证\n' % counter)
+
+                            w2v_embedding_cnn = WordEmbeddingCNN(
+                                rand_seed=rand_seed,
+                                verbose=verbose,
+                                feature_encoder=None,
+                                # optimizers='adadelta',
+                                optimizers='sgd',
+                                input_dim=init_weight.shape[0],
+                                word_embedding_dim=word_embedding_dim,
+                                embedding_init_weight=init_weight,
+                                input_length=sentence_padding_length,
+                                num_labels=num_labels,
+                                l1_conv_filter_type=[
+                                    [layer1, l1_conv_filter_type[0], -1, 'valid', (k[0], 1), 0.5],
+                                    [layer1, l1_conv_filter_type[1], -1, 'valid', (k[0], 1), 0.],
+                                    [layer1, l1_conv_filter_type[2], -1, 'valid', (k[0], 1), 0.],
+                                ],
+                                l2_conv_filter_type=[
+                                    [layer2, l2_conv_filter_type[0], -1, 'valid', (k[1], 1), 0.5]
+                                ],
+                                full_connected_layer_units=[hidden1, hidden2],
+                                embedding_dropout_rate=0.5,
+                                output_dropout_rate=0.5,
+                                nb_epoch=nb_epoch,
+                                nb_batch=32,
+                                earlyStoping_patience=200,
+                                lr=1e-1,
+                            )
+
+                            dev_loss, dev_accuracy, \
+                            val_loss, val_accuracy = w2v_embedding_cnn.fit((dev_X, dev_y), (val_X, val_y))
+                            print('dev:%f,%f' % (dev_loss, dev_accuracy))
+                            print('val:%f,%f' % (val_loss, val_accuracy))
+                            fout.write('dev:%f,%f\n' % (dev_loss, dev_accuracy))
+                            fout.write('val:%f,%f\n' % (val_loss, val_accuracy))
+                            ave_acc.append(val_accuracy)
+                            counter += 1
+
+                        print('k折验证结果：%s' % ave_acc)
+                        print('验证中平均准确率：%f' % np.average(ave_acc[1:]))
+                        print('-' * 80)
+
+                        fout.write('k折验证结果：%s\n' % ave_acc)
+                        fout.write('平均：%f\n' % np.average(ave_acc[1:]))
+                        fout.write('-' * 80 + '\n')
+                        fout.flush()
+        fout.close()
 
     def get_conv1_feature(self, sentence, transform_input=False):
         '''
@@ -240,8 +378,6 @@ class WordEmbeddingCNN(CnnBaseClass):
         # -------------- print end : just print info -------------
         return conv1_feature
 
-    def fit(self, train_data=None, validation_data=None):
-        super(WordEmbeddingCNN, self).fit(train_data, validation_data)
 
     def print_model_descibe(self):
         import pprint
@@ -252,8 +388,8 @@ class WordEmbeddingCNN(CnnBaseClass):
                   'word_embedding_dim': self.word_embedding_dim,
                   'input_length': self.input_length,
                   'num_labels': self.num_labels,
-                  'conv1_filter_type': self.conv1_filter_type,
-                  'conv2_filter_type': self.conv2_filter_type,
+                  'l1_conv_filter_type': self.l1_conv_filter_type,
+                  'l2_conv_filter_type': self.l2_conv_filter_type,
                   'embedding_dropout_rate': self.embedding_dropout_rate,
                   'output_dropout_rate': self.output_dropout_rate,
                   'nb_epoch': self.nb_epoch,
@@ -300,15 +436,18 @@ if __name__ == '__main__':
         optimizers='sgd',
         input_dim=feature_encoder.vocabulary_size + 1,
         word_embedding_dim=word_embedding_dim,
-        # embedding_init_weight=feature_encoder.to_embedding_weight(
-        #     '/home/jdwang/PycharmProjects/corprocessor/word2vec/vector/ood_sentence_vector1191_50dim.gem'),
+        embedding_init_weight=feature_encoder.to_embedding_weight(
+            '/home/jdwang/PycharmProjects/corprocessor/word2vec/vector/ood_sentence_vector1191_50dim.gem'),
         input_length=sentence_padding_length,
         num_labels=5,
-        conv1_filter_type=[[4, 2, word_embedding_dim, 'valid',(0,1)],
-                          [4, 4, word_embedding_dim, 'valid',(0,1)],
-                          [4, 5, word_embedding_dim, 'valid',(0,1)],
-                          ],
-        conv2_filter_type=[[16, 2, 1, 'valid',(2,1)]],
+        l1_conv_filter_type=[
+            [4, 2, word_embedding_dim, 'valid',(2,1),0.5],
+            [4, 4, word_embedding_dim, 'valid',(2,1),0.],
+            [4, 5, word_embedding_dim, 'valid',(2,1),0.],
+        ],
+        l2_conv_filter_type=[
+            [16, 2, 1, 'valid',(2,1),0.]
+        ],
         full_connected_layer_units=[50],
         embedding_dropout_rate=0.,
         output_dropout_rate=0.,

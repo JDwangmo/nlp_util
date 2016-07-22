@@ -41,7 +41,8 @@ class FeatureEncoder(object):
                  feature_method='bow',
                  feature_type = 'seg',
                  max_features=None,
-
+                 word2vec_to_solve_oov=False,
+                 **kwargs
                  ):
         '''
             1. 初始化参数，并验证参数合法性
@@ -87,10 +88,16 @@ class FeatureEncoder(object):
         self.feature_method = feature_method
         self.feature_type = feature_type
         self.max_features = max_features
+        self.word2vec_to_solve_oov = word2vec_to_solve_oov
+        self.kwargs = kwargs
 
         # 检验参数合法性
         assert self.feature_method in ['bow', 'tfidf'], 'feature method 只能取: bow,tfidf'
         assert self.feature_type in ['word', 'seg','word_seg'], 'feature type 只能取: word,seg和word_seg'
+
+        if word2vec_to_solve_oov:
+            # 加载word2vec模型
+            self.word2vec_model = Word2Vec.load(kwargs['word2vec_model_file_path'])
 
         # 原始训练数据
         self.train_data = None
@@ -247,7 +254,47 @@ class FeatureEncoder(object):
 
         return train_features
 
-    def transform_sentence(self, sentence):
+    def word_similarity(self, word2vec_model,word1, word2):
+        '''
+        计算两个词的相似性
+        :param word1:
+        :param word2:
+        :return:
+        '''
+        try:
+            return word2vec_model.n_similarity(word1, word2)
+        except:
+            return 0
+
+    def replace_oov_with_similay_word(self,word2vec_model, sentence):
+        '''
+            对句子中oov词使用训练库中最相近的词替换（word2vec余弦相似性）
+
+        :param sentence:
+        :return:
+        '''
+
+        # is_oov = np.asarray([item for item in self.feature_encoder.vocabulary])
+        # has_oov = any(is_oov)
+        sentence = sentence.split()
+        oov_word=[]
+        replace_word = []
+        for item in sentence:
+            if item not in self.vocabulary:
+                oov_word.append(item)
+                keywords_sim_score = np.asarray([self.word_similarity(word2vec_model,item, i) for i in self.vocabulary])
+                sorted_index = np.argsort(keywords_sim_score)[-1::-1]
+                most_similarity_score = keywords_sim_score[sorted_index[0]]
+                most_similarity_word = self.vocabulary[sorted_index[0]]
+
+                print(u'%s 最相近的词是%s,分数为:%f' % (item,most_similarity_word, most_similarity_score))
+                replace_word.append(most_similarity_word)
+        sentence += replace_word
+        return ' '.join(sentence)
+
+    def transform_sentence(self,
+                           sentence,
+                           ):
         '''
             转换一个句子的格式。跟训练数据一样的操作,对输入句子进行 bow或tfidf 编码。
                 1. 分词
@@ -273,6 +320,10 @@ class FeatureEncoder(object):
         else:
             seg_sentence = sentence
 
+        if self.word2vec_to_solve_oov:
+            seg_sentence = self.replace_oov_with_similay_word(self.word2vec_model,
+                                                              seg_sentence)
+
         # -------------- code start : 结束 -------------
         if self.verbose > 1:
             logging.debug('-' * 20)
@@ -297,7 +348,9 @@ class FeatureEncoder(object):
 
         return features
 
-    def transform(self, data):
+    def transform(self,
+                  data,
+                  ):
         '''
             批量转换数据，跟 transform_sentence()一样的操作
                 1. 直接调用 self.transform_sentence 进行处理
@@ -308,10 +361,12 @@ class FeatureEncoder(object):
         :rtype: array-like
         '''
 
-        index = map(self.transform_sentence, data)
+        index = map(lambda x: self.transform_sentence(x),data)
         # print train_index[:5]
 
         return np.asarray(index)
+
+
 
     def print_model_descibe(self):
         '''
@@ -323,6 +378,7 @@ class FeatureEncoder(object):
         import pprint
         detail = {'train_data_count': len(self.train_data),
                   'need_segmented': self.need_segmented,
+                  'word2vec_to_solve_oov':self.word2vec_to_solve_oov,
                   'vocabulary_size': self.vocabulary_size,
                   'verbose': self.verbose,
                   # 'rand_seed': self.rand_seed,
@@ -418,4 +474,4 @@ if __name__ == '__main__':
     # 测试词的bow向量编码
     # test_seg_bow_feature()
     # 测试以字和词为单位的向量编码
-    test_word_seg_bow_feature()
+    # test_word_seg_bow_feature()

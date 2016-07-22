@@ -1,7 +1,6 @@
 #encoding=utf8
 from __future__ import print_function
 
-
 __author__ = 'jdwang'
 __date__ = 'create date: 2016-07-06'
 __email__ = '383287471@qq.com'
@@ -14,10 +13,14 @@ from base.common_model_class import CommonModel
 from data_processing_util.feature_encoder.bow_feature_encoder import FeatureEncoder
 from sklearn.metrics import f1_score
 import cPickle as pickle
+from gensim.models import Word2Vec
 
 class BowRandomForest(CommonModel):
     '''
         使用BOW或者TFIDF作为特征输入，使用random forest作为分类器
+        函数有：
+            1. transform
+            2. fit
     '''
 
     def __init__(self,
@@ -42,6 +45,9 @@ class BowRandomForest(CommonModel):
         :type verbose: int
         :param feature_encoder: 输入数据的设置选项，设置输入编码器
         :type feature_encoder: bow_feature_encoder.FeatureEncoder
+        :param word2vec_to_solve_oov: 是否使用word2vec找训练库中近义词替换 oov
+        :type word2vec_to_solve_oov: bool
+        :param kwargs: 目前有 ‘word2vec_model_file_path’
         '''
 
         self.rand_seed = rand_seed
@@ -52,6 +58,7 @@ class BowRandomForest(CommonModel):
 
         # random forest model
         self.model = None
+
 
     def transform(self, data):
         '''
@@ -274,27 +281,103 @@ class BowRandomForest(CommonModel):
 
         return y_pred, is_correct, accu, f1
 
+    @staticmethod
+    def cross_validation(cv_data, test_data, result_file_path, **kwargs):
+        '''
+            进行参数的交叉验证
+
+        :param cv_data: k份训练数据
+        :type cv_data: array-like
+        :param test_data: 测试数据
+        :type test_data: array-like
+        :return:
+        '''
+
+        feature_type = 'seg'
+        remove_stopword = False
+        word2vec_to_solve_oov = kwargs['word2vec_to_solve_oov']
+        word2vec_model_file_path = kwargs['word2vec_model_file_path']
+        n_estimators = kwargs['n_estimators']
+
+        from data_processing_util.feature_encoder.bow_feature_encoder import FeatureEncoder
+        from data_processing_util.cross_validation_util import transform_cv_data
+
+        feature_encoder = FeatureEncoder(
+            verbose=0,
+            need_segmented=True,
+            full_mode=True,
+            remove_stopword=remove_stopword,
+            replace_number=True,
+            lowercase=True,
+            zhs2zht=True,
+            remove_url=True,
+            feature_method='bow',
+            feature_type=feature_type,
+            max_features=3000,
+            word2vec_to_solve_oov=word2vec_to_solve_oov,
+            word2vec_model_file_path=word2vec_model_file_path,
+        )
+
+        all_cv_data = transform_cv_data(feature_encoder, cv_data, test_data)
+
+        for estimators in n_estimators:
+            print('K折交叉验证开始...')
+
+            counter = 0
+            ave_acc = []
+            for dev_X, dev_y, val_X, val_y in all_cv_data:
+                print('-' * 80)
+                if counter == 0:
+                    # 第一个数据是训练，之后是交叉验证
+                    print('训练:')
+                else:
+                    print('第%d个验证' % counter)
+
+                bow_rf = BowRandomForest(
+                    # rand_seed=seed,
+                    verbose=0,
+                    n_estimators=estimators,
+                    min_samples_leaf=1,
+                    feature_encoder=None,
+
+                )
+                bow_rf.fit(train_data=(dev_X, dev_y),
+                           validation_data=(val_X, val_y))
+                bow_rf.accuracy((dev_X, dev_y), False)
+                _,_,val_accuracy, f1 = bow_rf.accuracy((val_X, val_y),False)
+
+                ave_acc.append(val_accuracy)
+                counter += 1
+
+            print('k折验证结果：%s' % ave_acc)
+            print('验证中平均准确率：%f' % np.average(ave_acc[1:]))
+            print('-' * 80)
+
+
 
 if __name__ == '__main__':
     train_X = ['你好', '无聊', '测试句子', '今天天气不错','我要买手机']
     trian_y = [1,3,2,2,3]
-    test_X = ['句子','你好','你妹']
+    test_X = ['你妹','句子','你好']
     test_y = [2,3,0]
 
     feature_encoder = FeatureEncoder(
-                                     verbose=0,
-                                     need_segmented=False,
-                                     full_mode=True,
-                                     remove_stopword=True,
-                                     replace_number=True,
-                                     lowercase=True,
-                                     zhs2zht=True,
-                                     remove_url=True,
-                                     feature_method='bow',
-                                     max_features=2000,
-                                     )
+        verbose=0,
+        need_segmented=True,
+        full_mode=True,
+        remove_stopword=True,
+        replace_number=True,
+        lowercase=True,
+        zhs2zht=True,
+        remove_url=True,
+        feature_method='bow',
+        max_features=2000,
+        feature_type='seg',
+    )
     train_X_feature = feature_encoder.fit_transform(train_X)
     test_X_feature = feature_encoder.transform(test_X)
+    print(','.join(feature_encoder.vocabulary))
+
     print(train_X_feature)
 
     bow_rf = BowRandomForest(
@@ -303,6 +386,8 @@ if __name__ == '__main__':
         n_estimators=200,
         min_samples_leaf=1,
         feature_encoder=feature_encoder,
+        word2vec_to_solve_oov=True,
+        word2vec_model_file_path='/home/jdwang/PycharmProjects/corprocessor/word2vec/vector/vector1000000_50dim.gem',
     )
     # bow_rf.model_from_pickle('model.pkl')
 

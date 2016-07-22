@@ -214,7 +214,7 @@ class FeatureEncoder(object):
         embedding_weights = np.zeros((size, self.word2vec_model.vector_size))
         for key,value in self.train_data_dict.token2id.items():
             embedding_weights[value+leave_for_zero,:] = self.get_w2vEmbedding(key)
-        # todo 创建词向量字典
+
         self.embedding_weights = embedding_weights
         return embedding_weights
 
