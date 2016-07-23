@@ -1,5 +1,7 @@
 # encoding=utf8
 
+from __future__ import print_function
+
 __author__ = 'jdwang'
 __date__ = 'create date: 2016-06-24'
 __email__ = '383287471@qq.com'
@@ -73,6 +75,10 @@ class FeatureEncoder(object):
             :type feature_type: str
             :param max_features: 模型设置选项,特征选择的最大特征词数
             :type max_features: int
+            :param word2vec_to_solve_oov: 使用word2vec扩展oov词
+            :type word2vec_to_solve_oov: bool
+            :param kwargs: 支持 word2vec_model_file_path等
+            :param kwargs: dict
 
 
         '''
@@ -142,6 +148,7 @@ class FeatureEncoder(object):
                 lowercase=self.lowercase,
                 zhs2zht=self.zhs2zht,
                 remove_url=self.remove_url,
+                HMM=False,
             )
         elif self.feature_type == 'word':
             # 将句子切分为 以字为单元 以空格分割
@@ -155,6 +162,7 @@ class FeatureEncoder(object):
                 lowercase=self.lowercase,
                 zhs2zht=self.zhs2zht,
                 remove_url=self.remove_url,
+                HMM=False,
             )
             # 2. 按字切分
             segmented_sentence = ' '.join(list(segmented_sentence))
@@ -170,6 +178,7 @@ class FeatureEncoder(object):
                 lowercase=self.lowercase,
                 zhs2zht=self.zhs2zht,
                 remove_url=self.remove_url,
+                HMM=False,
             )
             # 2. 按字切分
             seg = list(segmented_sentence.replace(' ',''))
@@ -194,7 +203,7 @@ class FeatureEncoder(object):
 
         if self.verbose > 1:
             logging.debug('build feature encoder...')
-            print 'build feature encoder...'
+            print('build feature encoder...')
 
         # -------------- region start : 1. 转换数据格式，并分词 -------------
         if self.verbose > 2:
@@ -286,8 +295,8 @@ class FeatureEncoder(object):
                 sorted_index = np.argsort(keywords_sim_score)[-1::-1]
                 most_similarity_score = keywords_sim_score[sorted_index[0]]
                 most_similarity_word = self.vocabulary[sorted_index[0]]
-
-                print(u'%s 最相近的词是%s,分数为:%f' % (item,most_similarity_word, most_similarity_score))
+                if self.verbose>1:
+                    print(u'%s 最相近的词是%s,分数为:%f' % (item,most_similarity_word, most_similarity_score))
                 replace_word.append(most_similarity_word)
         sentence += replace_word
         return ' '.join(sentence)
@@ -309,9 +318,9 @@ class FeatureEncoder(object):
         # -------------- region start : 1. 分词 -------------
         if self.verbose > 1:
             logging.debug('-' * 20)
-            print '-' * 20
+            print('-' * 20)
             logging.debug('1. 分词')
-            print '1. 分词'
+            print('1. 分词')
         # -------------- code start : 开始 -------------
 
         # 分词
@@ -327,15 +336,15 @@ class FeatureEncoder(object):
         # -------------- code start : 结束 -------------
         if self.verbose > 1:
             logging.debug('-' * 20)
-            print '-' * 20
+            print('-' * 20)
         # -------------- region end : 1. 分词 ---------------
 
         # -------------- region start : 2. 转为字典索引列表,之后补齐,输入为补齐的字典索引列表 -------------
         if self.verbose > 1:
             logging.debug('-' * 20)
-            print '-' * 20
+            print('-' * 20)
             logging.debug('2. 转为字典索引列表,之后补齐,输入为补齐的字典索引列表')
-            print '2. 转为字典索引列表,之后补齐,输入为补齐的字典索引列表'
+            print('2. 转为字典索引列表,之后补齐,输入为补齐的字典索引列表')
         # -------------- code start : 开始 -------------
 
         features = self.feature_encoder.transform([seg_sentence]).toarray()[0]
@@ -343,7 +352,7 @@ class FeatureEncoder(object):
         # -------------- code start : 结束 -------------
         if self.verbose > 1:
             logging.debug('-' * 20)
-            print '-' * 20
+            print('-' * 20)
         # -------------- region end : 2. 转为字典索引列表,之后补齐,输入为补齐的字典索引列表 ---------------
 
         return features
@@ -412,11 +421,11 @@ def test_word_bow_feature():
         max_features=100,
     )
     train_features = feature_encoder.fit_transform(train_data=train_data)
-    print ','.join(feature_encoder.vocabulary)
-    print train_features
+    print(','.join(feature_encoder.vocabulary))
+    print(train_features)
     test_features = feature_encoder.transform(test_data)
-    print test_features
-    print feature_encoder.vocabulary_size
+    print(test_features)
+    print(feature_encoder.vocabulary_size)
     feature_encoder.print_model_descibe()
 
 
@@ -435,11 +444,11 @@ def test_seg_bow_feature():
         max_features=100,
     )
     train_features = feature_encoder.fit_transform(train_data=train_data)
-    print ','.join(feature_encoder.vocabulary)
-    print train_features
+    print(','.join(feature_encoder.vocabulary))
+    print(train_features)
     test_features = feature_encoder.transform(test_data)
-    print test_features
-    print feature_encoder.vocabulary_size
+    print(test_features)
+    print(feature_encoder.vocabulary_size)
     feature_encoder.print_model_descibe()
 
 def test_word_seg_bow_feature():
@@ -457,11 +466,11 @@ def test_word_seg_bow_feature():
         max_features=100,
     )
     train_features = feature_encoder.fit_transform(train_data=train_data)
-    print ','.join(feature_encoder.vocabulary)
-    print train_features
+    print(','.join(feature_encoder.vocabulary))
+    print(train_features)
     test_features = feature_encoder.transform(test_data)
-    print test_features
-    print feature_encoder.vocabulary_size
+    print(test_features)
+    print(feature_encoder.vocabulary_size)
     feature_encoder.print_model_descibe()
 
 

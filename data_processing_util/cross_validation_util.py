@@ -84,6 +84,8 @@ def transform_cv_data(feature_encoder=None,
     test_x_features = feature_encoder.transform(test_x)
     if kwargs['verbose']>0:
         print(','.join(feature_encoder.vocabulary))
+        print('train shape:(%d,%d)'%(x_features.shape))
+        print('test shape:(%d,%d)'%(test_x_features.shape))
 
     if kwargs.has_key('to_embedding_weight'):
         init_weight = feature_encoder.to_embedding_weight(word2vec_model_file_path)
@@ -106,6 +108,8 @@ def transform_cv_data(feature_encoder=None,
         val_X = feature_encoder.transform(val_X)
         if kwargs['verbose']>0:
             print(','.join(feature_encoder.vocabulary))
+            print('dev_X shape:(%d,%d)'%dev_X.shape)
+            print('val_X shape:(%d,%d)'%val_X.shape)
 
         if kwargs.has_key('to_embedding_weight'):
             init_weight = feature_encoder.to_embedding_weight(word2vec_model_file_path)

@@ -145,7 +145,8 @@ class SingleChannelBowCNN(CnnBaseClass):
         nb_epoch = kwargs['nb_epoch']
         verbose = kwargs['verbose']
         num_labels = 24
-        feature_type = 'word_seg'
+        feature_type = kwargs['feature_type']
+        word2vec_to_solve_oov = kwargs['word2vec_to_solve_oov']
         rand_seed = kwargs['rand_seed']
         l1_conv_filter_type = kwargs['l1_conv_filter_type']
         l2_conv_filter_type = kwargs['l2_conv_filter_type']
@@ -156,7 +157,10 @@ class SingleChannelBowCNN(CnnBaseClass):
         fout = open(detail_result_file_path, 'w')
 
         print('=' * 150)
-        print('feature_type:%s\nnb_epoch:%d\nrand_seed:%d' % (feature_type, nb_epoch, rand_seed))
+        print('使用word2vec:%s\nfeature_type:%s\nnb_epoch:%d\nrand_seed:%d' % (word2vec_to_solve_oov,
+                                                                             feature_type,
+                                                                             nb_epoch,
+                                                                             rand_seed))
         print('l1_conv_filter_type:%s' % l1_conv_filter_type)
         print('l2_conv_filter_type:%s' % l2_conv_filter_type)
         print('k:%s' % k)
@@ -173,7 +177,6 @@ class SingleChannelBowCNN(CnnBaseClass):
         from data_processing_util.feature_encoder.bow_feature_encoder import FeatureEncoder
         from data_processing_util.cross_validation_util import transform_cv_data
         feature_encoder = FeatureEncoder(
-            verbose=0,
             need_segmented=True,
             full_mode=True,
             remove_stopword=False,
@@ -182,8 +185,8 @@ class SingleChannelBowCNN(CnnBaseClass):
             zhs2zht=True,
             remove_url=True,
             feature_method='bow',
-            feature_type=feature_type,
             max_features=2000,
+            **kwargs
         )
 
         all_cv_data = transform_cv_data(feature_encoder,cv_data,test_data,**kwargs)
@@ -218,7 +221,7 @@ class SingleChannelBowCNN(CnnBaseClass):
                                 fout.write('第%d个验证\n' % counter)
 
                             bow_cnn = SingleChannelBowCNN(
-                                rand_seed=1337,
+                                rand_seed=rand_seed,
                                 verbose=verbose,
                                 feature_encoder=None,
                                 num_labels=num_labels,
