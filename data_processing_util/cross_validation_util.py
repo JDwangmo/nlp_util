@@ -49,7 +49,7 @@ def data_split_k_fold(
             cross_validation_y_split[index % k].append(label)
 
     for x, y in zip(cross_validation_X_split.values(), cross_validation_y_split.values()):
-        yield x, y
+        yield x, np.asarray(y,dtype=int)
 
 def transform_cv_data(feature_encoder=None,
                       cv_data=None,

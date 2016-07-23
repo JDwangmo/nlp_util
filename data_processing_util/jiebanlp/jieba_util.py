@@ -75,6 +75,44 @@ class Jieba_Util(object):
         simple_chinese = opencc.convert(sentence, config='zht2zhs.ini')
         return simple_chinese
 
+    def iter_each_word(self,sentence,need_segmented=True,**kwargs):
+        '''
+            返回句子的每个词（中文字或英文单词），比如
+                - 500 元  --> [500,元]
+                - NUMBER 元  --> [NUMBER,元]
+                - ch2r 你好  --> [ch2r,你，好]
+            注意以空格分割词，如果还未分词，可以设置 need_segmented为True
+
+        :param sentence:
+        :param need_segmented: 是否需要先进行分词处理，默认为True
+        :return:
+        '''
+
+        if need_segmented:
+            sentence = self.seg(
+                sentence,
+                sep=' ',
+                full_mode=kwargs.get('full_mode',True),
+                remove_stopword=kwargs.get('remove_stopword',True),
+                replace_number=kwargs.get('replace_number',True),
+                lowercase=kwargs.get('lowercase',True),
+                zhs2zht=kwargs.get('zhs2zht',True),
+                remove_url=kwargs.get('remove_url',True),
+                HMM=kwargs.get('HMM',False),
+            )
+        words = []
+        # print(sentence)
+        for item in sentence.split():
+            if re.findall(u'[0-9A-Za-z]+',item):
+                words.append(item)
+            else:
+                if type(item) is not unicode:
+                    item = item.decode('utf8')
+
+                word = list(item)
+                words.extend(word)
+        return words
+
     def seg(self,
             sentence,
             sep=' ',
@@ -188,7 +226,7 @@ if __name__ == '__main__':
     # sent = u'哪款好'
     sent = u'没事了'
     sent = u'拜拜'
-    sent = u'886'
+    sent = u'妈B'
 
     # print seg(sent,sep='|',full_mode=False,remove_stopword=True)
     # sent = u'有哪些1000块的手机适合我'
@@ -198,7 +236,9 @@ if __name__ == '__main__':
     # sent = u'2000元'
     # print ','.join(jieba.cut(sent,HMM=True))
     # print ','.join(jieba.cut(sent,HMM=False))
-
+    print jieba_util.iter_each_word('你 是 谁',False)
+    print jieba_util.iter_each_word(u'你是谁',True)
+    print jieba_util.iter_each_word('ch2r',False)
     print(jieba_util.seg(sent,
                          full_mode=False,
                          remove_stopword=False,

@@ -155,7 +155,7 @@ class FeatureEncoder(object):
             # 1. 先使用jieba进行预处理，将数字替换等
             segmented_sentence = self.jieba_seg.seg(
                 sentence,
-                sep='',
+                sep=' ',
                 full_mode=self.full_mode,
                 remove_stopword=self.remove_stopword,
                 replace_number=self.replace_number,
@@ -165,7 +165,9 @@ class FeatureEncoder(object):
                 HMM=False,
             )
             # 2. 按字切分
-            segmented_sentence = ' '.join(list(segmented_sentence))
+            segmented_sentence = self.jieba_seg.iter_each_word(segmented_sentence,False)
+            segmented_sentence = ' '.join(segmented_sentence)
+
         elif self.feature_type == 'word_seg':
             # 将句子切分为 以字和词为单元，相同则去重 以空格分割
             # 1. 先使用jieba进行预处理，将数字替换等
@@ -180,9 +182,11 @@ class FeatureEncoder(object):
                 remove_url=self.remove_url,
                 HMM=False,
             )
+            # print(segmented_sentence)
             # 2. 按字切分
-            seg = list(segmented_sentence.replace(' ',''))
-            word = segmented_sentence.split()
+            word = self.jieba_seg.iter_each_word(segmented_sentence,False)
+            # 3. 按词切分
+            seg = segmented_sentence.split()
             segmented_sentence = ' '.join(set(seg+word))
         else:
             assert False, '不支持其他粒度的切分！'
@@ -476,11 +480,11 @@ def test_word_seg_bow_feature():
 
 
 if __name__ == '__main__':
-    train_data = ['你好，你好', '測試句子', '无聊', '测试句子', '今天天气不错', '买手机', '你要买手机']
+    train_data = ['你好，你好', '測試句子', '无聊', '测试句子', '今天天气不错', '买手机','50元','妈B', '你要买手机','ch2r']
     test_data = ['你好，你好,si', '无聊']
     # 测试字的bow向量编码
     # test_word_bow_feature()
     # 测试词的bow向量编码
     # test_seg_bow_feature()
     # 测试以字和词为单位的向量编码
-    # test_word_seg_bow_feature()
+    test_word_seg_bow_feature()
