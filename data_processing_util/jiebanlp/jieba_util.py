@@ -138,6 +138,9 @@ class Jieba_Util(object):
                     if self.verbose > 1:
                         logging.debug(u'句子（%s）将数字："%s" 替换成标记："NUMBER"' % (sentence, item))
                         print(u'句子（%s）将数字："%s" 替换成标记："NUMBER"' % (sentence, item))
+                else:
+                    words.append(item)
+
             elif remove_stopword and item in self.stopword_list:
                 # 移除 stop words
                 if self.verbose > 1:
@@ -185,6 +188,7 @@ if __name__ == '__main__':
     # sent = u'哪款好'
     sent = u'没事了'
     sent = u'拜拜'
+    sent = u'886'
 
     # print seg(sent,sep='|',full_mode=False,remove_stopword=True)
     # sent = u'有哪些1000块的手机适合我'
@@ -198,7 +202,7 @@ if __name__ == '__main__':
     print(jieba_util.seg(sent,
                          full_mode=False,
                          remove_stopword=False,
-                         replace_number=False,
+                         replace_number=True,
                          lowercase=True,
                          zhs2zht=True,
                          remove_url=False,

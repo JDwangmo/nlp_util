@@ -146,6 +146,7 @@ class SingleChannelBowCNN(CnnBaseClass):
         verbose = kwargs['verbose']
         num_labels = 24
         feature_type = kwargs['feature_type']
+        remove_stopword = kwargs['remove_stopword'],
         word2vec_to_solve_oov = kwargs['word2vec_to_solve_oov']
         rand_seed = kwargs['rand_seed']
         l1_conv_filter_type = kwargs['l1_conv_filter_type']
@@ -157,10 +158,7 @@ class SingleChannelBowCNN(CnnBaseClass):
         fout = open(detail_result_file_path, 'w')
 
         print('=' * 150)
-        print('使用word2vec:%s\nfeature_type:%s\nnb_epoch:%d\nrand_seed:%d' % (word2vec_to_solve_oov,
-                                                                             feature_type,
-                                                                             nb_epoch,
-                                                                             rand_seed))
+        print('使用word2vec:%s\nfeature_type:%s\nremove_stopword:%s\nnb_epoch:%d\nrand_seed:%d' % (word2vec_to_solve_oov,feature_type,remove_stopword,nb_epoch,rand_seed))
         print('l1_conv_filter_type:%s' % l1_conv_filter_type)
         print('l2_conv_filter_type:%s' % l2_conv_filter_type)
         print('k:%s' % k)
@@ -179,7 +177,6 @@ class SingleChannelBowCNN(CnnBaseClass):
         feature_encoder = FeatureEncoder(
             need_segmented=True,
             full_mode=True,
-            remove_stopword=False,
             replace_number=True,
             lowercase=True,
             zhs2zht=True,
