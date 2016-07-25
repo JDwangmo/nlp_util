@@ -293,12 +293,27 @@ class BowRandomForest(CommonModel):
         :return:
         '''
 
-        feature_type = 'seg'
-        remove_stopword = False
+        feature_type = kwargs['feature_type']
+        remove_stopword = kwargs['remove_stopword']
         word2vec_to_solve_oov = kwargs['word2vec_to_solve_oov']
         word2vec_model_file_path = kwargs['word2vec_model_file_path']
         n_estimators = kwargs['n_estimators']
+        rand_seed = kwargs['rand_seed']
+        shuffle_data = kwargs['shuffle_data']
         fout = open(result_file_path,'w')
+
+        print('=' * 150)
+
+        print('使用word2vec:%s\nfeature_type:%s\nremove_stopword:%s\nrand_seed:%s\nshuffle_data:%s' % (
+        word2vec_to_solve_oov, feature_type, remove_stopword, rand_seed,shuffle_data))
+        print('=' * 150)
+
+        fout.write('=' * 150 + '\n')
+        fout.write('single单通道CNN-bow cv结果:\n')
+        fout.write('使用word2vec:%s\nfeature_type:%s\nremove_stopword:%s\nrand_seed:%d' % (
+        word2vec_to_solve_oov, feature_type, remove_stopword, rand_seed))
+        fout.write('=' * 150 + '\n')
+
 
         from data_processing_util.feature_encoder.bow_feature_encoder import FeatureEncoder
         from data_processing_util.cross_validation_util import transform_cv_data
@@ -322,6 +337,11 @@ class BowRandomForest(CommonModel):
         all_cv_data = transform_cv_data(feature_encoder, cv_data, test_data,**kwargs)
 
         for estimators in n_estimators:
+            print('estimators:%d' % (estimators))
+
+            fout.write('=' * 150 + '\n')
+            fout.write('estimators:%d\n' % (estimators))
+
             print('K折交叉验证开始...')
             fout.write('K折交叉验证开始...\n')
 
@@ -340,13 +360,22 @@ class BowRandomForest(CommonModel):
                     fout.write('第%d个验证\n' % counter)
 
                 bow_rf = BowRandomForest(
-                    # rand_seed=seed,
+                    # rand_seed=rand_seed,
                     verbose=0,
                     n_estimators=estimators,
                     min_samples_leaf=1,
                     feature_encoder=None,
 
                 )
+
+                if kwargs['shuffle_data']:
+                    # 打乱数据
+                    # print(dev_y)
+
+                    dev_X = np.random.RandomState(rand_seed).permutation(dev_X)
+                    dev_y = np.random.RandomState(rand_seed).permutation(dev_y)
+                    # print(dev_y)
+
                 bow_rf.fit(train_data=(dev_X, dev_y),
                            validation_data=(val_X, val_y))
                 _, _, dev_accuracy, _ = bow_rf.accuracy((dev_X, dev_y), False)

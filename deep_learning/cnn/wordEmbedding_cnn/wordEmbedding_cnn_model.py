@@ -41,6 +41,7 @@ class WordEmbeddingCNN(CnnBaseClass):
                  input_dim=None,
                  word_embedding_dim=None,
                  embedding_init_weight=None,
+                 embedding_weight_trainable = True,
                  input_length=None,
                  num_labels=None,
                  l1_conv_filter_type=None,
@@ -71,6 +72,8 @@ class WordEmbeddingCNN(CnnBaseClass):
             1. None: 使用随机初始化权重.
             2. 不是None：若有提供权重，则使用训练好的词向量进行初始化.
         :type embedding_init_weight: 2d array-like
+        :param embedding_weight_trainable: 设置embedding层的权重是否 static or nonstatic
+        :type embedding_weight_trainable: bool
         :param input_length: cnn设置选项,输入句子(序列)的长度.
         :type input_length: int
         :param num_labels: cnn设置选项,最后输出层的大小,即分类类别的个数.
@@ -111,13 +114,16 @@ class WordEmbeddingCNN(CnnBaseClass):
         self.embedding_init_weight = embedding_init_weight
         self.input_length = input_length
 
+        self.embedding_weight_trainable = embedding_weight_trainable
+
         self.l1_conv_filter_type = l1_conv_filter_type
         self.l2_conv_filter_type = l2_conv_filter_type
         self.full_connected_layer_units = full_connected_layer_units
         self.embedding_dropout_rate = embedding_dropout_rate
         self.output_dropout_rate = output_dropout_rate
         self.kwargs = kwargs
-
+        # 嵌入层的输出
+        self.embedding_layer_output = None
         self.conv1_feature_output = None
 
         # 构建模型
@@ -155,13 +161,15 @@ class WordEmbeddingCNN(CnnBaseClass):
             weight = None
         else:
             weight = [self.embedding_init_weight]
-        l2_embedding = Embedding(input_dim=self.input_dim,
-                              output_dim=self.word_embedding_dim,
-                              input_length=self.input_length,
-                              # mask_zero = True,
-                              weights=weight,
-                              init='uniform'
-                              )(l1_input)
+        l2_embedding = Embedding(
+            input_dim=self.input_dim,
+            output_dim=self.word_embedding_dim,
+            input_length=self.input_length,
+            # mask_zero = True,
+            weights=weight,
+            init='uniform',
+            trainable=self.embedding_weight_trainable,
+        )(l1_input)
         # 3. Dropout层，对Embedding层进行dropout
         # 输入dropout层,embedding_dropout_rate!=0,则对embedding增加doupout层
         if self.embedding_dropout_rate:
@@ -175,6 +183,8 @@ class WordEmbeddingCNN(CnnBaseClass):
             input_layer=l4_reshape,
             convolution_filter_type=self.l1_conv_filter_type,
         )
+        self.embedding_layer_output = Model(input=l1_input, output=[l5_cnn])
+        # print (self.embedding_layer_output.get_weights())
         # model = Model(input=l1_input, output=[l5_cnn])
         # model.summary()
         # quit()
@@ -227,6 +237,7 @@ class WordEmbeddingCNN(CnnBaseClass):
         num_labels = 24
         feature_type = 'word_seg'
         rand_seed = kwargs['rand_seed']
+        embedding_weight_trainable = kwargs['embedding_weight_trainable']
         l1_conv_filter_type = kwargs['l1_conv_filter_type']
         l2_conv_filter_type = kwargs['l2_conv_filter_type']
         k = kwargs['k']
@@ -242,6 +253,7 @@ class WordEmbeddingCNN(CnnBaseClass):
         fout = open(detail_result_file_path, 'w')
 
         print('=' * 150)
+        print('embedding_weight_trainable:%s'%embedding_weight_trainable)
         print('feature_type:%s\nnb_epoch:%d\nrand_seed:%d' % (feature_type, nb_epoch, rand_seed))
         print('l1_conv_filter_type:%s' % l1_conv_filter_type)
         print('l2_conv_filter_type:%s' % l2_conv_filter_type)
@@ -317,6 +329,7 @@ class WordEmbeddingCNN(CnnBaseClass):
                                 input_dim=init_weight.shape[0],
                                 word_embedding_dim=word_embedding_dim,
                                 embedding_init_weight=init_weight,
+                                embedding_weight_trainable=embedding_weight_trainable,
                                 input_length=sentence_padding_length,
                                 num_labels=num_labels,
                                 l1_conv_filter_type=[
@@ -388,6 +401,7 @@ class WordEmbeddingCNN(CnnBaseClass):
                   'optimizers': self.optimizers,
                   'input_dim': self.input_dim,
                   'word_embedding_dim': self.word_embedding_dim,
+                  'embedding_weight_trainable': self.embedding_weight_trainable,
                   'input_length': self.input_length,
                   'num_labels': self.num_labels,
                   'l1_conv_filter_type': self.l1_conv_filter_type,
@@ -440,6 +454,7 @@ if __name__ == '__main__':
         word_embedding_dim=word_embedding_dim,
         embedding_init_weight=feature_encoder.to_embedding_weight(
             '/home/jdwang/PycharmProjects/corprocessor/word2vec/vector/ood_sentence_vector1191_50dim.gem'),
+        embedding_weight_trainable=False,
         input_length=sentence_padding_length,
         num_labels=5,
         l1_conv_filter_type=[
@@ -461,9 +476,9 @@ if __name__ == '__main__':
     rand_embedding_cnn.print_model_descibe()
     # 训练模型
     # 从保存的pickle中加载模型
-    # onehot_cnn.model_from_pickle('model/modelA.pkl')
     rand_embedding_cnn.fit((train_X_feature, trian_y),
                            (test_X_feature, test_y))
+    # print (rand_embedding_cnn.embedding_layer_output.get_weights())
     rand_embedding_cnn.accuracy((train_X_feature, trian_y), transform_input=False)
 
     quit()

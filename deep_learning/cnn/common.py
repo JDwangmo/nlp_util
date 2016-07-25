@@ -311,21 +311,25 @@ class CnnBaseClass(CommonModel):
         '''
 
         # from keras.models import Sequential
-        from keras.layers import Dense
+        from keras.layers import Dense,Dropout
 
         # output_layer = Sequential(name='full_connected_layer')
+        output = input_layer
+        for index,unit in enumerate(units):
+            if type(unit)==int:
+                unit = list([unit])
+            num_dense = unit[0]
+            if len(unit)==1:
+                dropout_rate = 0.
+            elif len(unit)==2:
+                dropout_rate = unit[1]
+            else:
+                raise NotImplementedError
 
-        for unit in units[:-1]:
-            input_layer = Dense(output_dim=unit, init="glorot_uniform", activation='relu')(input_layer)
-        output = Dense(
-            output_dim=units[-1],
-            init="glorot_uniform",
-            activation='relu',
-            # input_shape=(input_shape,)
-        )(input_layer)
-        #
-        # output = output_layer(input_layer)
-        # output_shape = output_layer.get_output_shape_at(-1)
+            output = Dense(output_dim=num_dense, init="glorot_uniform", activation='relu')(output)
+
+            if dropout_rate>0:
+                output = Dropout(dropout_rate,name='full_connected_dropout%d_%.2f'%(index,dropout_rate))(output)
 
         return output
 

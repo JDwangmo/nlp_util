@@ -28,8 +28,7 @@ class SingleChannelBowCNN(CnnBaseClass):
             4. 第二层卷积层：单核卷积层
             5. flatten层
             6. 全连接层
-            7. 输出Dropout层
-            8. softmax分类层
+            7. softmax分类层
 
     """
 
@@ -45,7 +44,6 @@ class SingleChannelBowCNN(CnnBaseClass):
                  l2_conv_filter_type =None,
                  l1_conv_filter_type = None,
                  full_connected_layer_units = None,
-                 output_dropout_rate = 0.,
                  **kwargs
                  ):
 
@@ -65,7 +63,6 @@ class SingleChannelBowCNN(CnnBaseClass):
         self.l1_conv_filter_type = l1_conv_filter_type
         self.l2_conv_filter_type = l2_conv_filter_type
         self.full_connected_layer_units = full_connected_layer_units
-        self.output_dropout_rate = output_dropout_rate
 
         self.build_model()
 
@@ -115,13 +112,13 @@ class SingleChannelBowCNN(CnnBaseClass):
         # 6. 全连接层
         l6_full_connected_layer = self.create_full_connected_layer(
             input_layer=l5_flatten,
-            units=self.full_connected_layer_units + [self.num_labels]
+            units=self.full_connected_layer_units + [[self.num_labels,0.]]
         )
         # 7. 输出Dropout层
-        l6_dropout = Dropout(p=self.output_dropout_rate)(l6_full_connected_layer)
+        # l6_dropout = Dropout(p=self.output_dropout_rate)(l6_full_connected_layer)
 
         # 8. softmax分类层
-        l8_softmax_output = Activation("softmax")(l6_dropout)
+        l8_softmax_output = Activation("softmax")(l6_full_connected_layer)
 
         model = Model(input=l1_input, output=[l8_softmax_output])
 
@@ -155,7 +152,7 @@ class SingleChannelBowCNN(CnnBaseClass):
         k = kwargs['k']
 
         # 详细结果保存到...
-        detail_result_file_path = result_file_path % feature_type
+        detail_result_file_path = result_file_path
         fout = open(detail_result_file_path, 'w')
 
         print('=' * 150)
@@ -206,7 +203,8 @@ class SingleChannelBowCNN(CnnBaseClass):
                         # 五折
                         print('K折交叉验证开始...')
                         counter = 0
-                        ave_acc = []
+                        test_acc = []
+                        train_acc = []
                         for dev_X, dev_y, val_X, val_y in all_cv_data:
                             # print(dev_X2.shape)
                             print('-' * 80)
@@ -226,15 +224,14 @@ class SingleChannelBowCNN(CnnBaseClass):
                                 num_labels=num_labels,
                                 input_length=dev_X.shape[1],
                                 l1_conv_filter_type=[
-                                    [layer1, l1_conv_filter_type[0], -1, 'valid', (k[0], 1), 0.5],
+                                    [layer1, l1_conv_filter_type[0], -1, 'valid', (k[0], 1), 0.],
                                     [layer1, l1_conv_filter_type[1], -1, 'valid', (k[0], 1), 0.],
                                     [layer1, l1_conv_filter_type[2], -1, 'valid', (k[0], 1), 0.],
                                 ],
                                 l2_conv_filter_type=[
-                                    [layer2, l2_conv_filter_type[0], -1, 'valid', (k[1], 1), 0.5]
+                                    [layer2, l2_conv_filter_type[0], -1, 'valid', (k[1], 1), 0.25]
                                 ],
-                                full_connected_layer_units=[hidden1, hidden2],
-                                output_dropout_rate=0.2,
+                                full_connected_layer_units=[(hidden1,.5), (hidden2,.5)],
                                 nb_epoch=nb_epoch,
                                 earlyStoping_patience=50,
                                 optimizers='sgd',
@@ -242,22 +239,26 @@ class SingleChannelBowCNN(CnnBaseClass):
                                 lr=1e-2,
                             )
 
+                            # bow_cnn.print_model_descibe()
 
                             dev_loss, dev_accuracy, \
                             val_loss, val_accuracy = bow_cnn.fit((dev_X, dev_y), (val_X, val_y))
+
                             print('dev:%f,%f' % (dev_loss, dev_accuracy))
                             print('val:%f,%f' % (val_loss, val_accuracy))
                             fout.write('dev:%f,%f\n' % (dev_loss, dev_accuracy))
                             fout.write('val:%f,%f\n' % (val_loss, val_accuracy))
-                            ave_acc.append(val_accuracy)
+                            test_acc.append(val_accuracy)
+                            train_acc.append(dev_accuracy)
                             counter += 1
 
-                        print('k折验证结果：%s' % ave_acc)
-                        print('验证中平均准确率：%f'%np.average(ave_acc[1:]))
+                        print('k折验证结果：%s' % test_acc)
+                        print('验证中平均准确率：%f'%np.average(test_acc[1:]))
                         print('-' * 80)
 
-                        fout.write('k折验证结果：%s\n' % ave_acc)
-                        fout.write('平均：%f\n' % np.average(ave_acc[1:]))
+                        fout.write('k折验证训练结果：%s\n' % train_acc)
+                        fout.write('k折验证测试结果：%s\n' % test_acc)
+                        fout.write('平均：%f\n' % np.average(test_acc[1:]))
                         fout.write('-' * 80 + '\n')
                         fout.flush()
         fout.close()
@@ -277,7 +278,6 @@ class SingleChannelBowCNN(CnnBaseClass):
                   'l2_conv_filter_type':self.l2_conv_filter_type,
                   'l1_conv_filter_type':self.l1_conv_filter_type,
                   'full_connected_layer_units':self.full_connected_layer_units,
-                  'output_dropout_rate': self.output_dropout_rate,
                   }
         pprint.pprint(detail)
         logging.debug(detail)
@@ -317,15 +317,16 @@ def test_single_bow():
         num_labels=4,
         input_length=feature_encoder.vocabulary_size,
         l1_conv_filter_type=[
-            [5, 2, 1, 'valid', (-2, 1), 0.5],
+            [5, 2, 1, 'valid', (-2, 1), 0.],
             # [5, 4, 1, 'valid',(-2,1),0.],
             # [5, 6, 1, 'valid',(-2,1),0.],
         ],
         l2_conv_filter_type=[
-            [3, 2, 1, 'valid', (-1, 1), 0.]
+            [3, 2, 1, 'valid', (-1, 1), 0.25]
         ],
-        full_connected_layer_units=[50, 100],
-        output_dropout_rate=0.5,
+        full_connected_layer_units=[(50,0.5), (100,0.5)],
+        # full_connected_layer_units=[50, 100],
+        output_dropout_rate=0.,
         nb_epoch=30,
         earlyStoping_patience=50,
         optimizers='sgd',
@@ -363,13 +364,13 @@ def test_cv():
         k = [2, 2],
         hidden1 = [50, 100],
         hidden2 = [50, 100],
-
+        remove_stopword=True,
     )
 
 if __name__ == '__main__':
 
-    # test_single_bow()
-    test_cv()
+    test_single_bow()
+    # test_cv()
 
 
 

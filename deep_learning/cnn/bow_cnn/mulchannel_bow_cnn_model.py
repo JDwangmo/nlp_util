@@ -40,7 +40,6 @@ class MultiChannelBowCNN(CnnBaseClass):
                  l1_conv_word_filter_type = None,
                  l1_conv_seg_filter_type = None,
                  full_connected_layer_units = None,
-                 output_dropout_rate = 0.,
                  **kwargs
                  ):
 
@@ -64,7 +63,6 @@ class MultiChannelBowCNN(CnnBaseClass):
         self.l1_conv_seg_filter_type = l1_conv_seg_filter_type
         self.l2_conv_filter_type = l2_conv_filter_type
         self.full_connected_layer_units = full_connected_layer_units
-        self.output_dropout_rate = output_dropout_rate
 
         self.build_model()
 
@@ -142,15 +140,13 @@ class MultiChannelBowCNN(CnnBaseClass):
         l4_flatten = Flatten()(l3_conv)
         l5_full_connected_layer = self.create_full_connected_layer(
             input_layer=l4_flatten,
-            units=self.full_connected_layer_units + [self.num_labels]
+            units=self.full_connected_layer_units + [[self.num_labels,0.]]
         )
-        # 6. 输出Dropout层
-        l6_dropout = Dropout(p=self.output_dropout_rate)(l5_full_connected_layer)
 
-        # 8. softmax分类层
-        l8_softmax_output = Activation("softmax")(l6_dropout)
+        # 6. softmax分类层
+        l6_softmax_output = Activation("softmax")(l5_full_connected_layer)
 
-        model = Model(input=[l1_input_word,l1_input_seg], output=[l8_softmax_output])
+        model = Model(input=[l1_input_word,l1_input_seg], output=[l6_softmax_output])
 
         # softmax层的输出
         # self.model_output = K.function([l1_input_word,l1_input_seg, K.learning_phase()], [l8_softmax_output])
@@ -191,7 +187,6 @@ class MultiChannelBowCNN(CnnBaseClass):
                   'l1_conv_word_filter_type':self.l1_conv_word_filter_type,
                   'l1_conv_seg_filter_type':self.l1_conv_seg_filter_type,
                   'full_connected_layer_units':self.full_connected_layer_units,
-                  'output_dropout_rate': self.output_dropout_rate,
                   }
         pprint.pprint(detail)
         logging.debug(detail)
