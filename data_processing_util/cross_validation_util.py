@@ -77,7 +77,10 @@ def transform_cv_data(feature_encoder=None,
     # 合并验证数据为总体的训练数据
     train_x = np.concatenate(cv_x)
     train_y = np.concatenate(cv_y)
-
+    # print(train_x)
+    # pd.DataFrame(data={'SENTENCE':train_x,'LABEL':train_y}).to_csv('/home/jdwang/PycharmProjects/corprocessor/coprocessor/bow_model/bow_CNN_bow_WORD2VEC_oov_randomforest/result/train_%d.csv'%len(train_x),sep='\t',encoding='utf8',index=False)
+    # pd.DataFrame(data={'SENTENCE':test_x,'LABEL':test_y}).to_csv('/home/jdwang/PycharmProjects/corprocessor/coprocessor/bow_model/bow_CNN_bow_WORD2VEC_oov_randomforest/result/test_%d.csv'%len(test_x),sep='\t',encoding='utf8',index=False)
+    # quit()
     all_cv_data = []
     # 训练和测试数据
     x_features = feature_encoder.fit_transform(train_x)

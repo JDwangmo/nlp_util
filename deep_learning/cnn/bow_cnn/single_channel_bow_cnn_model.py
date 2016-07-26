@@ -64,14 +64,6 @@ class SingleChannelBowCNN(CnnBaseClass):
         self.l2_conv_filter_type = l2_conv_filter_type
         self.full_connected_layer_units = full_connected_layer_units
 
-        # 最后一层隐含层（倒数第二层）的输出
-        self.last_hidden_layer = None
-        # 输出层的输出
-        self.output_layer = None
-        # 第一层卷积层输出
-        self.conv1_feature_output = None
-        # 第二层卷积层输出
-        self.conv2_feature_output = None
         # 构建模型
         self.build_model()
 

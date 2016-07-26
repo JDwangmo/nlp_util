@@ -102,6 +102,16 @@ class CnnBaseClass(CommonModel):
         self.model = None
         # cnn model early_stop
         self.early_stop = None
+
+        # 第一层卷积层输出
+        self.conv1_feature_output = None
+        # 第二层卷积层输出
+        self.conv2_feature_output = None
+        # 最后一层隐含层（倒数第二层）的输出
+        self.last_hidden_layer = None
+        # 输出层的输出
+        self.output_layer = None
+
         # cnn model 的输出函数
         self.model_output = None
 
@@ -607,7 +617,7 @@ class CnnBaseClass(CommonModel):
         return y_pred
 
     def get_layer_output(self, sentence, layer='hidden2', transform_input=False):
-        '''
+        """
             获取最后一层隐含层（网络倒数第二层）的输出
 
         :param sentence: 测试句子,['','']
@@ -616,7 +626,7 @@ class CnnBaseClass(CommonModel):
         :type layer: str
         :param transform: 是否转换句子，如果为True,输入原始字符串句子即可，内部已实现转换成字典索引的形式。
         :type transform: array-like
-        '''
+        """
 
         assert layer in ['conv1', 'conv2', 'hidden1', 'hidden2',
                          'output'], 'layer 仅支持 conv1,conv2,hidden1,hidden2,output'
@@ -625,14 +635,17 @@ class CnnBaseClass(CommonModel):
             assert type(sentence) == list, 'sentence 的 type 为 list！'
             sentence = self.transform(sentence)
 
-        assert sentence.shape == 2, 'sentence 的 shape 应该为 2d！'
-
         if layer == 'output':
             output = self.output_layer([sentence, 0])[0]
         elif layer == 'hidden2':
             output = self.last_hidden_layer([sentence, 0])[0]
-
-        output = output.flatten()
+        elif layer == 'conv1':
+            output = self.conv1_feature_output([sentence, 0])[0]
+        elif layer == 'conv2':
+            output = self.conv2_feature_output([sentence, 0])[0]
+        else:
+            raise NotImplementedError
+        output = output.reshape(len(sentence),-1)
 
         # -------------- print start : just print info -------------
         if self.verbose > 2:
