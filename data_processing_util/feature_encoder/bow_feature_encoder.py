@@ -6,11 +6,8 @@ __author__ = 'jdwang'
 __date__ = 'create date: 2016-06-24'
 __email__ = '383287471@qq.com'
 import numpy as np
-import pandas as pd
 import logging
-import timeit
 from gensim.models import Word2Vec
-from gensim.corpora.dictionary import Dictionary
 from data_processing_util.jiebanlp.jieba_util import Jieba_Util
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 
@@ -153,9 +150,10 @@ class FeatureEncoder(object):
         elif self.feature_type == 'word':
             # 将句子切分为 以字为单元 以空格分割
             # 1. 先使用jieba进行预处理，将数字替换等
-            segmented_sentence = self.jieba_seg.seg(
+            segmented_sentence = self.jieba_seg.iter_each_word(
                 sentence,
                 sep=' ',
+                need_segmented=True,
                 full_mode=self.full_mode,
                 remove_stopword=self.remove_stopword,
                 replace_number=self.replace_number,
@@ -165,8 +163,6 @@ class FeatureEncoder(object):
                 HMM=False,
             )
             # 2. 按字切分
-            segmented_sentence = self.jieba_seg.iter_each_word(segmented_sentence,False)
-            segmented_sentence = ' '.join(segmented_sentence)
 
         elif self.feature_type == 'word_seg':
             # 将句子切分为 以字和词为单元，相同则去重 以空格分割
@@ -184,7 +180,7 @@ class FeatureEncoder(object):
             )
             # print(segmented_sentence)
             # 2. 按字切分
-            word = self.jieba_seg.iter_each_word(segmented_sentence,False)
+            word = self.jieba_seg.iter_each_word(segmented_sentence,sep=' ',need_segmented=False).split()
             # 3. 按词切分
             seg = segmented_sentence.split()
             segmented_sentence = ' '.join(set(seg+word))

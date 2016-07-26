@@ -3,7 +3,8 @@
     Author:  'jdwang'
     Date:    'create date: 2016-06-23'
     Email:   '383287471@qq.com'
-    Describe:
+    Describe: CNN base class
+                提供一些公共的函数
 """
 
 import logging
@@ -34,7 +35,7 @@ class CnnBaseClass(CommonModel):
             9. batch_predict_bestn: 批量预测，输出前n个结果
             10. predict： 单句预测
             11. batch_predict： 批量预测
-            12. get_conv1_feature:
+            12. get_layer_output: 获取CNN某一层的输出
 
             13. save_model：保存模型
             14. model_from_pickle：恢复模型
@@ -465,7 +466,9 @@ class CnnBaseClass(CommonModel):
         :return: feature
         '''
 
+
         feature = self.feature_encoder.transform(data)
+
         return feature
 
     def fit(self, train_data=None, validation_data=None):
@@ -602,6 +605,42 @@ class CnnBaseClass(CommonModel):
         y_pred = y_pred.flatten()
 
         return y_pred
+
+    def get_layer_output(self, sentence, layer='hidden2', transform_input=False):
+        '''
+            获取最后一层隐含层（网络倒数第二层）的输出
+
+        :param sentence: 测试句子,['','']
+        :type sentence: array-like
+        :param layer: 指定某一层的神经网络的输出, 'conv1','conv2','hidden1','hidden2'
+        :type layer: str
+        :param transform: 是否转换句子，如果为True,输入原始字符串句子即可，内部已实现转换成字典索引的形式。
+        :type transform: array-like
+        '''
+
+        assert layer in ['conv1', 'conv2', 'hidden1', 'hidden2',
+                         'output'], 'layer 仅支持 conv1,conv2,hidden1,hidden2,output'
+
+        if transform_input:
+            assert type(sentence) == list, 'sentence 的 type 为 list！'
+            sentence = self.transform(sentence)
+
+        assert sentence.shape == 2, 'sentence 的 shape 应该为 2d！'
+
+        if layer == 'output':
+            output = self.output_layer([sentence, 0])[0]
+        elif layer == 'hidden2':
+            output = self.last_hidden_layer([sentence, 0])[0]
+
+        output = output.flatten()
+
+        # -------------- print start : just print info -------------
+        if self.verbose > 2:
+            logging.debug('句子表示成%d维的特征' % (output.shape))
+            print('句子表示成%d维的特征' % (len(output)))
+
+        # -------------- print end : just print info -------------
+        return output
 
     def accuracy(self, test_data, transform_input=False):
         """

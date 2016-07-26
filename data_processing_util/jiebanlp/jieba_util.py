@@ -75,7 +75,7 @@ class Jieba_Util(object):
         simple_chinese = opencc.convert(sentence, config='zht2zhs.ini')
         return simple_chinese
 
-    def iter_each_word(self,sentence,need_segmented=True,**kwargs):
+    def iter_each_word(self,sentence,sep=' ',need_segmented=True,**kwargs):
         '''
             返回句子的每个词（中文字或英文单词），比如
                 - 500 元  --> [500,元]
@@ -85,6 +85,7 @@ class Jieba_Util(object):
 
         :param sentence:
         :param need_segmented: 是否需要先进行分词处理，默认为True
+        :param kwargs: full_mode,remove_stopword,replace_number,lowercase,zhs2zht,remove_url,HMM
         :return:
         '''
 
@@ -101,7 +102,6 @@ class Jieba_Util(object):
                 HMM=kwargs.get('HMM',False),
             )
         words = []
-        # print(sentence)
         for item in sentence.split():
             if re.findall(u'[0-9A-Za-z]+',item):
                 words.append(item)
@@ -111,6 +111,7 @@ class Jieba_Util(object):
 
                 word = list(item)
                 words.extend(word)
+        words = sep.join(words)
         return words
 
     def seg(self,
@@ -236,9 +237,9 @@ if __name__ == '__main__':
     # sent = u'2000元'
     # print ','.join(jieba.cut(sent,HMM=True))
     # print ','.join(jieba.cut(sent,HMM=False))
-    print jieba_util.iter_each_word('你 是 谁',False)
-    print jieba_util.iter_each_word(u'你是谁',True)
-    print jieba_util.iter_each_word('ch2r',False)
+    # print jieba_util.iter_each_word('你 是 谁', sep=' ',need_segmented=False)
+    print jieba_util.iter_each_word(u'妈b', sep=' ',need_segmented=True,full_mode=False)
+    print jieba_util.iter_each_word('ch2r', sep=' ',need_segmented=False)
     print(jieba_util.seg(sent,
                          full_mode=False,
                          remove_stopword=False,

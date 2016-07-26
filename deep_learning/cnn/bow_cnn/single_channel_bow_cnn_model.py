@@ -64,6 +64,15 @@ class SingleChannelBowCNN(CnnBaseClass):
         self.l2_conv_filter_type = l2_conv_filter_type
         self.full_connected_layer_units = full_connected_layer_units
 
+        # 最后一层隐含层（倒数第二层）的输出
+        self.last_hidden_layer = None
+        # 输出层的输出
+        self.output_layer = None
+        # 第一层卷积层输出
+        self.conv1_feature_output = None
+        # 第二层卷积层输出
+        self.conv2_feature_output = None
+        # 构建模型
         self.build_model()
 
     def create_network(self):
@@ -84,7 +93,7 @@ class SingleChannelBowCNN(CnnBaseClass):
 
         from keras.layers import Input, Activation, merge, Flatten, Dropout,Reshape
         from keras.models import Model
-        # from keras import backend as K
+        from keras import backend as K
 
         # 1. 输入层：(1,self.input_length,1)
         l1_input_shape = ( self.input_length, )
@@ -112,20 +121,31 @@ class SingleChannelBowCNN(CnnBaseClass):
         # 6. 全连接层
         l6_full_connected_layer = self.create_full_connected_layer(
             input_layer=l5_flatten,
-            units=self.full_connected_layer_units + [[self.num_labels,0.]]
+            units=self.full_connected_layer_units
         )
-        # 7. 输出Dropout层
-        # l6_dropout = Dropout(p=self.output_dropout_rate)(l6_full_connected_layer)
+        l7_output_layer = self.create_full_connected_layer(
+            input_layer=l6_full_connected_layer,
+            units=[[self.num_labels,0.]]
+        )
 
         # 8. softmax分类层
-        l8_softmax_output = Activation("softmax")(l6_full_connected_layer)
+        l8_softmax_output = Activation("softmax")(l7_output_layer)
 
         model = Model(input=l1_input, output=[l8_softmax_output])
+
+        # 最后一层隐含层（倒数第二层）的输出
+        self.conv1_feature_output = K.function([l1_input, K.learning_phase()], [l3_conv])
+        self.conv2_feature_output = K.function([l1_input, K.learning_phase()], [l4_conv])
+        self.last_hidden_layer= K.function([l1_input, K.learning_phase()], [l6_full_connected_layer])
+        self.output_layer= K.function([l1_input, K.learning_phase()], [l7_output_layer])
+        # 模型输出层
+        self.model_output = K.function([l1_input, K.learning_phase()], [l8_softmax_output])
 
         if self.verbose>0:
             model.summary()
 
         return model
+
 
     @staticmethod
     def cross_validation(cv_data,test_data,result_file_path,**kwargs):
@@ -324,7 +344,7 @@ def test_single_bow():
         l2_conv_filter_type=[
             [3, 2, 1, 'valid', (-1, 1), 0.25]
         ],
-        full_connected_layer_units=[(50,0.5), (100,0.5)],
+        full_connected_layer_units=[(50,0.5), (100,0.25)],
         # full_connected_layer_units=[50, 100],
         output_dropout_rate=0.,
         nb_epoch=30,
@@ -338,6 +358,8 @@ def test_single_bow():
         (train_X_feature, trian_y),
         (test_X_feature, test_y)))
     print(bow_cnn.predict('你好', transform_input=True))
+    print(bow_cnn.get_layer_output(['你好'],layer='hidden2', transform_input=True))
+    print(bow_cnn.get_layer_output(['好'], layer='hidden2',transform_input=True))
     bow_cnn.accuracy((test_X_feature, test_y))
     print(bow_cnn.batch_predict(test_X, True))
     print(bow_cnn.batch_predict(test_X_feature, False))

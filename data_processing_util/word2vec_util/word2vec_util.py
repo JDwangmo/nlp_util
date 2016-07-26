@@ -8,6 +8,7 @@ import logging
 import timeit
 from gensim.models import Word2Vec
 import io
+from data_processing_util.jiebanlp.jieba_util import Jieba_Util
 
 
 class Word2vecUtil(object):
@@ -107,6 +108,7 @@ class Word2vecUtil(object):
         self.model = Word2Vec.load(input_path)
         return self.model
 
+
     def print_model_descibe(self):
         '''
             打印模型参数详情
@@ -127,7 +129,7 @@ class Word2vecUtil(object):
         return detail
 
 
-def test():
+def test1():
     input_file1 = './sample_data/train_data_half_2090.csv'
 
     data = pd.read_csv(input_file1,
@@ -148,5 +150,48 @@ def test():
     util.save('vector/train_data_half_2090.gem')
 
 
+def test2():
+    input_file1 = './sample_data/v2.3_train_Sa_891.csv'
+
+    data = pd.read_csv(input_file1,
+                       encoding='utf8',
+                       sep='\t',
+                       index_col=0,
+                       header=0)
+
+    data = data[data['LABEL']!=u'其它#其它']
+    data = data[data['LABEL']!=u'其它#捣乱']
+    print(data.head())
+    # 分词
+    jieba_util = Jieba_Util()
+    segment_sentence = lambda x:jieba_util.iter_each_word(
+        sentence=x,
+        sep=' ',
+        need_segmented=True,
+        full_mode=False,
+        remove_stopword=False,
+        replace_number=True,
+        lowercase=True,
+        zhs2zht=True,
+        remove_url=True,
+    )
+    data['WORDS'] = data['SENTENCE'].apply(segment_sentence).as_matrix()
+    sentences = data['WORDS'].as_matrix()
+    print '句子数：%d' % sentences.shape
+    # print(sentences[-1])
+    # quit()
+    util = Word2vecUtil(size=50,
+                        train_method='cbow'
+                        )
+    util.train(sentences)
+    util.print_model_descibe()
+
+    most_similar_words = util.model.most_similar(u'机')
+    most_similar_words = util.model.most_similar(u'喜')
+    print ','.join([i for i, j in most_similar_words])
+    util.save('vector/v2.3_train_Sa_891_word_50dim.gem')
+
+
 if __name__ == '__main__':
-    test()
+    # test1()
+    test2()
