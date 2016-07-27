@@ -292,7 +292,7 @@ class SingleChannelBowCNN(CnnBaseClass):
                                     [layer1, l1_conv_filter_type[2], -1, 'valid', (k[0], 1), 0.,'relu', 'none'],
                                 ],
                                 l2_conv_filter_type=[
-                                    [layer2, l2_conv_filter_type[0], -1, 'valid', (k[1], 1), 0.,'relu', 'none']
+                                    [layer2, l2_conv_filter_type[0], -1, 'valid', (k[1], 1), 0.,'relu', 'batch_normalization']
                                 ],
                                 full_connected_layer_units=[(hidden1,0.,'relu', 'batch_normalization'),
                                                             (hidden2,0.,'relu', 'none')],
