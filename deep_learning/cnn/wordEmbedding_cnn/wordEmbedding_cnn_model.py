@@ -95,6 +95,7 @@ class WordEmbeddingCNN(CnnBaseClass):
         :param earlyStoping_patience: cnn设置选项,earlyStoping的设置,如果迭代次数超过这个耐心值,依旧不下降,则stop.
         :type earlyStoping_patience: int
         '''
+
         CnnBaseClass.__init__(
             self,
             rand_seed=rand_seed,

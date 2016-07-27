@@ -123,7 +123,6 @@ class CnnBaseClass(CommonModel):
 
 
     def create_multi_size_convolution_layer(self,
-                                            # input_shape=None,
                                             input_layer = None,
                                             convolution_filter_type=None,
                                             **kwargs
@@ -143,9 +142,9 @@ class CnnBaseClass(CommonModel):
             for example:每个列表代表一种类型(size)的卷积核,和 max pooling 的size
                 - 每一维的分别对应：nb_filter, nb_row, nb_col, border_mode, k,dropout_rate。如果nb_col设置-1的话，则nb_col=input_shape[-1]
                 -  注意：每一列的第一行（即nb_filter）都应该是一样的，不然会报错
-                conv_filter_type = [[100,2,2,'valid', (1, 1),0.5],
-                                    [100,4,2,'valid', (1, 1),0.5],
-                                    [100,6,2,'valid', (1, 1),0.5],
+                convolution_filter_type = [[100,2,word_embedding_dim,'valid',(1,1), 0.5, 'relu', 'batch_normalization'],
+                                    [100,4,word_embedding_dim,'valid',(1,1), 0., 'relu', 'batch_normalization'],
+                                    [100,6,word_embedding_dim,'valid',(1,1), 0., 'relu', 'batch_normalization'],
                                    ]
         :type convolution_filter_type: array-like
         :param input_shape: 输入的 shape，3D，类似一张图，(channel,row,col)比如 （1,5,5）表示单通道5*5的图片
@@ -158,13 +157,18 @@ class CnnBaseClass(CommonModel):
 
         # assert len(input_shape) == 3, 'warning: 因为必须是一个4D的输入，(n_batch,channel,row,col)，所以input shape必须是一个3D-array，(channel,row,col)!'
 
-        from keras.layers import Dropout,merge
-        dropout_rate = convolution_filter_type[0][-1]
+        from keras.layers import Dropout,merge,BatchNormalization,Activation
+        dropout_rate = convolution_filter_type[0][-3]
+        activation = convolution_filter_type[0][-2]
+        normalization = convolution_filter_type[0][-1]
+
+        self.check_param(activation=activation,normalization=normalization)
+
         # 构建第一层卷积层和1-max pooling
         conv_layers = []
         for items in convolution_filter_type:
 
-            nb_filter, nb_row, nb_col, border_mode, k,_ = items
+            nb_filter, nb_row, nb_col, border_mode, k,_,_,_ = items
             m = self.create_one_size_convolution_layer(
                 input_layer,
                 nb_filter,
@@ -173,6 +177,8 @@ class CnnBaseClass(CommonModel):
                 border_mode,
                 k,
                 dropout_rate=0,
+                activation= 'none',
+                normalization ='none',
                 **kwargs
             )
             # m.summary()
@@ -182,6 +188,21 @@ class CnnBaseClass(CommonModel):
         # 卷积的结果进行拼接
         # cnn_model = Sequential(**kwargs)
         output = merge(conv_layers, mode='concat', concat_axis=2)
+
+        # 增加一个 规范化层
+        if normalization == 'batch_normalization':
+            output = BatchNormalization()(output)
+        elif normalization == 'none':
+            pass
+        else:
+            raise NotImplementedError
+        # 增加一个 激活函数
+        if activation!='none':
+            output = Activation(activation)(output)
+
+        if dropout_rate > 0:
+            output = Dropout(p=dropout_rate)(output)
+
         if dropout_rate > 0:
             output = Dropout(p=dropout_rate)(output)
 
@@ -202,11 +223,16 @@ class CnnBaseClass(CommonModel):
             border_mode,
             k,
             dropout_rate,
+            activation,
+            normalization,
             **kwargs
     ):
 
-        from keras.layers import Dropout, Reshape
+        self.check_param(activation=activation, normalization=normalization)
+
+        from keras.layers import Dropout,Activation,BatchNormalization
         from custom_layers import Convolution2DWrapper,MaxPooling2DWrapper,BowLayer
+
 
         if border_mode == 'bow':
             # bow-convolution
@@ -241,6 +267,18 @@ class CnnBaseClass(CommonModel):
         # 增加一个max pooling层
         output = MaxPooling2DWrapper(pool_size=k)(conv_output)
 
+        # 增加一个 规范化层
+        if normalization =='batch_normalization':
+            output = BatchNormalization()(output)
+        elif normalization =='none':
+            pass
+        else:
+            raise NotImplementedError
+
+        # 增加一个 激活函数
+        if activation!='none':
+            output = Activation(activation)(output)
+
         if dropout_rate > 0:
             output= Dropout(p=dropout_rate)(output)
 
@@ -259,19 +297,28 @@ class CnnBaseClass(CommonModel):
         :param input_shape: 上一层的shape
         :param input_layer: 上一层
         :param convolution_filter_type: 卷积核类型，可以多size和单size，比如：
-            - 每一维的分别对应：nb_filter, nb_row, nb_col, border_mode, k。如果nb_col设置-1的话，则nb_col=input_shape[-1],
-            - k[0]<0的话，使用普通 max pooling，size为( abs(k[0]) , k[1] )
-            - k[0]>1,使用k-max pooling
-            - k[0]==1,使用 1-max pooling
+            - 每一维的分别对应：（num_conv，conv_row，conv_col，conv_type，(max-pooling size),dropout_rate，activation，normalization）
 
-            1. 多size：每个列表代表一种类型(size)的卷积核,
-                conv_filter_type = [[100,2,1,'valid',(k,1),dropout_rate ],
-                                    [100,4,1,'valid',(k,1),dropout_rate ],
-                                    [100,6,1,'valid',(k,1),dropout_rate],
+                1) num_conv:卷积核个数: 多size时，每一种（每个列表）的num_conv都应该是一样的，不然会报错
+                2) conv_row: 卷积核行
+                3) conv_col: 卷积核列,设置-1的话，则nb_col=input_shape[-1]
+                4) conv_type:卷积类型
+                5) max-pooling size: max pooling filter 的大小,(k[0],k[1]),
+                    - k[0]<0的话，使用普通 max pooling，size为( abs(k[0]) , k[1] )
+                    - k[0]>1,使用k-max pooling
+                    - k[0]==1,使用 1-max pooling
+                6) dropout_rate: dropout rate，设为0的时候关闭,当使用多size的时候，dropout rate 以第一个为准，其他无视。
+                6) activation: 激活函数 ，['linear','relu'],当使用多size的时候，activation 以第一个为准，其他无视。
+                7) normalization: 规范化，['none','batch_normalization']，设置none的时候不使用,,当使用多size的时候，normalization 以第一个为准，其他无视。
+
+            1. 多size：每个列表代表一种类型(size)的卷积核,分别为
+                l1_conv_filter_type = [[100,2,word_embedding_dim,'valid',(1,1), 0.5, 'relu', 'batch_normalization'],
+                                    [100,4,word_embedding_dim,'valid',(1,1), 0., 'relu', 'batch_normalization'],
+                                    [100,6,word_embedding_dim,'valid',(1,1), 0., 'relu', 'batch_normalization'],
                                    ]
-            2. 单size：一个列表即可。[[100,2,1,'valid',(k,1),dropout_rate]]
-        :param k: k-max-pooling 的 k值
-        :return: kera TensorVariable,output,output_shape
+            2. 单size：一个列表即可。[[100,2,1,'valid',(k,1), 0.5, 'relu', 'batch_normalization']]
+
+        :return: kera TensorVariable,output
         '''
 
         if len(convolution_filter_type) == 0:
@@ -280,7 +327,7 @@ class CnnBaseClass(CommonModel):
 
         elif len(convolution_filter_type) == 1:
             # 单size 卷积层
-            nb_filter, nb_row, nb_col, border_mode, k,dropout_rate = convolution_filter_type[0]
+            nb_filter, nb_row, nb_col, border_mode, k,dropout_rate,activation,normalization = convolution_filter_type[0]
 
             output = self.create_one_size_convolution_layer(
                 input_layer,
@@ -290,6 +337,8 @@ class CnnBaseClass(CommonModel):
                 border_mode,
                 k,
                 dropout_rate,
+                activation,
+                normalization,
                 **kwargs
             )
 
@@ -306,6 +355,20 @@ class CnnBaseClass(CommonModel):
 
         return output
 
+    def check_param(self,**kwargs):
+        '''
+            检验参数的合法性,activation,normalization
+
+        :param kwargs: activation,normalization
+        :return:
+        '''
+
+        if kwargs.has_key('activation'):
+            assert kwargs['activation'] in ['none', 'linear','relu'], 'create convolution layer error!activation 仅支持 none,linear,relu'
+        if kwargs.has_key('normalization'):
+            assert  kwargs['normalization'] in ['none','batch_normalization'], 'create convolution layer error!normalization 仅支持 none,batch_normalization'
+
+
     def create_full_connected_layer(
             self,
             input_layer=None,
@@ -316,28 +379,54 @@ class CnnBaseClass(CommonModel):
             创建多层的全连接层
 
         :param input_layer: 上一层
-        :param units: 每一层全连接层的单元数，比如:[100,20]
+        :param units: 每一层全连接层的单元数，分别对应(unit，dropout rate，activation，normalization),for example
+                [(50,0.5,'relu','batch_normalization'), (100,0.25,'relu','none')]
         :type units: array-like
         :return: output, output_shape
         '''
 
         # from keras.models import Sequential
-        from keras.layers import Dense,Dropout
-
+        from keras.layers import Dense,Dropout,BatchNormalization,Activation
         # output_layer = Sequential(name='full_connected_layer')
         output = input_layer
         for index,unit in enumerate(units):
+
             if type(unit)==int:
                 unit = list([unit])
             num_dense = unit[0]
             if len(unit)==1:
                 dropout_rate = 0.
+                activation = 'linear'
+                normalization = 'none'
             elif len(unit)==2:
                 dropout_rate = unit[1]
+                activation = 'linear'
+                normalization = 'none'
+            elif len(unit)==3:
+                dropout_rate = unit[1]
+                activation = unit[2]
+                normalization = 'none'
+            elif len(unit)==4:
+                dropout_rate = unit[1]
+                activation = unit[2]
+                normalization = unit[3]
             else:
                 raise NotImplementedError
 
-            output = Dense(output_dim=num_dense, init="glorot_uniform", activation='relu')(output)
+            self.check_param(activation=activation,normalization=normalization)
+
+            output = Dense(output_dim=num_dense, init="glorot_uniform")(output)
+
+            # 增加一个 规范化层
+            if normalization == 'batch_normalization':
+                output = BatchNormalization()(output)
+            elif normalization == 'none':
+                pass
+            else:
+                raise NotImplementedError
+            # 增加一个 激活函数
+            if activation != 'none':
+                output = Activation(activation)(output)
 
             if dropout_rate>0:
                 output = Dropout(dropout_rate,name='full_connected_dropout%d_%.2f'%(index,dropout_rate))(output)

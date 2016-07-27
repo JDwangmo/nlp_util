@@ -21,7 +21,12 @@ class SingleChannelBowCNN(CnnBaseClass):
             - 词(seg),
             - 字词组合(word_seg)
 
-        3. 模型架构为：
+        3. 特点：
+            1) 支持设置多种size的卷积层
+            2) 支持设置dropout rate
+            3) 支持设置 batch normalization
+
+        4. 模型架构为：
             1. 输入层： shape 为： (1, vocabulary_size ,1)
             2. reshape层：
             3. 第一层卷积层：多核卷积层:
@@ -46,7 +51,50 @@ class SingleChannelBowCNN(CnnBaseClass):
                  full_connected_layer_units = None,
                  **kwargs
                  ):
+        '''
+            1. 初始化参数，并检验参数合法性。
+            2. 设置随机种子，构建模型
 
+        :param rand_seed: 随机种子,假如设置为为None时,则随机取随机种子
+        :type rand_seed: int
+        :param verbose: 数值越大,输出更详细的信息
+        :type verbose: int
+        :param feature_encoder: 输入数据的设置选项，设置输入编码器
+        :type feature_encoder: onehot_feature_encoder.FeatureEncoder
+        :param optimizers: 求解的优化算法，目前支持: ['sgd','adadelta']
+        :type optimizers: str
+        :param input_dim: embedding层输入(onehot)的维度,即 字典大小, 0 给填充用
+        :type input_dim: int
+        :param word_embedding_dim: cnn设置选项,embedding层词向量的维度(长度).
+        :type word_embedding_dim: int
+        :param embedding_init_weight: cnn设置选项,embedding层词向量的权重初始化方式,有2种,.
+            1. None: 使用随机初始化权重.
+            2. 不是None：若有提供权重，则使用训练好的词向量进行初始化.
+        :type embedding_init_weight: 2d array-like
+        :param embedding_weight_trainable: 设置embedding层的权重是否 static or nonstatic
+        :type embedding_weight_trainable: bool
+        :param input_length: cnn设置选项,输入句子(序列)的长度.
+        :type input_length: int
+        :param num_labels: cnn设置选项,最后输出层的大小,即分类类别的个数.
+        :type num_labels: int
+        :param l1_conv_filter_type: cnn设置选项,卷积层的类型.更具体 参考 方法 common.CnnBaseClass.create_convolution_layer()
+
+            for example:每个列表代表一种类型(size)的卷积核,
+                l1_conv_filter_type = [[100,2,word_embedding_dim,'valid',(1,1),0., 'relu', 'batch_normalization'],
+                                    [100,4,word_embedding_dim,'valid',(1,1),0. ,'relu', 'batch_normalization'],
+                                    [100,6,word_embedding_dim,'valid',(1,1),0., 'relu', 'batch_normalization'],
+                                   ]
+
+        :type l1_conv_filter_type: array-like
+        :param k: cnn设置选项,k-max pooling层的的k值,即设置要获取 前k个 值 ,默认为 1-max
+        :type k: int
+        :param embedding_dropout_rate: cnn设置选项,dropout层的的dropout rate,对embedding层进入dropuout,如果为0,则不dropout
+        :type embedding_dropout_rate: float
+        :param nb_epoch: cnn设置选项,cnn迭代的次数.
+        :type nb_epoch: int
+        :param earlyStoping_patience: cnn设置选项,earlyStoping的设置,如果迭代次数超过这个耐心值,依旧不下降,则stop.
+        :type earlyStoping_patience: int
+        '''
 
         super(SingleChannelBowCNN, self).__init__(
             rand_seed=rand_seed,
@@ -83,7 +131,7 @@ class SingleChannelBowCNN(CnnBaseClass):
         '''
 
 
-        from keras.layers import Input, Activation, merge, Flatten, Dropout,Reshape
+        from keras.layers import Input, Activation, Flatten, Reshape,BatchNormalization
         from keras.models import Model
         from keras import backend as K
 
@@ -111,13 +159,15 @@ class SingleChannelBowCNN(CnnBaseClass):
         # 5. flatten层
         l5_flatten = Flatten()(l4_conv)
         # 6. 全连接层
+
         l6_full_connected_layer = self.create_full_connected_layer(
             input_layer=l5_flatten,
             units=self.full_connected_layer_units
         )
+
         l7_output_layer = self.create_full_connected_layer(
             input_layer=l6_full_connected_layer,
-            units=[[self.num_labels,0.]]
+            units=[[self.num_labels,0.,'none','none']]
         )
 
         # 8. softmax分类层
@@ -129,6 +179,7 @@ class SingleChannelBowCNN(CnnBaseClass):
         self.conv1_feature_output = K.function([l1_input, K.learning_phase()], [l3_conv])
         self.conv2_feature_output = K.function([l1_input, K.learning_phase()], [l4_conv])
         self.last_hidden_layer= K.function([l1_input, K.learning_phase()], [l6_full_connected_layer])
+
         self.output_layer= K.function([l1_input, K.learning_phase()], [l7_output_layer])
         # 模型输出层
         self.model_output = K.function([l1_input, K.learning_phase()], [l8_softmax_output])
@@ -236,14 +287,15 @@ class SingleChannelBowCNN(CnnBaseClass):
                                 num_labels=num_labels,
                                 input_length=dev_X.shape[1],
                                 l1_conv_filter_type=[
-                                    [layer1, l1_conv_filter_type[0], -1, 'valid', (k[0], 1), 0.],
-                                    [layer1, l1_conv_filter_type[1], -1, 'valid', (k[0], 1), 0.],
-                                    [layer1, l1_conv_filter_type[2], -1, 'valid', (k[0], 1), 0.],
+                                    [layer1, l1_conv_filter_type[0], -1, 'valid', (k[0], 1), 0.,'relu', 'none'],
+                                    [layer1, l1_conv_filter_type[1], -1, 'valid', (k[0], 1), 0.,'relu', 'none'],
+                                    [layer1, l1_conv_filter_type[2], -1, 'valid', (k[0], 1), 0.,'relu', 'none'],
                                 ],
                                 l2_conv_filter_type=[
-                                    [layer2, l2_conv_filter_type[0], -1, 'valid', (k[1], 1), 0.25]
+                                    [layer2, l2_conv_filter_type[0], -1, 'valid', (k[1], 1), 0.,'relu', 'none']
                                 ],
-                                full_connected_layer_units=[(hidden1,.5), (hidden2,.5)],
+                                full_connected_layer_units=[(hidden1,0.,'relu', 'batch_normalization'),
+                                                            (hidden2,0.,'relu', 'none')],
                                 nb_epoch=nb_epoch,
                                 earlyStoping_patience=50,
                                 optimizers='sgd',
@@ -329,14 +381,15 @@ def test_single_bow():
         num_labels=4,
         input_length=feature_encoder.vocabulary_size,
         l1_conv_filter_type=[
-            [5, 2, 1, 'valid', (-2, 1), 0.],
+            [5, 2, 1, 'valid', (2, 1), 0.,'relu','batch_normalization'],
+            [5, 4, 1, 'valid', (2, 1), 0.,'relu','batch_normalization'],
             # [5, 4, 1, 'valid',(-2,1),0.],
             # [5, 6, 1, 'valid',(-2,1),0.],
         ],
         l2_conv_filter_type=[
-            [3, 2, 1, 'valid', (-1, 1), 0.25]
+            [3, 2, 1, 'valid', (2, 1), 0.,'relu','none']
         ],
-        full_connected_layer_units=[(50,0.5), (100,0.25)],
+        full_connected_layer_units=[(50,0.25,'relu','none'), (100,0.25,'relu','none')],
         # full_connected_layer_units=[50, 100],
         output_dropout_rate=0.,
         nb_epoch=30,
@@ -350,8 +403,10 @@ def test_single_bow():
         (train_X_feature, trian_y),
         (test_X_feature, test_y)))
     print(bow_cnn.predict('你好', transform_input=True))
-    print(bow_cnn.get_layer_output(['你好'],layer='hidden2', transform_input=True))
+    # print(bow_cnn.get_layer_output(['你好'],layer='conv2', transform_input=True))
     print(bow_cnn.get_layer_output(['好'], layer='hidden2',transform_input=True))
+    # print(bow_cnn.get_layer_output(['好'], layer='batchnormalization',transform_input=True))
+
     bow_cnn.accuracy((test_X_feature, test_y))
     print(bow_cnn.batch_predict(test_X, True))
     print(bow_cnn.batch_predict(test_X_feature, False))
