@@ -289,13 +289,13 @@ class SingleChannelBowCNN(CnnBaseClass):
                                 l1_conv_filter_type=[
                                     [layer1, l1_conv_filter_type[0], -1, 'valid', (k[0], 1), 0.,'relu', 'none'],
                                     [layer1, l1_conv_filter_type[1], -1, 'valid', (k[0], 1), 0.,'relu', 'none'],
-                                    [layer1, l1_conv_filter_type[2], -1, 'valid', (k[0], 1), 0.,'relu', 'none'],
+                                    [layer1, l1_conv_filter_type[2], -1, 'valid', (k[0], 1), 0.,'relu', 'batch_normalization'],
                                 ],
                                 l2_conv_filter_type=[
-                                    [layer2, l2_conv_filter_type[0], -1, 'valid', (k[1], 1), 0.25,'relu', 'batch_normalization']
+                                    [layer2, l2_conv_filter_type[0], -1, 'valid', (k[1], 1), 0.,'relu', 'batch_normalization']
                                 ],
-                                full_connected_layer_units=[(hidden1,0.5,'relu', 'batch_normalization'),
-                                                            (hidden2,0.5,'relu', 'none')],
+                                full_connected_layer_units=[(hidden1,0.25,'relu', 'none'),
+                                                            (hidden2,0.,'relu', 'none')],
                                 nb_epoch=nb_epoch,
                                 earlyStoping_patience=50,
                                 optimizers='sgd',
