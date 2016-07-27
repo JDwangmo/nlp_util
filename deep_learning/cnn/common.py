@@ -191,7 +191,7 @@ class CnnBaseClass(CommonModel):
 
         # 增加一个 规范化层
         if normalization == 'batch_normalization':
-            output = BatchNormalization()(output)
+            output = BatchNormalization(axis=1)(output)
         elif normalization == 'none':
             pass
         else:
@@ -269,7 +269,7 @@ class CnnBaseClass(CommonModel):
 
         # 增加一个 规范化层
         if normalization =='batch_normalization':
-            output = BatchNormalization()(output)
+            output = BatchNormalization(axis=1)(output)
         elif normalization =='none':
             pass
         else:
@@ -419,7 +419,7 @@ class CnnBaseClass(CommonModel):
 
             # 增加一个 规范化层
             if normalization == 'batch_normalization':
-                output = BatchNormalization()(output)
+                output = BatchNormalization(axis=1)(output)
             elif normalization == 'none':
                 pass
             else:
