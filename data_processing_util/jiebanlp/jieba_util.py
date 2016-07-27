@@ -228,6 +228,7 @@ if __name__ == '__main__':
     sent = u'没事了'
     sent = u'拜拜'
     sent = u'妈B'
+    sent = u'我不知道买哪款好'
 
     # print seg(sent,sep='|',full_mode=False,remove_stopword=True)
     # sent = u'有哪些1000块的手机适合我'

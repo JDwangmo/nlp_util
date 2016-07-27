@@ -348,7 +348,6 @@ class FeatureEncoder(object):
         # -------------- code start : 开始 -------------
 
         features = self.feature_encoder.transform([seg_sentence]).toarray()[0]
-
         # -------------- code start : 结束 -------------
         if self.verbose > 1:
             logging.debug('-' * 20)
@@ -371,7 +370,7 @@ class FeatureEncoder(object):
         '''
 
         index = map(lambda x: self.transform_sentence(x),data)
-        # print train_index[:5]
+        # print(index[:5])
 
         return np.asarray(index)
 
@@ -467,11 +466,11 @@ def test_word_seg_bow_feature():
     )
     train_features = feature_encoder.fit_transform(train_data=train_data)
     print(','.join(feature_encoder.vocabulary))
-    print(train_features)
+    # print(train_features)
     test_features = feature_encoder.transform(test_data)
     print(test_features)
     print(feature_encoder.vocabulary_size)
-    feature_encoder.print_model_descibe()
+    # feature_encoder.print_model_descibe()
 
 
 
