@@ -7,12 +7,11 @@ __email__ = '383287471@qq.com'
 import numpy as np
 from deep_learning.cnn.common import CnnBaseClass
 import logging
-from data_processing_util.feature_encoder.onehot_feature_encoder import FeatureEncoder
 
 
-class OnehotBowCNN(CnnBaseClass):
+class MultiChannelOnehotBowCNN(CnnBaseClass):
     '''
-        一层CNN模型,随机初始化词向量,CNN-seq模型.借助Keras和jieba实现。
+        多输入（通道）的CNN onehot模型
         架构各个层次分别为: 输入层,卷积层,1-max pooling层,全连接层,dropout层,softmax层
         具体见:
             https://github.com/JDwangmo/coprocessor#2convolutional-neural-networks-for-sentence-classification
@@ -34,8 +33,10 @@ class OnehotBowCNN(CnnBaseClass):
                  feature_encoder=None,
                  full_connected_layer_units=None,
                  optimizers='sgd',
-                 input_length=None,
-                 input_dim = None,
+                 word_input_length=None,
+                 seg_input_length=None,
+                 word_input_dim = None,
+                 seg_input_dim = None,
                  num_labels=None,
                  l1_conv_filter_type=None,
                  l2_conv_filter_type=None,
@@ -81,15 +82,18 @@ class OnehotBowCNN(CnnBaseClass):
             verbose=verbose,
             feature_encoder=feature_encoder,
             optimizers=optimizers,
-            input_length=input_length,
+            input_length=None,
             num_labels=num_labels,
             nb_epoch=nb_epoch,
             earlyStoping_patience=earlyStoping_patience,
         )
         if full_connected_layer_units is None:
             full_connected_layer_units = [(50, 0.5, 'relu', 'none')]
-        self.input_length = input_length
-        self.input_dim = input_dim
+
+        self.word_input_length = word_input_length
+        self.word_input_dim = word_input_dim
+        self.seg_input_length = seg_input_length
+        self.seg_input_dim = seg_input_dim
 
         self.l1_conv_filter_type = l1_conv_filter_type
         self.l2_conv_filter_type = l2_conv_filter_type
@@ -115,49 +119,64 @@ class OnehotBowCNN(CnnBaseClass):
         :return: cnn model network
         '''
 
-        from keras.layers import Input, Activation, Reshape, Dropout, Flatten
+        from keras.layers import Input, Activation, Reshape, merge, Flatten
         from keras.models import Model
+        from deep_learning.cnn.custom_layers import MaxPooling2DWrapper
         # from keras import backend as K
 
-        # 1. 输入层
-        l1_input_shape = ( self.input_length,self.input_dim)
-        l1_input = Input(shape=l1_input_shape)
+        # 1.1 字输入层
+        l1_word_input_shape = ( self.word_input_length,self.word_input_dim)
+        l1_word_input = Input(shape=l1_word_input_shape,name='l1_word_input')
 
-        # 2. Reshape层： 将embedding转换4-dim的shape
-        l2_reshape_output_shape = (1, l1_input_shape[0], l1_input_shape[1])
+        # 2.1 字Reshape层： 将embedding转换4-dim的shape
+        l2_word_reshape_output_shape = (1, l1_word_input_shape[0], l1_word_input_shape[1])
+        l2_word_reshape= Reshape(l2_word_reshape_output_shape,name='l2_word_reshape')(l1_word_input)
 
-        l2_reshape= Reshape(l2_reshape_output_shape)(l1_input)
+        # 1.2 词输入层
+        l1_seg_input_shape = (self.seg_input_length, self.seg_input_dim)
+        l1_seg_input = Input(shape=l1_seg_input_shape,name='l1_seg_input')
 
-        # 3. 第一层卷积层：多size卷积层（含1-max pooling），使用三种size.
-        l3_conv = self.create_convolution_layer(
-            input_layer=l2_reshape,
+        # 2.2 词Reshape层： 将embedding转换4-dim的shape
+        l2_reshape_seg_output_shape = (1, l1_seg_input_shape[0], l1_seg_input_shape[1])
+        l2_seg_reshape = Reshape(l2_reshape_seg_output_shape,name='l2_seg_reshape')(l1_seg_input)
+
+        # 3.1 字 卷积层：多size卷积层（含1-max pooling），使用三种size.
+        l3_word_conv = self.create_convolution_layer(
+            input_layer=l2_word_reshape,
             convolution_filter_type=self.l1_conv_filter_type,
         )
-        # 4. 第二层卷积层：单size卷积层 和 max pooling 层
-        l4_conv = self.create_convolution_layer(
-            input_layer=l3_conv,
-            convolution_filter_type=self.l2_conv_filter_type,
+
+        # 3.2. 词 卷积层：多size卷积层（含1-max pooling），使用三种size
+        l3_seg_conv = self.create_convolution_layer(
+            input_layer=l2_seg_reshape,
+            convolution_filter_type=self.l1_conv_filter_type,
         )
-        # model = Model(input=l1_input, output=[l3_conv])
+
+        # 4、将两个卷积的结果合并
+        l4_merge = merge([l3_word_conv,l3_seg_conv],mode='concat',concat_axis=2,name='l4_merge')
+
+        # model = Model(input=[l1_word_input,l1_seg_input], output=[l4_merge])
         # model.summary()
         # quit()
-        # 5. Flatten层： 卷积的结果进行拼接,变成一列隐含层
-        l5_flatten = Flatten()(l4_conv)
-        # 6. 全连接层
-        l6_full_connected_layer = self.create_full_connected_layer(
-            input_layer=l5_flatten,
+        # 5、max pooling
+        l5_pooling = MaxPooling2DWrapper((2,1),name='l5_pooling')(l4_merge)
+        # 6. Flatten层： 卷积的结果进行拼接,变成一列隐含层
+        l6_flatten = Flatten(name='l6_flatten')(l5_pooling)
+        # 7. 全连接层
+        l7_full_connected_layer = self.create_full_connected_layer(
+            input_layer=l6_flatten,
             units=self.full_connected_layer_units
         )
 
-        l7_output_layer = self.create_full_connected_layer(
-            input_layer=l6_full_connected_layer,
+        l8_output_layer = self.create_full_connected_layer(
+            input_layer=l7_full_connected_layer,
             units=[[self.num_labels, 0., 'none', 'none']]
         )
 
         # 8. softmax分类层
-        l8_softmax_output = Activation("softmax")(l7_output_layer)
+        l9_softmax_output = Activation("softmax")(l8_output_layer)
 
-        model = Model(input=l1_input, output=[l8_softmax_output])
+        model = Model(input=[l1_word_input,l1_seg_input], output=[l9_softmax_output])
 
         if self.verbose > 0:
             model.summary()
@@ -179,9 +198,8 @@ class OnehotBowCNN(CnnBaseClass):
         nb_epoch = kwargs['nb_epoch']
         verbose = kwargs['verbose']
         num_labels = 24
-        feature_type = kwargs['feature_type']
+        word_input_length,seg_input_length = 10,7
         remove_stopword = kwargs['remove_stopword']
-        sentence_padding_length = kwargs['sentence_padding_length']
         word2vec_to_solve_oov = kwargs['word2vec_to_solve_oov']
         rand_seed = kwargs['rand_seed']
         l1_conv_filter_type = kwargs['l1_conv_filter_type']
@@ -193,9 +211,9 @@ class OnehotBowCNN(CnnBaseClass):
         fout = open(detail_result_file_path, 'w')
 
         print('=' * 150)
-
-        print('使用word2vec:%s\nfeature_type:%s\nremove_stopword:%s\nnb_epoch:%d\nrand_seed:%d' % (
-        word2vec_to_solve_oov, feature_type, remove_stopword, nb_epoch, rand_seed))
+        print('word_input_length:%d\nseg_input_length:%d' % (word_input_length, seg_input_length))
+        print('使用word2vec:%s\nremove_stopword:%s\nnb_epoch:%d\nrand_seed:%d' % (
+        word2vec_to_solve_oov, remove_stopword, nb_epoch, rand_seed))
         print('l1_conv_filter_type:%s' % l1_conv_filter_type)
         print('l2_conv_filter_type:%s' % l2_conv_filter_type)
         print('k:%s' % k)
@@ -203,17 +221,16 @@ class OnehotBowCNN(CnnBaseClass):
 
         fout.write('=' * 150 + '\n')
         fout.write('single单通道CNN-bow cv结果:\n')
-        fout.write('feature_type:%s\nnb_epoch:%d\nrand_seed:%d\n' % (feature_type, nb_epoch, rand_seed))
+        fout.write('nb_epoch:%d\nrand_seed:%d\n' % ( nb_epoch, rand_seed))
         fout.write('l1_conv_filter_type:%s\n' % l1_conv_filter_type)
         fout.write('l2_conv_filter_type:%s\n' % l2_conv_filter_type)
         fout.write('k:%s\n' % k)
         fout.write('=' * 150 + '\n')
 
-        from data_processing_util.feature_encoder.onehot_feature_encoder import FeatureEncoder
         from data_processing_util.cross_validation_util import transform_cv_data
-
-        feature_encoder = FeatureEncoder(
-            sentence_padding_length=sentence_padding_length,
+        from data_processing_util.feature_encoder.onehot_feature_encoder import FeatureEncoder
+        word_feature_encoder = FeatureEncoder(
+            sentence_padding_length=word_input_length,
             verbose=0,
             need_segmented=True,
             full_mode=False,
@@ -222,14 +239,32 @@ class OnehotBowCNN(CnnBaseClass):
             lowercase=True,
             padding_mode='left',
             add_unkown_word=True,
-            feature_type=feature_type,
+            feature_type='word',
             zhs2zht=True,
             remove_url=True,
             # 设置为True，输出 onehot array
             to_onehot_array=True,
         )
 
-        all_cv_data = transform_cv_data(feature_encoder, cv_data, test_data, **kwargs)
+        seg_feature_encoder = FeatureEncoder(
+            sentence_padding_length=seg_input_length,
+            verbose=0,
+            need_segmented=True,
+            full_mode=False,
+            replace_number=True,
+            remove_stopword=True,
+            lowercase=True,
+            padding_mode='left',
+            add_unkown_word=True,
+            feature_type='seg',
+            zhs2zht=True,
+            remove_url=True,
+            # 设置为True，输出 onehot array
+            to_onehot_array=True,
+        )
+
+        all_cv_word_data = transform_cv_data(word_feature_encoder, cv_data, test_data, **kwargs)
+        all_cv_seg_data = transform_cv_data(seg_feature_encoder, cv_data, test_data, **kwargs)
 
         for layer1 in kwargs['layer1']:
             for layer2 in kwargs['layer2']:
@@ -249,7 +284,7 @@ class OnehotBowCNN(CnnBaseClass):
                         counter = 0
                         test_acc = []
                         train_acc = []
-                        for dev_X, dev_y, val_X, val_y in all_cv_data:
+                        for (dev_word_X, dev_y, val_word_X, val_y),(dev_seg_X, dev_y, val_seg_X, val_y) in zip(all_cv_word_data,all_cv_seg_data):
                             # print(dev_X2.shape)
                             print('-' * 80)
                             fout.write('-' * 80 + '\n')
@@ -261,38 +296,39 @@ class OnehotBowCNN(CnnBaseClass):
                                 print('第%d个验证' % counter)
                                 fout.write('第%d个验证\n' % counter)
 
-                            onehot_cnn = OnehotBowCNN(
-                                rand_seed=rand_seed,
+                            onehot_cnn = MultiChannelOnehotBowCNN(
+                                rand_seed=1377,
                                 verbose=verbose,
-                                feature_encoder=feature_encoder,
+                                feature_encoder=(word_feature_encoder, seg_feature_encoder),
                                 # optimizers='adadelta',
                                 optimizers='sgd',
-                                input_length=sentence_padding_length,
-                                input_dim=dev_X.shape[-1],
+                                word_input_length=word_input_length,
+                                seg_input_length=seg_input_length,
+                                word_input_dim=dev_word_X.shape[-1],
+                                seg_input_dim=dev_seg_X.shape[-1],
                                 num_labels=num_labels,
                                 l1_conv_filter_type=[
-                                    [layer1, l1_conv_filter_type[0][0], -1,l1_conv_filter_type[0][1], (k[0], 1), 0.,'relu', 'none'],
-                                    [layer1, l1_conv_filter_type[1][0], -1, l1_conv_filter_type[1][1], (k[0], 1), 0.,'relu', 'none'],
-                                    # [layer1, l1_conv_filter_type[2][0], -1, l1_conv_filter_type[2][1], (k[0], 1), 0.,'relu', 'batch_normalization'],
+                                    [layer1, 2, -1, 'valid', (0, 1), 0., 'relu', 'batch_normalization'],
+                                    [layer1, 3, -1, 'valid', (0, 1), 0., 'relu', 'none'],
+                                    [layer1, -1, -1, 'bow', (0, 1), 0., 'relu', 'none'],
                                 ],
                                 l2_conv_filter_type=[
-                                    # [layer2, l2_conv_filter_type[0][0], -1, l2_conv_filter_type[0][1], (k[1], 1), 0., 'relu','none']
+                                    # [16, 2, -1, 'valid',(2,1),0.5, 'relu', 'none']
                                 ],
                                 full_connected_layer_units=[
-                                    (hidden1, 0.5, 'relu', 'none'),
-                                    # (hidden2, 0.5, 'relu', 'none'),
+                                    # (hidden1, 0., 'relu', 'none'),
                                 ],
                                 embedding_dropout_rate=0.,
                                 nb_epoch=30,
-                                nb_batch=5,
-                                earlyStoping_patience=20,
+                                nb_batch=32,
+                                earlyStoping_patience=200,
                                 lr=1e-2,
                             )
 
                             # bow_cnn.print_model_descibe()
 
                             dev_loss, dev_accuracy, \
-                            val_loss, val_accuracy = onehot_cnn.fit((dev_X, dev_y), (val_X, val_y))
+                            val_loss, val_accuracy = onehot_cnn.fit(([dev_word_X,dev_seg_X], dev_y), ([val_word_X,val_seg_X], val_y))
 
                             print('dev:%f,%f' % (dev_loss, dev_accuracy))
                             print('val:%f,%f' % (val_loss, val_accuracy))
@@ -318,8 +354,10 @@ class OnehotBowCNN(CnnBaseClass):
         detail = {'rand_seed': self.rand_seed,
                   'verbose': self.verbose,
                   'optimizers': self.optimizers,
-                  'input_dim': self.feature_encoder.vocabulary_size,
-                  'input_length': self.input_length,
+                  'word_input_dim': self.word_input_dim,
+                  'seg_input_dim': self.seg_input_dim,
+                  'word_input_length': self.word_input_length,
+                  'seg_input_length': self.seg_input_length,
                   'num_labels': self.num_labels,
                   'l1_conv_filter_type': self.l1_conv_filter_type,
                   'l2_conv_filter_type': self.l2_conv_filter_type,
@@ -340,7 +378,8 @@ def test_onehot_bow_cnn():
     test_X = ['句子', '你好', '你妹']
     test_y = [2, 3, 0]
     sentence_padding_length = 8
-    feature_encoder = FeatureEncoder(
+    from data_processing_util.feature_encoder.onehot_feature_encoder import FeatureEncoder
+    word_feature_encoder = FeatureEncoder(
         sentence_padding_length=sentence_padding_length,
         verbose=0,
         need_segmented=True,
@@ -357,25 +396,51 @@ def test_onehot_bow_cnn():
         to_onehot_array=True,
     )
 
-    train_X_feature = feature_encoder.fit_transform(train_X)
-    test_X_feature = feature_encoder.transform(test_X)
-    print(','.join(feature_encoder.vocabulary))
-    print train_X_feature.shape
-    print train_X_feature
+    train_X_word_feature = word_feature_encoder.fit_transform(train_X)
+    test_X_word_feature = word_feature_encoder.transform(test_X)
+    print(','.join(word_feature_encoder.vocabulary))
+    print train_X_word_feature.shape
+    print train_X_word_feature
+
+    seg_feature_encoder = FeatureEncoder(
+        sentence_padding_length=sentence_padding_length,
+        verbose=0,
+        need_segmented=True,
+        full_mode=True,
+        replace_number=True,
+        remove_stopword=True,
+        lowercase=True,
+        padding_mode='left',
+        add_unkown_word=True,
+        feature_type='seg',
+        zhs2zht=True,
+        remove_url=True,
+        # 设置为True，输出 onehot array
+        to_onehot_array=True,
+    )
+
+    train_X_seg_feature = seg_feature_encoder.fit_transform(train_X)
+    test_X_seg_feature = seg_feature_encoder.transform(test_X)
+    print(','.join(seg_feature_encoder.vocabulary))
+    print train_X_seg_feature.shape
+    print train_X_seg_feature
+
     # quit()
-    onehot_cnn = OnehotBowCNN(
+    onehot_cnn = MultiChannelOnehotBowCNN(
         rand_seed=1377,
         verbose=1,
-        feature_encoder=feature_encoder,
+        feature_encoder=(word_feature_encoder,seg_feature_encoder),
         # optimizers='adadelta',
         optimizers='sgd',
-        input_length=sentence_padding_length,
-        input_dim=feature_encoder.vocabulary_size,
+        word_input_length=sentence_padding_length,
+        seg_input_length=sentence_padding_length,
+        word_input_dim=word_feature_encoder.vocabulary_size,
+        seg_input_dim=seg_feature_encoder.vocabulary_size,
         num_labels=5,
         l1_conv_filter_type=[
-            [5, 3, -1, 'valid', (2, 1), 0.5, 'relu', 'none'],
-            [5, 2, -1, 'bow', (2, 1), 0.5, 'relu', 'none'],
-            # [5, 6, 1, 'valid', (-2, 1), 0.],
+            [1, 2, -1, 'valid', (0, 1), 0., 'relu', 'none'],
+            [1, 3, -1, 'valid', (0, 1), 0., 'relu', 'none'],
+            [1, -1, -1, 'bow', (0, 1), 0., 'relu', 'none'],
         ],
         l2_conv_filter_type=[
             # [16, 2, -1, 'valid',(2,1),0.5, 'relu', 'none']
@@ -383,7 +448,7 @@ def test_onehot_bow_cnn():
         full_connected_layer_units=[
             (50, 0.5, 'relu', 'none'),
         ],
-        embedding_dropout_rate=0.5,
+        embedding_dropout_rate=0.,
         nb_epoch=30,
         nb_batch=5,
         earlyStoping_patience=20,
@@ -393,15 +458,15 @@ def test_onehot_bow_cnn():
     # 训练模型
     # 从保存的pickle中加载模型
     # onehot_cnn.model_from_pickle('model/modelA.pkl')
-    onehot_cnn.fit((train_X_feature, trian_y),
-                   (test_X_feature, test_y))
+    print(onehot_cnn.fit(([train_X_word_feature,train_X_seg_feature], trian_y),
+                   ([test_X_word_feature,test_X_seg_feature], test_y)))
     print(trian_y)
     # loss, train_accuracy = onehot_cnn.model.evaluate(train_X_feature, trian_y)
 
-    onehot_cnn.accuracy((train_X_feature, trian_y), transform_input=False)
+    # onehot_cnn.accuracy((train_X_word_feature, trian_y), transform_input=False)
+    print(onehot_cnn.batch_predict([test_X_word_feature,test_X_seg_feature], transform_input=False))
+    print(onehot_cnn.batch_predict_bestn([test_X_word_feature,test_X_seg_feature], transform_input=False, bestn=2))
     quit()
-    print onehot_cnn.batch_predict(test_X_feature, transform_input=False)
-    print onehot_cnn.batch_predict_bestn(test_X_feature, transform_input=False, bestn=2)
     print onehot_cnn.batch_predict(test_X, transform_input=True)
     print onehot_cnn.predict(test_X[0], transform_input=True)
     onehot_cnn.accuracy((test_X, test_y), transform_input=True)

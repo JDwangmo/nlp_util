@@ -48,7 +48,8 @@ class FeatureEncoder(object):
                  add_unkown_word=True,
                  to_onehot_array=False,
                  ):
-        '''
+        """
+            Onehot特征编码器,将句子转成 onehot 编码(以字典索引形式表示,补齐)
             1. 初始化参数
             2. build feature encoder
 
@@ -83,11 +84,11 @@ class FeatureEncoder(object):
                                         3. right：如果小于sentence_padding_length的话往右边补0;如果超出sentence_padding_length的话，直接在后面截断。
                                         4. none：不补齐。
             :type padding_mode: str
-            :param to_onehot_array: 是否输出为onehot向量，默认为False，输出字典索引
+            :param to_onehot_array: 输出 onehot array，还是字典索引 array，默认为False，输出字典索引,
             :type to_onehot_array: bool
 
 
-        '''
+        """
         self.full_mode = full_mode
         self.feature_type = feature_type
         self.remove_stopword = remove_stopword
@@ -697,7 +698,8 @@ def test_word_onehot():
                                      sentence_padding_length=5,
                                      add_unkown_word=True,
                                      zhs2zht=True,
-                                     # to_onehot_array=True,
+                                     # 输出 onehot array，还是字典索引 array
+                                     to_onehot_array=True,
                                      )
     # 拟合数据
     train_padding_index = feature_encoder.fit_transform(train_data=train_data)
@@ -720,7 +722,6 @@ def test_word_onehot():
 
     quit()
 
-    X = feature_encoder.to_onehot_array()
     print(X)
 
     # feature_encoder.print_sentence_length_detail()

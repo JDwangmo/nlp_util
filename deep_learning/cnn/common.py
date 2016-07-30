@@ -191,7 +191,7 @@ class CnnBaseClass(CommonModel):
 
         # 增加一个 规范化层
         if normalization == 'batch_normalization':
-            output = BatchNormalization(axis=1)(output)
+            output = BatchNormalization(axis=1,mode=2)(output)
         elif normalization == 'none':
             pass
         else:
@@ -230,46 +230,28 @@ class CnnBaseClass(CommonModel):
 
         self.check_param(activation=activation, normalization=normalization)
 
-        from keras.layers import Dropout,Activation,BatchNormalization
-        from custom_layers import Convolution2DWrapper,MaxPooling2DWrapper,BowLayer
+        from keras.layers import Dropout,Activation,BatchNormalization,Reshape
+        from custom_layers import Convolution2DWrapper,MaxPooling2DWrapper
 
-
-        if border_mode == 'bow':
-            # bow-convolution
-            # todo
-            # conv_input_shape = (input_shape[0],
-            #                     input_shape[1] - nb_row + 1,
-            #                     input_shape[2]
-            #                     )
-            # print(conv_input_shape)
-            # 卷积核的行设置为1
-            bow_output = BowLayer(nb_row)(input_layer)
-            # output = Reshape(conv_input_shape)(bow_output)
-            # nb_row = 1
-            # output_layer.add(Convolution2D(nb_filter,
-            #                                nb_row,
-            #                                nb_col,
-            #                                border_mode='valid',
-            #                                input_shape=conv_input_shape,
-            #                                ))
-
-            conv_output = None
-        else:
-            # 普通2D卷积
-            conv_output = Convolution2DWrapper(
-                nb_filter,
-                nb_row,
-                nb_col,
-                border_mode=border_mode,
-                **kwargs
-            )(input_layer)
+        # 普通2D卷积
+        conv_output = Convolution2DWrapper(
+            nb_filter,
+            nb_row,
+            nb_col,
+            border_mode=border_mode,
+            **kwargs
+        )(input_layer)
 
         # 增加一个max pooling层
-        output = MaxPooling2DWrapper(pool_size=k)(conv_output)
+        if k[0] != 0:
+            # if k[0]==0,则关闭pooling
+            output = MaxPooling2DWrapper(pool_size=k)(conv_output)
+        else:
+            output = conv_output
 
         # 增加一个 规范化层
         if normalization =='batch_normalization':
-            output = BatchNormalization(axis=1)(output)
+            output = BatchNormalization(axis=1,mode=2)(output)
         elif normalization =='none':
             pass
         else:
@@ -286,7 +268,6 @@ class CnnBaseClass(CommonModel):
 
     def create_convolution_layer(
             self,
-            # input_shape=None,
             input_layer=None,
             convolution_filter_type=None,
             **kwargs
@@ -294,7 +275,6 @@ class CnnBaseClass(CommonModel):
         '''
             创建一个卷积层模型，在keras的Convolution2D基础进行封装，使得可以创建多size和多size的卷积层
 
-        :param input_shape: 上一层的shape
         :param input_layer: 上一层
         :param convolution_filter_type: 卷积核类型，可以多size和单size，比如：
             - 每一维的分别对应：（num_conv，conv_row，conv_col，conv_type，(max-pooling size),dropout_rate，activation，normalization）
@@ -419,7 +399,7 @@ class CnnBaseClass(CommonModel):
 
             # 增加一个 规范化层
             if normalization == 'batch_normalization':
-                output = BatchNormalization(axis=1)(output)
+                output = BatchNormalization(axis=1,mode=2)(output)
             elif normalization == 'none':
                 pass
             else:

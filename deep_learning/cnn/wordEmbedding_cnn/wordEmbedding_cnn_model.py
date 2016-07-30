@@ -200,7 +200,7 @@ class WordEmbeddingCNN(CnnBaseClass):
         # 7. 全连接层
         l7_full_connected_layer = self.create_full_connected_layer(
             input_layer=l6_flatten,
-            units=self.full_connected_layer_units+[[self.num_labels,0.]],
+            units=self.full_connected_layer_units+[[self.num_labels,0.,'none','none']],
         )
 
         # 8. softmax 分类层
@@ -250,6 +250,11 @@ class WordEmbeddingCNN(CnnBaseClass):
         # 详细结果保存到...
         fout = open(result_file_path, 'w')
         print('=' * 150)
+        print('调节的参数....')
+        print('layer1:%s'%str(kwargs['layer1']))
+        print('layer2:%s'%str(kwargs['layer2']))
+        print('hidden1:%s'%str(kwargs['hidden1']))
+        print('hidden2:%s'%str(kwargs['hidden2']))
 
         print(word2vec_model_file_path)
         print('embedding_weight_trainable:%s'%embedding_weight_trainable)
@@ -291,6 +296,7 @@ class WordEmbeddingCNN(CnnBaseClass):
                                         test_data,
                                         **kwargs
                                         )
+
 
         for layer1 in kwargs['layer1']:
             for layer2 in kwargs['layer2']:
@@ -335,19 +341,22 @@ class WordEmbeddingCNN(CnnBaseClass):
                                 input_length=sentence_padding_length,
                                 num_labels=num_labels,
                                 l1_conv_filter_type=[
-                                    [layer1, l1_conv_filter_type[0], 10, 'valid', (k[0], 1), 0.],
-                                    [layer1, l1_conv_filter_type[1], 10, 'valid', (k[0], 1), 0.],
-                                    [layer1, l1_conv_filter_type[2], 10, 'valid', (k[0], 1), 0.],
-                                ],
+                                    [layer1, 3, -1, 'valid', [2, 1], 0., 'relu', 'none'],
+                                     [layer1, 4, -1, 'valid', [2, 1], 0., 'relu', 'none'],
+                                     [layer1, 5, -1, 'valid', [2, 1], 0., 'relu', 'none'],
+                                     ],
                                 l2_conv_filter_type=[
-                                    [layer2, l2_conv_filter_type[0], 1, 'valid', (k[1], 1), 0.25]
+                                    # [layer2, l2_conv_filter_type[0], 1, 'valid', (k[1], 1), 0.25]
                                 ],
-                                full_connected_layer_units=[[hidden1,0.5], [hidden2,0.5]],
+                                full_connected_layer_units=[
+                                    [hidden1, 0.5, 'none', 'none'],
+                                    # [hidden2,0.5]
+                                ],
                                 embedding_dropout_rate=0.,
                                 nb_epoch=nb_epoch,
                                 nb_batch=32,
                                 earlyStoping_patience=200,
-                                lr=1e-1,
+                                lr=1e-2,
                             )
                             if verbose>0:
                                 word_embedding_cnn.print_model_descibe()

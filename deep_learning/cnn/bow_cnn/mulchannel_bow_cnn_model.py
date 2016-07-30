@@ -10,7 +10,6 @@ from __future__ import print_function
 import logging
 import numpy as np
 from deep_learning.cnn.common import CnnBaseClass
-from data_processing_util.feature_encoder.bow_feature_encoder import FeatureEncoder
 
 class MultiChannelBowCNN(CnnBaseClass):
     """
@@ -220,6 +219,7 @@ if __name__ == '__main__':
     print(test_seg_X_feature)
 
     # 生成字级别的特征
+    from data_processing_util.feature_encoder.bow_feature_encoder import FeatureEncoder
     word_feature_encoder = FeatureEncoder(
         verbose=0,
         need_segmented=True,
