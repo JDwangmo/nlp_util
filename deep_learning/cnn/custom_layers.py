@@ -84,6 +84,7 @@ class MaxPooling2DWrapper(MaxPooling2D):
         - self.pool_size[0]<0,使用 k-max pooling
 
     '''
+
     def build(self, input_shape):
         if self.pool_size[0] < 0:
             # k-max pooling
@@ -125,7 +126,6 @@ class MaxPooling2DWrapper(MaxPooling2D):
             return (input_shape[0], input_shape[1], self.k, input_shape[3])
         else:
             return super(MaxPooling2DWrapper, self).get_output_shape_for(input_shape)
-
 
 
 

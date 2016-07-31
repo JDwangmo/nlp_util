@@ -131,7 +131,7 @@ class SingleChannelBowCNN(CnnBaseClass):
         '''
 
 
-        from keras.layers import Input, Activation, Flatten, Reshape,BatchNormalization
+        from keras.layers import Input, Activation, Flatten, Reshape,BatchNormalization,MaxPooling2D
         from keras.models import Model
         from keras import backend as K
 
@@ -157,8 +157,12 @@ class SingleChannelBowCNN(CnnBaseClass):
             convolution_filter_type=self.l2_conv_filter_type,
         )
         # 5. flatten层
-        l5_flatten = Flatten()(l4_conv)
+        l5_flatten = Flatten(name='l5_flatten')(l4_conv)
+        l5_flatten = Reshape((1,20,1))(l5_flatten)
+        l5_flatten = MaxPooling2D(pool_size=(2,1))(l5_flatten)
+        l5_flatten = Flatten()(l5_flatten)
         # 6. 全连接层
+        # quit()
 
         l6_full_connected_layer = self.create_full_connected_layer(
             input_layer=l5_flatten,
@@ -169,6 +173,7 @@ class SingleChannelBowCNN(CnnBaseClass):
             input_layer=l6_full_connected_layer,
             units=[[self.num_labels,0.,'none','none']]
         )
+
 
         # 8. softmax分类层
         l8_softmax_output = Activation("softmax")(l7_output_layer)

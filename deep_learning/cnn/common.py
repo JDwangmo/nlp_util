@@ -158,6 +158,7 @@ class CnnBaseClass(CommonModel):
         # assert len(input_shape) == 3, 'warning: 因为必须是一个4D的输入，(n_batch,channel,row,col)，所以input shape必须是一个3D-array，(channel,row,col)!'
 
         from keras.layers import Dropout,merge,BatchNormalization,Activation
+
         dropout_rate = convolution_filter_type[0][-3]
         activation = convolution_filter_type[0][-2]
         normalization = convolution_filter_type[0][-1]

@@ -6,6 +6,7 @@ __email__ = '383287471@qq.com'
 
 import numpy as np
 from deep_learning.cnn.common import CnnBaseClass
+from itertools import product
 import logging
 
 
@@ -52,7 +53,7 @@ class MultiChannelOnehotBowCNN(CnnBaseClass):
         :type rand_seed: int
         :param verbose: 数值越大,输出更详细的信息
         :type verbose: int
-        :param feature_encoder: 输入数据的设置选项，设置输入编码器
+        :param feature_encoder: 输入数据的设置选项，设置输入编码器,(word_feature_encoder,seg_feature_encoder)
         :type feature_encoder: onehot_feature_encoder.FeatureEncoder
         :param optimizers: 求解的优化算法，目前支持: ['sgd','adadelta']
         :type optimizers: str
@@ -90,10 +91,28 @@ class MultiChannelOnehotBowCNN(CnnBaseClass):
         if full_connected_layer_units is None:
             full_connected_layer_units = [(50, 0.5, 'relu', 'none')]
 
-        self.word_input_length = word_input_length
-        self.word_input_dim = word_input_dim
-        self.seg_input_length = seg_input_length
-        self.seg_input_dim = seg_input_dim
+        assert word_input_length is not None or feature_encoder is not None,'word_input_length和feature_encoder至少要有一个不为None'
+        assert seg_input_length is not None or feature_encoder is not None,'seg_input_length和feature_encoder至少要有一个不为None'
+        assert word_input_dim is not None or feature_encoder is not None,'word_input_dim和feature_encoder至少要有一个不为None'
+        assert seg_input_dim is not None or feature_encoder is not None,'seg_input_dim和feature_encoder至少要有一个不为None'
+        self.feature_encoder = feature_encoder
+
+        if feature_encoder !=None:
+            # 如果feature encoder 不为空，直接用 feature_encoder获取 长度和维度
+            assert len(feature_encoder)==2,'feature_encoder的输入应该是(word_feature_encoder,seg_feature_encoder)'
+
+            self.word_input_length = feature_encoder[0].sentence_padding_length
+            self.word_input_dim = feature_encoder[0].vocabulary_size
+
+            self.seg_input_length = feature_encoder[1].sentence_padding_length
+            self.seg_input_dim = feature_encoder[1].vocabulary_size
+
+        else:
+
+            self.word_input_length = word_input_length
+            self.word_input_dim = word_input_dim
+            self.seg_input_length = seg_input_length
+            self.seg_input_dim = seg_input_dim
 
         self.l1_conv_filter_type = l1_conv_filter_type
         self.l2_conv_filter_type = l2_conv_filter_type
@@ -184,53 +203,17 @@ class MultiChannelOnehotBowCNN(CnnBaseClass):
         return model
 
     @staticmethod
-    def cross_validation(cv_data, test_data, result_file_path, **kwargs):
+    def get_feature_encoder(**kwargs):
         '''
-            进行参数的交叉验证
+            获取该分类器的特征编码器
 
-        :param cv_data: k份训练数据
-        :type cv_data: array-like
-        :param test_data: 测试数据
-        :type test_data: array-like
+        :param kwargs:  word_input_length,seg_input_length
         :return:
         '''
 
-        nb_epoch = kwargs['nb_epoch']
-        verbose = kwargs['verbose']
-        num_labels = 24
-        word_input_length,seg_input_length = 10,7
-        remove_stopword = kwargs['remove_stopword']
-        word2vec_to_solve_oov = kwargs['word2vec_to_solve_oov']
-        rand_seed = kwargs['rand_seed']
-        l1_conv_filter_type = kwargs['l1_conv_filter_type']
-        l2_conv_filter_type = kwargs['l2_conv_filter_type']
-        k = kwargs['k']
-
-        # 详细结果保存到...
-        detail_result_file_path = result_file_path
-        fout = open(detail_result_file_path, 'w')
-
-        print('=' * 150)
-        print('word_input_length:%d\nseg_input_length:%d' % (word_input_length, seg_input_length))
-        print('使用word2vec:%s\nremove_stopword:%s\nnb_epoch:%d\nrand_seed:%d' % (
-        word2vec_to_solve_oov, remove_stopword, nb_epoch, rand_seed))
-        print('l1_conv_filter_type:%s' % l1_conv_filter_type)
-        print('l2_conv_filter_type:%s' % l2_conv_filter_type)
-        print('k:%s' % k)
-        print('=' * 150)
-
-        fout.write('=' * 150 + '\n')
-        fout.write('single单通道CNN-bow cv结果:\n')
-        fout.write('nb_epoch:%d\nrand_seed:%d\n' % ( nb_epoch, rand_seed))
-        fout.write('l1_conv_filter_type:%s\n' % l1_conv_filter_type)
-        fout.write('l2_conv_filter_type:%s\n' % l2_conv_filter_type)
-        fout.write('k:%s\n' % k)
-        fout.write('=' * 150 + '\n')
-
-        from data_processing_util.cross_validation_util import transform_cv_data
         from data_processing_util.feature_encoder.onehot_feature_encoder import FeatureEncoder
         word_feature_encoder = FeatureEncoder(
-            sentence_padding_length=word_input_length,
+            sentence_padding_length=kwargs['word_input_length'],
             verbose=0,
             need_segmented=True,
             full_mode=False,
@@ -247,7 +230,7 @@ class MultiChannelOnehotBowCNN(CnnBaseClass):
         )
 
         seg_feature_encoder = FeatureEncoder(
-            sentence_padding_length=seg_input_length,
+            sentence_padding_length=kwargs['seg_input_length'],
             verbose=0,
             need_segmented=True,
             full_mode=False,
@@ -263,90 +246,110 @@ class MultiChannelOnehotBowCNN(CnnBaseClass):
             to_onehot_array=True,
         )
 
+        return word_feature_encoder,seg_feature_encoder
+
+    @staticmethod
+    def cross_validation(cv_data, test_data, result_file_path, **kwargs):
+        """
+            进行参数的交叉验证
+
+        :param cv_data: k份训练数据
+        :type cv_data: array-like
+        :param test_data: 测试数据
+        :type test_data: array-like
+        :return:
+        """
+
+        nb_epoch = kwargs['nb_epoch']
+        verbose = kwargs['verbose']
+        num_labels = kwargs['num_labels']
+        word_input_length, seg_input_length = 10, 7
+        remove_stopword = kwargs['remove_stopword']
+        word2vec_to_solve_oov = kwargs['word2vec_to_solve_oov']
+        rand_seed = kwargs['rand_seed']
+        l1_conv_filter_type = kwargs['l1_conv_filter_type']
+        l2_conv_filter_type = kwargs['l2_conv_filter_type']
+        k = kwargs['k']
+        lr = kwargs['lr']
+
+        use_layer = kwargs['use_layer']
+
+        layer1 = kwargs['layer1'] if kwargs.get('layer1', []) !=[] else [-1]
+        layer2 = kwargs['layer2'] if kwargs.get('layer2', []) !=[] else [-1]
+        hidden1 = kwargs['hidden1'] if kwargs.get('hidden1', []) !=[] else [-1]
+        hidden2 = kwargs['hidden2'] if kwargs.get('hidden2', []) !=[] else [-1]
+
+        # 详细结果保存到...
+        detail_result_file_path = result_file_path
+        fout = open(detail_result_file_path, 'w')
+        print('=' * 150)
+        print('调节的参数....')
+        print('use_layer:%s'%use_layer)
+        print('layer1:%s' % str(layer1))
+        print('layer2:%s' % str(layer2))
+        print('hidden1:%s' % str(hidden1))
+        print('hidden2:%s' % str(hidden2))
+        print('-' * 150)
+        print('word_input_length:%d\nseg_input_length:%d' % (word_input_length, seg_input_length))
+        print('使用word2vec:%s\nremove_stopword:%s\nnb_epoch:%d\nrand_seed:%d' % (
+            word2vec_to_solve_oov, remove_stopword, nb_epoch, rand_seed))
+        print('l1_conv_filter_type:%s' % l1_conv_filter_type)
+        print('l2_conv_filter_type:%s' % l2_conv_filter_type)
+        print('k:%s' % k)
+        print('=' * 150)
+
+        fout.write('=' * 150 + '\n')
+        fout.write('cv结果:\n')
+        fout.write('lr:%f\nnb_epoch:%d\nrand_seed:%d\n' % (lr,nb_epoch, rand_seed))
+        fout.write('l1_conv_filter_type:%s\n' % l1_conv_filter_type)
+        fout.write('l2_conv_filter_type:%s\n' % l2_conv_filter_type)
+        fout.write('k:%s\n' % k)
+        fout.write('=' * 150 + '\n')
+
+        from data_processing_util.cross_validation_util import transform_cv_data,get_val_score
+        word_feature_encoder,seg_feature_encoder = MultiChannelOnehotBowCNN.get_feature_encoder(
+           ** {'word_input_length':word_input_length,
+             'seg_input_length':seg_input_length}
+        )
+
+
         all_cv_word_data = transform_cv_data(word_feature_encoder, cv_data, test_data, **kwargs)
         all_cv_seg_data = transform_cv_data(seg_feature_encoder, cv_data, test_data, **kwargs)
+        cv_data = [([dev_word_X,dev_seg_X],dev_y,[val_word_X,val_seg_X],val_y,(word_feature_encoder,seg_feature_encoder)) for (dev_word_X, dev_y, val_word_X, val_y,word_feature_encoder),(dev_seg_X, dev_y, val_seg_X, val_y,seg_feature_encoder) in zip(all_cv_word_data,all_cv_seg_data)]
 
-        for layer1 in kwargs['layer1']:
-            for layer2 in kwargs['layer2']:
-                for hidden1 in kwargs['hidden1']:
-                    for hidden2 in kwargs['hidden2']:
+        # 交叉验证
+        parmater = product(layer1, layer2, hidden1, hidden2)
 
-                        print('layer1:%d,layer2:%d,hidden1:%d,hidden2:%d' % (layer1, layer2, hidden1, hidden2))
+        for l1,l2,h1,h2 in parmater:
 
-                        fout.write('=' * 150 + '\n')
-                        fout.write('layer1:%d,layer2:%d,hidden1:%d,hidden2:%d\n' % (layer1,
-                                                                                    layer2,
-                                                                                    hidden1,
-                                                                                    hidden2
-                                                                                    ))
-                        # 五折
-                        print('K折交叉验证开始...')
-                        counter = 0
-                        test_acc = []
-                        train_acc = []
-                        for (dev_word_X, dev_y, val_word_X, val_y),(dev_seg_X, dev_y, val_seg_X, val_y) in zip(all_cv_word_data,all_cv_seg_data):
-                            # print(dev_X2.shape)
-                            print('-' * 80)
-                            fout.write('-' * 80 + '\n')
-                            if counter == 0:
-                                # 第一个数据是训练，之后是交叉验证
-                                print('训练:')
-                                fout.write('训练\n')
-                            else:
-                                print('第%d个验证' % counter)
-                                fout.write('第%d个验证\n' % counter)
+            fout.write('=' * 150 + '\n')
+            fout.write('layer1:%d,layer2:%d,hidden1:%d,hidden2:%d\n' % (l1, l2, h1, h2))
+            print('layer1:%d,layer2:%d,hidden1:%d,hidden2:%d' % (l1,l2,h1,h2))
 
-                            onehot_cnn = MultiChannelOnehotBowCNN(
-                                rand_seed=1377,
-                                verbose=verbose,
-                                feature_encoder=(word_feature_encoder, seg_feature_encoder),
-                                # optimizers='adadelta',
-                                optimizers='sgd',
-                                word_input_length=word_input_length,
-                                seg_input_length=seg_input_length,
-                                word_input_dim=dev_word_X.shape[-1],
-                                seg_input_dim=dev_seg_X.shape[-1],
-                                num_labels=num_labels,
-                                l1_conv_filter_type=[
-                                    [layer1, 2, -1, 'valid', (0, 1), 0., 'relu', 'batch_normalization'],
-                                    [layer1, 3, -1, 'valid', (0, 1), 0., 'relu', 'none'],
-                                    [layer1, -1, -1, 'bow', (0, 1), 0., 'relu', 'none'],
-                                ],
-                                l2_conv_filter_type=[
-                                    # [16, 2, -1, 'valid',(2,1),0.5, 'relu', 'none']
-                                ],
-                                full_connected_layer_units=[
-                                    # (hidden1, 0., 'relu', 'none'),
-                                ],
-                                embedding_dropout_rate=0.,
-                                nb_epoch=30,
-                                nb_batch=32,
-                                earlyStoping_patience=200,
-                                lr=1e-2,
-                            )
+            l1_conv_filter =[]
+            if 'conv1' in use_layer:
+                l1_conv_filter.extend([
+                    [l1, l1_conv_filter_type[0][0], -1, l1_conv_filter_type[0][1], (0, 1), 0., 'relu', 'none'],
+                    [l1, l1_conv_filter_type[1][0], -1, l1_conv_filter_type[1][1], (0, 1), 0., 'relu', 'none'],
+                    [l1, l1_conv_filter_type[2][0], -1, l1_conv_filter_type[2][1], (0, 1), 0., 'relu', 'none'],
+                ])
 
-                            # bow_cnn.print_model_descibe()
+            full_connected_layer_units = []
 
-                            dev_loss, dev_accuracy, \
-                            val_loss, val_accuracy = onehot_cnn.fit(([dev_word_X,dev_seg_X], dev_y), ([val_word_X,val_seg_X], val_y))
+            if 'hidden1' in use_layer:
+                full_connected_layer_units.append([h1, 0., 'relu', 'none'])
 
-                            print('dev:%f,%f' % (dev_loss, dev_accuracy))
-                            print('val:%f,%f' % (val_loss, val_accuracy))
-                            fout.write('dev:%f,%f\n' % (dev_loss, dev_accuracy))
-                            fout.write('val:%f,%f\n' % (val_loss, val_accuracy))
-                            test_acc.append(val_accuracy)
-                            train_acc.append(dev_accuracy)
-                            counter += 1
+            parm = {'l1_conv_filter_type':l1_conv_filter,
+                    'full_connected_layer_units':full_connected_layer_units,
+                    'num_labels':num_labels,
+                    'verbose':verbose,
+                    'nb_epoch':nb_epoch,
+                    'lr':lr
+                    }
+            get_val_score(MultiChannelOnehotBowCNN,cv_data,fout,**parm)
 
-                        print('k折验证结果：%s' % test_acc)
-                        print('验证中平均准确率：%f' % np.average(test_acc[1:]))
-                        print('-' * 80)
 
-                        fout.write('k折验证训练结果：%s\n' % train_acc)
-                        fout.write('k折验证测试结果：%s\n' % test_acc)
-                        fout.write('平均：%f\n' % np.average(test_acc[1:]))
-                        fout.write('-' * 80 + '\n')
-                        fout.flush()
+
         fout.close()
 
     def print_model_descibe(self):

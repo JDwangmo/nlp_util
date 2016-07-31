@@ -9,9 +9,7 @@ from deep_learning.cnn.common import CnnBaseClass
 import logging
 import cPickle as pickle
 from data_processing_util.feature_encoder.onehot_feature_encoder import FeatureEncoder
-import theano.tensor as T
-from sklearn.metrics import f1_score
-
+from itertools import product
 
 
 class WordEmbeddingCNN(CnnBaseClass):
@@ -46,7 +44,7 @@ class WordEmbeddingCNN(CnnBaseClass):
                  num_labels=None,
                  l1_conv_filter_type=None,
                  l2_conv_filter_type=None,
-                 embedding_dropout_rate=0.5,
+                 embedding_dropout_rate=0.,
                  nb_epoch=100,
                  earlyStoping_patience=50,
                  **kwargs
@@ -107,12 +105,20 @@ class WordEmbeddingCNN(CnnBaseClass):
             nb_epoch=nb_epoch,
             earlyStoping_patience=earlyStoping_patience,
         )
-        self.input_dim = input_dim
         self.word_embedding_dim = word_embedding_dim
         self.embedding_init_weight = embedding_init_weight
-        self.input_length = input_length
 
         self.embedding_weight_trainable = embedding_weight_trainable
+        if feature_encoder != None:
+            # 如果feature encoder 不为空，直接用 feature_encoder获取 长度和维度
+            self.input_dim = feature_encoder.vocabulary_size
+            self.input_length = feature_encoder.sentence_padding_length
+
+        else:
+            self.input_dim = input_dim
+            self.input_length = input_length
+
+
 
         self.l1_conv_filter_type = l1_conv_filter_type
         self.l2_conv_filter_type = l2_conv_filter_type
@@ -122,9 +128,6 @@ class WordEmbeddingCNN(CnnBaseClass):
 
         # 嵌入层的输出
         self.embedding_layer_output = None
-        # 最后一层隐含层（倒数第二层）的输出
-        self.last_hidden_layer = None
-        self.conv1_feature_output = None
 
         # 构建模型
         self.build_model()
@@ -146,7 +149,7 @@ class WordEmbeddingCNN(CnnBaseClass):
         :return: cnn model network
         '''
 
-        from keras.layers import Embedding, Input, Activation, Reshape, Dropout, Dense, Flatten
+        from keras.layers import Embedding, Input, Activation, Reshape, Dropout, Flatten
         from keras.models import Model
         from keras import backend as K
 
@@ -200,11 +203,17 @@ class WordEmbeddingCNN(CnnBaseClass):
         # 7. 全连接层
         l7_full_connected_layer = self.create_full_connected_layer(
             input_layer=l6_flatten,
-            units=self.full_connected_layer_units+[[self.num_labels,0.,'none','none']],
+            units=self.full_connected_layer_units,
+        )
+        # l7_activation = Activation("relu")(l7_full_connected_layer)
+
+        l7_output = self.create_full_connected_layer(
+            input_layer=l7_full_connected_layer,
+            units=[[self.num_labels,0.,'none','none']],
         )
 
         # 8. softmax 分类层
-        l8_softmax_output = Activation("softmax")(l7_full_connected_layer)
+        l8_softmax_output = Activation("softmax")(l7_output)
         model = Model(input=[l1_input], output=[l8_softmax_output])
 
         # 最后一层隐含层（倒数第二层）的输出
@@ -220,67 +229,20 @@ class WordEmbeddingCNN(CnnBaseClass):
         return model
 
     @staticmethod
-    def cross_validation(cv_data, test_data, result_file_path, **kwargs):
+    def get_feature_encoder(**kwargs):
         '''
-            进行参数的交叉验证
+            获取该分类器的特征编码器
 
-        :param cv_data: k份训练数据
-        :type cv_data: array-like
-        :param test_data: 测试数据
-        :type test_data: array-like
+        :param kwargs:  word_input_length,seg_input_length
         :return:
         '''
 
-        nb_epoch = kwargs['nb_epoch']
-        verbose = kwargs['verbose']
-        num_labels = 24
-        feature_type = kwargs['feature_type']
-        full_mode = kwargs['full_mode']
-        rand_seed = kwargs['rand_seed']
-        embedding_weight_trainable = kwargs['embedding_weight_trainable']
-        l1_conv_filter_type = kwargs['l1_conv_filter_type']
-        l2_conv_filter_type = kwargs['l2_conv_filter_type']
-        k = kwargs['k']
-        kwargs['to_embedding_weight'] = True
-        word_embedding_dim = kwargs['word_embedding_dim']
-        sentence_padding_length = kwargs['sentence_padding_length']
-        word2vec_model_file_path = kwargs['word2vec_model_file_path']
-
-
-        # 详细结果保存到...
-        fout = open(result_file_path, 'w')
-        print('=' * 150)
-        print('调节的参数....')
-        print('layer1:%s'%str(kwargs['layer1']))
-        print('layer2:%s'%str(kwargs['layer2']))
-        print('hidden1:%s'%str(kwargs['hidden1']))
-        print('hidden2:%s'%str(kwargs['hidden2']))
-
-        print(word2vec_model_file_path)
-        print('embedding_weight_trainable:%s'%embedding_weight_trainable)
-        print('feature_type:%s\nnb_epoch:%d\nrand_seed:%d' % (feature_type, nb_epoch, rand_seed))
-        print('sentence_padding_length:%d\nword_embedding_dim:%d'%(sentence_padding_length,word_embedding_dim))
-        print('l1_conv_filter_type:%s' % l1_conv_filter_type)
-        print('l2_conv_filter_type:%s' % l2_conv_filter_type)
-        print('k:%s' % k)
-        print('=' * 150)
-
-        fout.write('=' * 150 + '\n')
-        fout.write('single单通道CNN-embedding cv结果:\n')
-        fout.write('feature_type:%s\nnb_epoch:%d\nrand_seed:%d\n' % (feature_type, nb_epoch, rand_seed))
-        fout.write('l1_conv_filter_type:%s\n' % l1_conv_filter_type)
-        fout.write('l2_conv_filter_type:%s\n' % l2_conv_filter_type)
-        fout.write('k:%s\n' % k)
-        fout.write('=' * 150 + '\n')
-
         from data_processing_util.feature_encoder.onehot_feature_encoder import FeatureEncoder
-        from data_processing_util.cross_validation_util import transform_cv_data
-
         feature_encoder = FeatureEncoder(
-            sentence_padding_length=sentence_padding_length,
+            sentence_padding_length=kwargs['input_length'],
             verbose=1,
             need_segmented=True,
-            full_mode=full_mode,
+            full_mode=False,
             remove_stopword=True,
             replace_number=True,
             lowercase=True,
@@ -288,125 +250,103 @@ class WordEmbeddingCNN(CnnBaseClass):
             remove_url=True,
             padding_mode='center',
             add_unkown_word=True,
-            feature_type=feature_type,
+            feature_type=kwargs.get('feature_type','word')
         )
 
-        all_cv_data = transform_cv_data(feature_encoder,
-                                        cv_data,
-                                        test_data,
-                                        **kwargs
-                                        )
+        return feature_encoder
+
+    @staticmethod
+    def init_model_param(cv_data, test_data, result_file_path, **kwargs):
+        '''
+            因为模型参数实在太多了，所以搞出个函数来专门初始化参数
+
+        :param cv_data:
+        :param test_data:
+        :param result_file_path:
+        :param kwargs:
+        :return:
+        '''
+
+        from data_processing_util.cross_validation_util import transform_cv_data
+
+        verbose = kwargs['verbose']
+        input_length = kwargs['input_length']
+
+        feature_type = kwargs['feature_type']
+        kwargs['to_embedding_weight'] = True
+
+        kwargs['layer1'] = kwargs['layer1'] if kwargs.get('layer1', []) != [] else [-1]
+        kwargs['layer2'] = kwargs['layer2'] if kwargs.get('layer2', []) != [] else [-1]
+        kwargs['hidden1'] = kwargs['hidden1'] if kwargs.get('hidden1', []) != [] else [-1]
+        kwargs['hidden2'] = kwargs['hidden2'] if kwargs.get('hidden2', []) != [] else [-1]
+        # 详细结果保存到...
+        detail_result_file_path = result_file_path
+        fout = open(detail_result_file_path, 'w')
+        if verbose > 0:
+            print('='*100)
+            print('调节的参数....')
+            print('='*80)
+            from collections import OrderedDict
+            kwargs = OrderedDict(sorted(kwargs.items(), key=lambda t: t[0]))
+            for k,v in kwargs.items():
+                print('\t%s=%s'%(k,v))
+                fout.write('\t%s=%s\n'%(k,v))
+            print('='*100)
 
 
-        for layer1 in kwargs['layer1']:
-            for layer2 in kwargs['layer2']:
-                for hidden1 in kwargs['hidden1']:
-                    for hidden2 in kwargs['hidden2']:
 
-                        print('layer1:%d,layer2:%d,hidden1:%d,hidden2:%d' % (layer1, layer2, hidden1, hidden2))
+        feature_encoder = WordEmbeddingCNN.get_feature_encoder(
+            **{'input_length': input_length,
+               'feature_type': feature_type,}
+        )
+        cv_data = transform_cv_data(feature_encoder, cv_data, test_data, **kwargs)
+        # 交叉验证
+        parmater = product(kwargs['layer1'], kwargs['layer2'], kwargs['hidden1'], kwargs['hidden2'])
 
-                        fout.write('=' * 150 + '\n')
-                        fout.write('layer1:%d,layer2:%d,hidden1:%d,hidden2:%d\n' % (layer1,
-                                                                                    layer2,
-                                                                                    hidden1,
-                                                                                    hidden2
-                                                                                    ))
-                        # 五折
-                        print('K折交叉验证开始...')
-                        counter = 0
-                        ave_acc = []
-                        for dev_X, dev_y, val_X, val_y,init_weight in all_cv_data:
-                            # print(dev_X.shape)
-                            print('-' * 80)
-                            fout.write('-' * 80 + '\n')
-                            if counter == 0:
-                                # 第一个数据是训练，之后是交叉验证
-                                print('训练:')
-                                fout.write('训练\n')
-                            else:
-                                print('第%d个验证' % counter)
-                                fout.write('第%d个验证\n' % counter)
+        return kwargs,cv_data, parmater, fout
 
+    @staticmethod
+    def cross_validation(cv_data, test_data, result_file_path, **kwargs):
+        """
+            进行参数的交叉验证
 
-                            word_embedding_cnn = WordEmbeddingCNN(
-                                rand_seed=rand_seed,
-                                verbose=verbose,
-                                feature_encoder=None,
-                                # optimizers='adadelta',
-                                optimizers='sgd',
-                                input_dim=init_weight.shape[0],
-                                word_embedding_dim=word_embedding_dim,
-                                embedding_init_weight=init_weight,
-                                embedding_weight_trainable=embedding_weight_trainable,
-                                input_length=sentence_padding_length,
-                                num_labels=num_labels,
-                                l1_conv_filter_type=[
-                                    [layer1, 3, -1, 'valid', [2, 1], 0., 'relu', 'none'],
-                                     [layer1, 4, -1, 'valid', [2, 1], 0., 'relu', 'none'],
-                                     [layer1, 5, -1, 'valid', [2, 1], 0., 'relu', 'none'],
-                                     ],
-                                l2_conv_filter_type=[
-                                    # [layer2, l2_conv_filter_type[0], 1, 'valid', (k[1], 1), 0.25]
-                                ],
-                                full_connected_layer_units=[
-                                    [hidden1, 0.5, 'none', 'none'],
-                                    # [hidden2,0.5]
-                                ],
-                                embedding_dropout_rate=0.,
-                                nb_epoch=nb_epoch,
-                                nb_batch=32,
-                                earlyStoping_patience=200,
-                                lr=1e-2,
-                            )
-                            if verbose>0:
-                                word_embedding_cnn.print_model_descibe()
+        :param cv_data: k份训练数据
+        :type cv_data: array-like
+        :param test_data: 测试数据
+        :type test_data: array-like
+        :return:
+        """
+        from data_processing_util.cross_validation_util import get_val_score
 
-                            # print (word_embedding_cnn.embedding_layer_output.get_weights()[0][1])
-                            dev_loss, dev_accuracy, \
-                            val_loss, val_accuracy = word_embedding_cnn.fit((dev_X, dev_y), (val_X, val_y))
-                            # print (word_embedding_cnn.embedding_layer_output.get_weights()[0][1])
-                            print('dev:%f,%f' % (dev_loss, dev_accuracy))
-                            print('val:%f,%f' % (val_loss, val_accuracy))
-                            fout.write('dev:%f,%f\n' % (dev_loss, dev_accuracy))
-                            fout.write('val:%f,%f\n' % (val_loss, val_accuracy))
-                            ave_acc.append(val_accuracy)
-                            counter += 1
+        kwargs, cv_data, parmater, fout = WordEmbeddingCNN.init_model_param(cv_data, test_data,result_file_path,**kwargs)
 
-                        print('k折验证结果：%s' % ave_acc)
-                        print('验证中平均准确率：%f' % np.average(ave_acc[1:]))
-                        print('-' * 80)
+        for l1, l2, h1, h2 in parmater:
 
-                        fout.write('k折验证结果：%s\n' % ave_acc)
-                        fout.write('平均：%f\n' % np.average(ave_acc[1:]))
-                        fout.write('-' * 80 + '\n')
-                        fout.flush()
+            fout.write('=' * 150 + '\n')
+            fout.write('layer1:%d,layer2:%d,hidden1:%d,hidden2:%d\n' % (l1, l2, h1, h2))
+            print('layer1:%d,layer2:%d,hidden1:%d,hidden2:%d' % (l1, l2, h1, h2))
+            l1_conv_filter_type = kwargs['l1_conv_filter_type']
+            l1_conv_filter = []
+            k = kwargs['k']
+            if 'conv1' in kwargs['use_layer']:
+                l1_conv_filter.extend([
+                    [l1, l1_conv_filter_type[0][0], -1, l1_conv_filter_type[0][1], (k[0], 1), 0., 'relu', 'none'],
+                    [l1, l1_conv_filter_type[1][0], -1, l1_conv_filter_type[1][1], (k[0], 1), 0., 'relu', 'none'],
+                    [l1, l1_conv_filter_type[2][0], -1, l1_conv_filter_type[2][1], (k[0], 1), 0., 'relu', 'none'],
+                ])
+
+            full_connected_layer_units = []
+
+            if 'hidden1' in kwargs['use_layer']:
+                full_connected_layer_units.append([h1, 0.5, 'relu', 'none'])
+
+            kwargs['l1_conv_filter_type'] = l1_conv_filter
+            kwargs['l2_conv_filter_type'] = []
+            kwargs['full_connected_layer_units'] = full_connected_layer_units
+
+            get_val_score(WordEmbeddingCNN, cv_data, fout, **kwargs)
+
         fout.close()
-
-    def get_conv1_feature(self, sentence, transform_input=False):
-        '''
-            encoding,将句子以conv1的输出为编码
-
-        :param sentence: 一个测试句子,
-        :type sentence: array-like
-        :param transform: 是否转换句子，如果为True,输入原始字符串句子即可，内部已实现转换成字典索引的形式。
-        :type transform: array-like
-        '''
-
-        if transform_input:
-            sentence = self.transform(sentence)
-
-        conv1_feature = self.conv1_feature_output([np.asarray(sentence).reshape(1, -1), 0])[0]
-
-        conv1_feature = conv1_feature.flatten()
-
-        # -------------- print start : just print info -------------
-        if self.verbose > 2:
-            logging.debug('句子表示成%d维的特征' % (conv1_feature.shape))
-            print('句子表示成%d维的特征' % (len(conv1_feature)))
-
-        # -------------- print end : just print info -------------
-        return conv1_feature
-
 
 
 
