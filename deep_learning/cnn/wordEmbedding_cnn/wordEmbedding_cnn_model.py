@@ -1,8 +1,10 @@
 # encoding=utf8
-
-__author__ = 'jdwang'
-__date__ = 'create date: 2016-06-23'
-__email__ = '383287471@qq.com'
+"""
+    Author:  'jdwang'
+    Date:    'create date: 2016-06-23'
+    Email:   '383287471@qq.com'
+    Describe:
+"""
 
 import numpy as np
 from deep_learning.cnn.common import CnnBaseClass
@@ -39,7 +41,7 @@ class WordEmbeddingCNN(CnnBaseClass):
                  input_dim=None,
                  word_embedding_dim=None,
                  embedding_init_weight=None,
-                 embedding_weight_trainable = True,
+                 embedding_weight_trainable=True,
                  input_length=None,
                  num_labels=None,
                  l1_conv_filter_type=None,
@@ -118,8 +120,6 @@ class WordEmbeddingCNN(CnnBaseClass):
             self.input_dim = input_dim
             self.input_length = input_length
 
-
-
         self.l1_conv_filter_type = l1_conv_filter_type
         self.l2_conv_filter_type = l2_conv_filter_type
         self.full_connected_layer_units = full_connected_layer_units
@@ -149,12 +149,12 @@ class WordEmbeddingCNN(CnnBaseClass):
         :return: cnn model network
         '''
 
-        from keras.layers import Embedding, Input, Activation, Reshape, Dropout, Flatten
+        from keras.layers import Embedding, Input, Activation, Reshape, Dropout, Flatten,BatchNormalization
         from keras.models import Model
         from keras import backend as K
 
         # 1. 输入层
-        l1_input_shape = ( self.input_length,)
+        l1_input_shape = (self.input_length,)
         l1_input = Input(shape=l1_input_shape, dtype='int32')
 
         # model_input = Input((self.input_length,), dtype='int32')
@@ -179,7 +179,7 @@ class WordEmbeddingCNN(CnnBaseClass):
         else:
             l3_dropout = l2_embedding
         # 4. Reshape层： 将embedding转换4-dim的shape
-        l4_reshape= Reshape((1, self.input_length, self.word_embedding_dim))(l3_dropout)
+        l4_reshape = Reshape((1, self.input_length, self.word_embedding_dim))(l3_dropout)
         # 5. 第一层卷积层：多size卷积层（含1-max pooling），使用三种size.
         l5_cnn = self.create_convolution_layer(
             input_layer=l4_reshape,
@@ -199,7 +199,7 @@ class WordEmbeddingCNN(CnnBaseClass):
 
         # 6. Flatten层： 卷积的结果进行拼接,变成一列隐含层
         l6_flatten = Flatten()(l6_conv)
-
+        # l6_flatten= BatchNormalization(axis=1)(l6_flatten)
         # 7. 全连接层
         l7_full_connected_layer = self.create_full_connected_layer(
             input_layer=l6_flatten,
@@ -209,7 +209,7 @@ class WordEmbeddingCNN(CnnBaseClass):
 
         l7_output = self.create_full_connected_layer(
             input_layer=l7_full_connected_layer,
-            units=[[self.num_labels,0.,'none','none']],
+            units=[[self.num_labels, 0., 'none', 'none']],
         )
 
         # 8. softmax 分类层
@@ -217,7 +217,7 @@ class WordEmbeddingCNN(CnnBaseClass):
         model = Model(input=[l1_input], output=[l8_softmax_output])
 
         # 最后一层隐含层（倒数第二层）的输出
-        self.last_hidden_layer= K.function([l1_input, K.learning_phase()], [l7_full_connected_layer])
+        self.last_hidden_layer = K.function([l1_input, K.learning_phase()], [l7_full_connected_layer])
         # 最后输出层
         self.model_output = K.function([l1_input, K.learning_phase()], [l8_softmax_output])
         # 卷积层的输出，可以作为深度特征
@@ -233,16 +233,18 @@ class WordEmbeddingCNN(CnnBaseClass):
         '''
             获取该分类器的特征编码器
 
-        :param kwargs:  word_input_length,seg_input_length
+        :param kwargs:  可设置参数 [ input_length(*), full_mode(#,False), feature_type(#,word),verbose(#,0)],加*表示必须提供，加#表示可选，不写则默认。
         :return:
         '''
+
+        assert kwargs.has_key('input_length'),'请提供 input_length 的属性值'
 
         from data_processing_util.feature_encoder.onehot_feature_encoder import FeatureEncoder
         feature_encoder = FeatureEncoder(
             sentence_padding_length=kwargs['input_length'],
-            verbose=1,
+            verbose=kwargs.get('verbose',0),
             need_segmented=True,
-            full_mode=False,
+            full_mode=kwargs.get('full_mode',False),
             remove_stopword=True,
             replace_number=True,
             lowercase=True,
@@ -250,105 +252,10 @@ class WordEmbeddingCNN(CnnBaseClass):
             remove_url=True,
             padding_mode='center',
             add_unkown_word=True,
-            feature_type=kwargs.get('feature_type','word')
+            feature_type=kwargs.get('feature_type', 'word')
         )
 
         return feature_encoder
-
-    @staticmethod
-    def init_model_param(cv_data, test_data, result_file_path, **kwargs):
-        '''
-            因为模型参数实在太多了，所以搞出个函数来专门初始化参数
-
-        :param cv_data:
-        :param test_data:
-        :param result_file_path:
-        :param kwargs:
-        :return:
-        '''
-
-        from data_processing_util.cross_validation_util import transform_cv_data
-
-        verbose = kwargs['verbose']
-        input_length = kwargs['input_length']
-
-        feature_type = kwargs['feature_type']
-        kwargs['to_embedding_weight'] = True
-
-        kwargs['layer1'] = kwargs['layer1'] if kwargs.get('layer1', []) != [] else [-1]
-        kwargs['layer2'] = kwargs['layer2'] if kwargs.get('layer2', []) != [] else [-1]
-        kwargs['hidden1'] = kwargs['hidden1'] if kwargs.get('hidden1', []) != [] else [-1]
-        kwargs['hidden2'] = kwargs['hidden2'] if kwargs.get('hidden2', []) != [] else [-1]
-        # 详细结果保存到...
-        detail_result_file_path = result_file_path
-        fout = open(detail_result_file_path, 'w')
-        if verbose > 0:
-            print('='*100)
-            print('调节的参数....')
-            print('='*80)
-            from collections import OrderedDict
-            kwargs = OrderedDict(sorted(kwargs.items(), key=lambda t: t[0]))
-            for k,v in kwargs.items():
-                print('\t%s=%s'%(k,v))
-                fout.write('\t%s=%s\n'%(k,v))
-            print('='*100)
-
-
-
-        feature_encoder = WordEmbeddingCNN.get_feature_encoder(
-            **{'input_length': input_length,
-               'feature_type': feature_type,}
-        )
-        cv_data = transform_cv_data(feature_encoder, cv_data, test_data, **kwargs)
-        # 交叉验证
-        parmater = product(kwargs['layer1'], kwargs['layer2'], kwargs['hidden1'], kwargs['hidden2'])
-
-        return kwargs,cv_data, parmater, fout
-
-    @staticmethod
-    def cross_validation(cv_data, test_data, result_file_path, **kwargs):
-        """
-            进行参数的交叉验证
-
-        :param cv_data: k份训练数据
-        :type cv_data: array-like
-        :param test_data: 测试数据
-        :type test_data: array-like
-        :return:
-        """
-        from data_processing_util.cross_validation_util import get_val_score
-
-        kwargs, cv_data, parmater, fout = WordEmbeddingCNN.init_model_param(cv_data, test_data,result_file_path,**kwargs)
-
-        for l1, l2, h1, h2 in parmater:
-
-            fout.write('=' * 150 + '\n')
-            fout.write('layer1:%d,layer2:%d,hidden1:%d,hidden2:%d\n' % (l1, l2, h1, h2))
-            print('layer1:%d,layer2:%d,hidden1:%d,hidden2:%d' % (l1, l2, h1, h2))
-            l1_conv_filter_type = kwargs['l1_conv_filter_type']
-            l1_conv_filter = []
-            k = kwargs['k']
-            if 'conv1' in kwargs['use_layer']:
-                l1_conv_filter.extend([
-                    [l1, l1_conv_filter_type[0][0], -1, l1_conv_filter_type[0][1], (k[0], 1), 0., 'relu', 'none'],
-                    [l1, l1_conv_filter_type[1][0], -1, l1_conv_filter_type[1][1], (k[0], 1), 0., 'relu', 'none'],
-                    [l1, l1_conv_filter_type[2][0], -1, l1_conv_filter_type[2][1], (k[0], 1), 0., 'relu', 'none'],
-                ])
-
-            full_connected_layer_units = []
-
-            if 'hidden1' in kwargs['use_layer']:
-                full_connected_layer_units.append([h1, 0.5, 'relu', 'none'])
-
-            kwargs['l1_conv_filter_type'] = l1_conv_filter
-            kwargs['l2_conv_filter_type'] = []
-            kwargs['full_connected_layer_units'] = full_connected_layer_units
-
-            get_val_score(WordEmbeddingCNN, cv_data, fout, **kwargs)
-
-        fout.close()
-
-
 
     def print_model_descibe(self):
         import pprint
@@ -367,8 +274,8 @@ class WordEmbeddingCNN(CnnBaseClass):
                   'nb_epoch': self.nb_epoch,
                   'earlyStoping_patience': self.earlyStoping_patience,
                   'embedding_init use rand': self.embedding_init_weight is None,
-                  'lr':self.lr,
-                  'batch_size':self.batch_size,
+                  'lr': self.lr,
+                  'batch_size': self.batch_size,
                   }
         pprint.pprint(detail)
         logging.debug(detail)
@@ -383,16 +290,11 @@ def test_static_w2v():
     '''
 
     sentence_padding_length = 8
-    feature_encoder = FeatureEncoder(
-        sentence_padding_length=sentence_padding_length,
+    feature_encoder = WordEmbeddingCNN.get_feature_encoder(
+        input_length=sentence_padding_length,
         verbose=0,
-        need_segmented=True,
-        full_mode=True,
-        replace_number=True,
-        remove_stopword=True,
-        lowercase=True,
-        padding_mode='left',
-        add_unkown_word=True,
+        full_mode=False,
+        feature_type='word',
     )
     train_X_feature = feature_encoder.fit_transform(train_X)
     test_X_feature = feature_encoder.transform(test_X)
@@ -400,13 +302,13 @@ def test_static_w2v():
     # print map(feature_encoder.transform_sentence, test_X)
     # quit()
     word_embedding_dim = 50
-    rand_embedding_cnn = WordEmbeddingCNN(
+    static_w2v_cnn = WordEmbeddingCNN(
         rand_seed=1377,
         verbose=1,
         feature_encoder=feature_encoder,
         # optimizers='adadelta',
         optimizers='sgd',
-        input_dim=feature_encoder.vocabulary_size ,
+        input_dim=feature_encoder.vocabulary_size,
         word_embedding_dim=word_embedding_dim,
         # 设置embedding使用训练好的w2v模型初始化
         embedding_init_weight=feature_encoder.to_embedding_weight(
@@ -416,40 +318,43 @@ def test_static_w2v():
         input_length=sentence_padding_length,
         num_labels=5,
         l1_conv_filter_type=[
-            [4, 2, word_embedding_dim, 'valid', (2, 1), 0.5],
-            [4, 4, word_embedding_dim, 'valid', (2, 1), 0.],
-            [4, 5, word_embedding_dim, 'valid', (2, 1), 0.],
+            [4, 2, -1, 'valid', (2, 1), 0.5,'none','none'],
+            [4, 4, -1, 'valid', (2, 1), 0.,'none','none'],
+            [4, 5, -1, 'valid', (2, 1), 0.,'none','none'],
         ],
         l2_conv_filter_type=[
-            [16, 2, 1, 'valid', (2, 1), 0.]
+            # [16, 2, 1, 'valid', (2, 1), 0.]
         ],
-        full_connected_layer_units=[50],
+        full_connected_layer_units=[
+            # [50]
+        ],
         embedding_dropout_rate=0.,
         nb_epoch=30,
         nb_batch=5,
-        earlyStoping_patience=20,
-        lr=1e-1,
+        earlyStoping_patience=30,
+        lr=1e-2,
     )
-    rand_embedding_cnn.print_model_descibe()
+    static_w2v_cnn.print_model_descibe()
     # 训练模型
     # 从保存的pickle中加载模型
-    print (rand_embedding_cnn.embedding_layer_output.get_weights()[0][1])
-    rand_embedding_cnn.fit((train_X_feature, trian_y),
+    print (static_w2v_cnn.embedding_layer_output.get_weights()[0][1])
+    static_w2v_cnn.fit((train_X_feature, trian_y),
                            (test_X_feature, test_y))
-    print (rand_embedding_cnn.embedding_layer_output.get_weights()[0][1])
-    rand_embedding_cnn.accuracy((train_X_feature, trian_y), transform_input=False)
+    print (static_w2v_cnn.embedding_layer_output.get_weights()[0][1])
+    static_w2v_cnn.accuracy((train_X_feature, trian_y), transform_input=False)
 
     quit()
-    print rand_embedding_cnn.batch_predict(test_X_feature, transform_input=False)
-    print rand_embedding_cnn.batch_predict_bestn(test_X_feature, transform_input=False, bestn=2)
-    print rand_embedding_cnn.batch_predict(test_X, transform_input=True)
-    print rand_embedding_cnn.predict(test_X[0], transform_input=True)
-    rand_embedding_cnn.get_conv1_feature(test_X_feature)
-    rand_embedding_cnn.accuracy((test_X, test_y), transform_input=True)
+    print static_w2v_cnn.batch_predict(test_X_feature, transform_input=False)
+    print static_w2v_cnn.batch_predict_bestn(test_X_feature, transform_input=False, bestn=2)
+    print static_w2v_cnn.batch_predict(test_X, transform_input=True)
+    print static_w2v_cnn.predict(test_X[0], transform_input=True)
+    static_w2v_cnn.get_conv1_feature(test_X_feature)
+    static_w2v_cnn.accuracy((test_X, test_y), transform_input=True)
     # 保存模型
     # onehot_cnn.save_model('model/modelA.pkl')
 
-    print rand_embedding_cnn.predict('你好吗', transform_input=True)
+    print static_w2v_cnn.predict('你好吗', transform_input=True)
+
 
 def test_nonstatic_w2v():
     '''
@@ -482,7 +387,7 @@ def test_nonstatic_w2v():
         feature_encoder=feature_encoder,
         # optimizers='adadelta',
         optimizers='sgd',
-        input_dim=feature_encoder.vocabulary_size ,
+        input_dim=feature_encoder.vocabulary_size,
         word_embedding_dim=word_embedding_dim,
         # 设置embedding使用训练好的w2v模型初始化
         embedding_init_weight=feature_encoder.to_embedding_weight(
@@ -492,12 +397,12 @@ def test_nonstatic_w2v():
         input_length=sentence_padding_length,
         num_labels=5,
         l1_conv_filter_type=[
-            [4, 2, word_embedding_dim, 'valid', (2, 1), 0.5],
-            [4, 4, word_embedding_dim, 'valid', (2, 1), 0.],
-            [4, 5, word_embedding_dim, 'valid', (2, 1), 0.],
+            [4, 2, word_embedding_dim, 'valid', (2, 1), 0.5, 'none', 'none'],
+            [4, 4, word_embedding_dim, 'valid', (2, 1), 0., 'none', 'none'],
+            [4, 5, word_embedding_dim, 'valid', (2, 1), 0., 'none', 'none'],
         ],
         l2_conv_filter_type=[
-            [16, 2, 1, 'valid', (2, 1), 0.]
+            [16, 2, 1, 'valid', (2, 1), 0., 'none', 'none']
         ],
         full_connected_layer_units=[50],
         embedding_dropout_rate=0.,
@@ -527,12 +432,12 @@ def test_nonstatic_w2v():
 
     print rand_embedding_cnn.predict('你好吗', transform_input=True)
 
+
 if __name__ == '__main__':
     # 使用样例
     train_X = ['你好', '无聊', '测试句子', '今天天气不错', '我要买手机']
     trian_y = [1, 3, 2, 2, 3]
     test_X = ['句子', '你好', '你妹']
     test_y = [2, 3, 0]
-    # test_static_w2v()
-    test_nonstatic_w2v()
-
+    test_static_w2v()
+    # test_nonstatic_w2v()

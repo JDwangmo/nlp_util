@@ -33,6 +33,9 @@ class CommonModel(object):
     @abstractmethod
     def batch_predict_bestn(self,sentence,bestn=1):pass
 
+    @staticmethod
+    def get_feature_encoder(**kwargs): pass
+
     @abstractmethod
     def save_model(self, path):pass
 

@@ -11,6 +11,7 @@ from keras.layers import Convolution2D,MaxPooling2D
 from keras import backend as K
 import theano.tensor as T
 
+
 class Convolution2DWrapper(Convolution2D):
     '''
         Convolution2D's wrapper.在原有的Convolution2D的基础上进行封装。使得可以创建更多样的卷积层。
@@ -58,8 +59,12 @@ class Convolution2DWrapper(Convolution2D):
         if self.bow_flag:
             # 变为 bow output shape
             input_shape = (input_shape[0],input_shape[1],self.bow_output_length,input_shape[3])
+        # 进行卷积
+        output_shape = super(Convolution2DWrapper, self).get_output_shape_for(input_shape)
 
-        return super(Convolution2DWrapper, self).get_output_shape_for(input_shape)
+        if self.bow_flag:
+            output_shape = output_shape[0],output_shape[3],output_shape[2],output_shape[1]
+        return output_shape
 
     def call(self, x, mask=None):
         if self.bow_flag:
@@ -75,7 +80,10 @@ class Convolution2DWrapper(Convolution2D):
 
             x = K.reshape(y, (-1, input_shape[1], self.bow_output_length, input_shape[3]))
 
-        return super(Convolution2DWrapper, self).call(x, mask)
+        x = super(Convolution2DWrapper, self).call(x, mask)
+        if self.bow_flag:
+            x = T.transpose(x,[0,3,2,1])
+        return x
 
 
 class MaxPooling2DWrapper(MaxPooling2D):
@@ -86,7 +94,14 @@ class MaxPooling2DWrapper(MaxPooling2D):
     '''
 
     def build(self, input_shape):
-        if self.pool_size[0] < 0:
+
+        if self.pool_size[1]==-1:
+            # 假如nb_col为 -1 ，则取image的列大小为卷积核的列大小
+            self.pool_size = (self.pool_size[0],input_shape[-1])
+
+        if self.pool_size[0] == -1:
+            self.pool_size = (input_shape[-2],self.pool_size[1])
+        elif self.pool_size[0] < -1:
             # k-max pooling
             self.k = abs(self.pool_size[0])
         elif self.pool_size[0] > 0:
@@ -96,7 +111,7 @@ class MaxPooling2DWrapper(MaxPooling2D):
 
     def _pooling_function(self, inputs, pool_size, strides, border_mode, dim_ordering):
 
-        if pool_size[0]<0:
+        if pool_size[0]<-1:
             # k-max pooling
             input_layer = T.transpose(inputs, axes=(0, 1, 3, 2))
             sorted_values = T.argsort(input_layer, axis=3)

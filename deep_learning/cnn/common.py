@@ -204,9 +204,6 @@ class CnnBaseClass(CommonModel):
         if dropout_rate > 0:
             output = Dropout(p=dropout_rate)(output)
 
-        if dropout_rate > 0:
-            output = Dropout(p=dropout_rate)(output)
-
         # -------------- print start : just print info -------------
         # if self.verbose > 1 :
         #    cnn_model.summary()
@@ -536,6 +533,7 @@ class CnnBaseClass(CommonModel):
         '''
         from keras.utils import np_utils
         y_onehot = np_utils.to_categorical(y, nb_classes=self.num_labels)
+        # quit()
         return y_onehot
 
     def transform(self, data):

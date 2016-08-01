@@ -1,17 +1,20 @@
 # encoding=utf8
-
-__author__ = 'jdwang'
-__date__ = 'create date: 2016-06-23'
-__email__ = '383287471@qq.com'
+"""
+    Author:  'jdwang'
+    Date:    'create date: 2016-06-23'
+    Email:   '383287471@qq.com'
+    Describe:
+"""
 
 import numpy as np
 from deep_learning.cnn.common import CnnBaseClass
 import logging
 from data_processing_util.feature_encoder.onehot_feature_encoder import FeatureEncoder
+import pprint
 
 
 class OnehotBowCNN(CnnBaseClass):
-    '''
+    """
         一层CNN模型,随机初始化词向量,CNN-seq模型.借助Keras和jieba实现。
         架构各个层次分别为: 输入层,卷积层,1-max pooling层,全连接层,dropout层,softmax层
         具体见:
@@ -26,7 +29,8 @@ class OnehotBowCNN(CnnBaseClass):
             7. model_from_pickle：恢复模型
             8. accuracy：模型验证
             9. print_model_descibe：打印模型详情
-    '''
+            10. get_feature_encoder: 静态方法，获取模型的特征编码器
+    """
 
     def __init__(self,
                  rand_seed=1337,
@@ -39,11 +43,11 @@ class OnehotBowCNN(CnnBaseClass):
                  num_labels=None,
                  l1_conv_filter_type=None,
                  l2_conv_filter_type=None,
-                 nb_epoch=100,
+                 nb_epoch=10,
                  earlyStoping_patience=50,
                  **kwargs
                  ):
-        '''
+        """
             1. 初始化参数，并检验参数合法性。
             2. 设置随机种子，构建模型
 
@@ -74,7 +78,8 @@ class OnehotBowCNN(CnnBaseClass):
         :type nb_epoch: int
         :param earlyStoping_patience: cnn设置选项,earlyStoping的设置,如果迭代次数超过这个耐心值,依旧不下降,则stop.
         :type earlyStoping_patience: int
-        '''
+        """
+
         CnnBaseClass.__init__(
             self,
             rand_seed=rand_seed,
@@ -86,10 +91,15 @@ class OnehotBowCNN(CnnBaseClass):
             nb_epoch=nb_epoch,
             earlyStoping_patience=earlyStoping_patience,
         )
-        if full_connected_layer_units is None:
-            full_connected_layer_units = [(50, 0.5, 'relu', 'none')]
-        self.input_length = input_length
-        self.input_dim = input_dim
+
+        if feature_encoder != None:
+            # 如果feature encoder 不为空，直接用 feature_encoder获取 长度和维度
+            self.input_dim = feature_encoder.vocabulary_size
+            self.input_length = feature_encoder.sentence_padding_length
+
+        else:
+            self.input_dim = input_dim
+            self.input_length = input_length
 
         self.l1_conv_filter_type = l1_conv_filter_type
         self.l2_conv_filter_type = l2_conv_filter_type
@@ -115,7 +125,7 @@ class OnehotBowCNN(CnnBaseClass):
         :return: cnn model network
         '''
 
-        from keras.layers import Input, Activation, Reshape, Dropout, Flatten
+        from keras.layers import Input, Activation, Reshape, Dropout, Flatten,BatchNormalization
         from keras.models import Model
         # from keras import backend as K
 
@@ -125,8 +135,10 @@ class OnehotBowCNN(CnnBaseClass):
 
         # 2. Reshape层： 将embedding转换4-dim的shape
         l2_reshape_output_shape = (1, l1_input_shape[0], l1_input_shape[1])
-
+        # print(l2_reshape_output_shape)
+        # quit()
         l2_reshape= Reshape(l2_reshape_output_shape)(l1_input)
+        # l2_reshape = BatchNormalization(axis=1)(l2_reshape)
 
         # 3. 第一层卷积层：多size卷积层（含1-max pooling），使用三种size.
         l3_conv = self.create_convolution_layer(
@@ -165,156 +177,133 @@ class OnehotBowCNN(CnnBaseClass):
         return model
 
     @staticmethod
-    def cross_validation(cv_data, test_data, result_file_path, **kwargs):
+    def get_feature_encoder(**kwargs):
         '''
-            进行参数的交叉验证
+            返回 该模型的输入 特征编码器
 
-        :param cv_data: k份训练数据
-        :type cv_data: array-like
-        :param test_data: 测试数据
-        :type test_data: array-like
+        :param kwargs: 可设置参数 [ sentence_padding_length(*), full_mode(#,False), feature_type(#,word),verbose(#,0)],加*表示必须提供，加#表示可选，不写则默认。
+
         :return:
         '''
 
-        nb_epoch = kwargs['nb_epoch']
-        verbose = kwargs['verbose']
-        num_labels = 24
-        feature_type = kwargs['feature_type']
-        remove_stopword = kwargs['remove_stopword']
-        sentence_padding_length = kwargs['sentence_padding_length']
-        word2vec_to_solve_oov = kwargs['word2vec_to_solve_oov']
-        rand_seed = kwargs['rand_seed']
-        l1_conv_filter_type = kwargs['l1_conv_filter_type']
-        l2_conv_filter_type = kwargs['l2_conv_filter_type']
-        k = kwargs['k']
-
-        # 详细结果保存到...
-        detail_result_file_path = result_file_path
-        fout = open(detail_result_file_path, 'w')
-
-        print('=' * 150)
-
-        print('使用word2vec:%s\nfeature_type:%s\nremove_stopword:%s\nnb_epoch:%d\nrand_seed:%d' % (
-        word2vec_to_solve_oov, feature_type, remove_stopword, nb_epoch, rand_seed))
-        print('l1_conv_filter_type:%s' % l1_conv_filter_type)
-        print('l2_conv_filter_type:%s' % l2_conv_filter_type)
-        print('k:%s' % k)
-        print('=' * 150)
-
-        fout.write('=' * 150 + '\n')
-        fout.write('single单通道CNN-bow cv结果:\n')
-        fout.write('feature_type:%s\nnb_epoch:%d\nrand_seed:%d\n' % (feature_type, nb_epoch, rand_seed))
-        fout.write('l1_conv_filter_type:%s\n' % l1_conv_filter_type)
-        fout.write('l2_conv_filter_type:%s\n' % l2_conv_filter_type)
-        fout.write('k:%s\n' % k)
-        fout.write('=' * 150 + '\n')
-
-        from data_processing_util.feature_encoder.onehot_feature_encoder import FeatureEncoder
-        from data_processing_util.cross_validation_util import transform_cv_data
+        assert kwargs.has_key('input_length'),'请提供 input_length 的属性值'
 
         feature_encoder = FeatureEncoder(
-            sentence_padding_length=sentence_padding_length,
+            sentence_padding_length=kwargs['input_length'],
             verbose=0,
             need_segmented=True,
-            full_mode=False,
+            full_mode=kwargs.get('full_mode',False),
             replace_number=True,
             remove_stopword=True,
             lowercase=True,
             padding_mode='left',
             add_unkown_word=True,
-            feature_type=feature_type,
+            feature_type=kwargs.get('feature_type','word'),
             zhs2zht=True,
             remove_url=True,
             # 设置为True，输出 onehot array
             to_onehot_array=True,
         )
+        if kwargs.get('verbose',0)>0:
+            pprint.pprint(kwargs)
 
-        all_cv_data = transform_cv_data(feature_encoder, cv_data, test_data, **kwargs)
+        return feature_encoder
 
-        for layer1 in kwargs['layer1']:
-            for layer2 in kwargs['layer2']:
-                for hidden1 in kwargs['hidden1']:
-                    for hidden2 in kwargs['hidden2']:
 
-                        print('layer1:%d,layer2:%d,hidden1:%d,hidden2:%d' % (layer1, layer2, hidden1, hidden2))
+    @staticmethod
+    def cross_validation(
+            train_data=None,
+            test_data=None,
+            cv_data=None,
+            **kwargs
+    ):
+        '''
+            进行参数的交叉验证
+            注意：
+                - 如果 cv_data！= None，则使用 cv_data 进行验证;
+                - 如果 cv_data== None，则使用 使用 train_data和test_data获取 cv_data,然后进行验证，需要提供 参数k（进行k折交叉验证）;
 
-                        fout.write('=' * 150 + '\n')
-                        fout.write('layer1:%d,layer2:%d,hidden1:%d,hidden2:%d\n' % (layer1,
-                                                                                    layer2,
-                                                                                    hidden1,
-                                                                                    hidden2
-                                                                                    ))
-                        # 五折
-                        print('K折交叉验证开始...')
-                        counter = 0
-                        test_acc = []
-                        train_acc = []
-                        for dev_X, dev_y, val_X, val_y in all_cv_data:
-                            # print(dev_X2.shape)
-                            print('-' * 80)
-                            fout.write('-' * 80 + '\n')
-                            if counter == 0:
-                                # 第一个数据是训练，之后是交叉验证
-                                print('训练:')
-                                fout.write('训练\n')
-                            else:
-                                print('第%d个验证' % counter)
-                                fout.write('第%d个验证\n' % counter)
+        :type train_data: array-like
+        :param train_data: 训练数据,(train-x,train_y)
+        :param test_data: 测试数据,(test_x,test_y)
+        :type test_data: array-like
+        :param cv_data: k份已经分好的验证和测试数据
+        :type cv_data: array-like
+        :return:
+        '''
 
-                            onehot_cnn = OnehotBowCNN(
-                                rand_seed=rand_seed,
-                                verbose=verbose,
-                                feature_encoder=feature_encoder,
-                                # optimizers='adadelta',
-                                optimizers='sgd',
-                                input_length=sentence_padding_length,
-                                input_dim=dev_X.shape[-1],
-                                num_labels=num_labels,
-                                l1_conv_filter_type=[
-                                    [layer1, l1_conv_filter_type[0][0], -1,l1_conv_filter_type[0][1], (k[0], 1), 0.,'relu', 'none'],
-                                    [layer1, l1_conv_filter_type[1][0], -1, l1_conv_filter_type[1][1], (k[0], 1), 0.,'relu', 'none'],
-                                    # [layer1, l1_conv_filter_type[2][0], -1, l1_conv_filter_type[2][1], (k[0], 1), 0.,'relu', 'batch_normalization'],
-                                ],
-                                l2_conv_filter_type=[
-                                    # [layer2, l2_conv_filter_type[0][0], -1, l2_conv_filter_type[0][1], (k[1], 1), 0., 'relu','none']
-                                ],
-                                full_connected_layer_units=[
-                                    (hidden1, 0.5, 'relu', 'none'),
-                                    # (hidden2, 0.5, 'relu', 'none'),
-                                ],
-                                embedding_dropout_rate=0.,
-                                nb_epoch=30,
-                                nb_batch=5,
-                                earlyStoping_patience=20,
-                                lr=1e-2,
-                            )
+        from data_processing_util.cross_validation_util import transform_cv_data,get_k_fold_data,get_val_score
 
-                            # bow_cnn.print_model_descibe()
+        # 获取交叉验证的数据
+        if cv_data is None:
+            assert train_data is not None,'cv_data和train_data必须至少提供一个！'
+            cv_data = get_k_fold_data(
+                k=kwargs['k'],
+                train_data=train_data,
+                test_data=test_data,
+                include_train_data=True,
+                )
 
-                            dev_loss, dev_accuracy, \
-                            val_loss, val_accuracy = onehot_cnn.fit((dev_X, dev_y), (val_X, val_y))
+        # 将数据进行特征编码转换
+        feature_encoder = OnehotBowCNN.get_feature_encoder(**kwargs)
+        cv_data = transform_cv_data(feature_encoder, cv_data, **kwargs)
 
-                            print('dev:%f,%f' % (dev_loss, dev_accuracy))
-                            print('val:%f,%f' % (val_loss, val_accuracy))
-                            fout.write('dev:%f,%f\n' % (dev_loss, dev_accuracy))
-                            fout.write('val:%f,%f\n' % (val_loss, val_accuracy))
-                            test_acc.append(val_accuracy)
-                            train_acc.append(dev_accuracy)
-                            counter += 1
+        parmater = OnehotBowCNN.get_cv_param(**kwargs)
 
-                        print('k折验证结果：%s' % test_acc)
-                        print('验证中平均准确率：%f' % np.average(test_acc[1:]))
-                        print('-' * 80)
+        for l1, l2, h1, h2 in parmater:
 
-                        fout.write('k折验证训练结果：%s\n' % train_acc)
-                        fout.write('k折验证测试结果：%s\n' % test_acc)
-                        fout.write('平均：%f\n' % np.average(test_acc[1:]))
-                        fout.write('-' * 80 + '\n')
-                        fout.flush()
-        fout.close()
+            print('layer1:%d,layer2:%d,hidden1:%d,hidden2:%d' % (l1, l2, h1, h2))
+            l1_conv_filter_type = kwargs['l1_conv_filter_type']
+            l1_conv_filter = []
+            # k = kwargs['k-max']
+            l1_conv_filter=[
+                [l1, l1_conv_filter_type[0][0], -1, l1_conv_filter_type[0][1], (2, 1), 0., 'relu', 'batch_normalization'],
+            ]
+
+            full_connected_layer_units = []
+
+            kwargs['l1_conv_filter_type'] = l1_conv_filter
+            kwargs['l2_conv_filter_type'] = []
+            kwargs['full_connected_layer_units'] = full_connected_layer_units
+
+            get_val_score(OnehotBowCNN, cv_data, **kwargs)
+
+    @staticmethod
+    def get_cv_param(**kwargs):
+        """
+            因为模型参数实在太多了，所以搞出个函数来专门初始化参数
+
+        :param cv_data:
+        :param test_data:
+        :param result_file_path:
+        :param kwargs:
+        :return:
+        """
+        from itertools import product
+
+        verbose = kwargs['verbose']
+
+        kwargs['layer1'] = kwargs['layer1'] if kwargs.get('layer1', []) != [] else [-1]
+        kwargs['layer2'] = kwargs['layer2'] if kwargs.get('layer2', []) != [] else [-1]
+        kwargs['hidden1'] = kwargs['hidden1'] if kwargs.get('hidden1', []) != [] else [-1]
+        kwargs['hidden2'] = kwargs['hidden2'] if kwargs.get('hidden2', []) != [] else [-1]
+
+        if verbose > 0:
+            print('=' * 100)
+            print('调节的参数....')
+            print('=' * 80)
+            from collections import OrderedDict
+            kwargs = OrderedDict(sorted(kwargs.items(), key=lambda t: t[0]))
+            for k, v in kwargs.items():
+                print('\t%s=%s' % (k, v))
+            print('=' * 100)
+
+        # 交叉验证
+        parmater = product(kwargs['layer1'], kwargs['layer2'], kwargs['hidden1'], kwargs['hidden2'])
+
+        return parmater
 
     def print_model_descibe(self):
-        import pprint
         detail = {'rand_seed': self.rand_seed,
                   'verbose': self.verbose,
                   'optimizers': self.optimizers,
@@ -340,21 +329,10 @@ def test_onehot_bow_cnn():
     test_X = ['句子', '你好', '你妹']
     test_y = [2, 3, 0]
     sentence_padding_length = 8
-    feature_encoder = FeatureEncoder(
+    feature_encoder = OnehotBowCNN.get_feature_encoder(
         sentence_padding_length=sentence_padding_length,
-        verbose=0,
-        need_segmented=True,
-        full_mode=True,
-        replace_number=True,
-        remove_stopword=True,
-        lowercase=True,
-        padding_mode='left',
-        add_unkown_word=True,
+        verbose=1,
         feature_type='word',
-        zhs2zht=True,
-        remove_url=True,
-        # 设置为True，输出 onehot array
-        to_onehot_array=True,
     )
 
     train_X_feature = feature_encoder.fit_transform(train_X)
@@ -362,6 +340,7 @@ def test_onehot_bow_cnn():
     print(','.join(feature_encoder.vocabulary))
     print train_X_feature.shape
     print train_X_feature
+
     # quit()
     onehot_cnn = OnehotBowCNN(
         rand_seed=1377,
@@ -373,7 +352,7 @@ def test_onehot_bow_cnn():
         input_dim=feature_encoder.vocabulary_size,
         num_labels=5,
         l1_conv_filter_type=[
-            [5, 3, -1, 'valid', (2, 1), 0.5, 'relu', 'none'],
+            # [5, 3, -1, 'valid', (2, 1), 0.5, 'relu', 'none'],
             [5, 2, -1, 'bow', (2, 1), 0.5, 'relu', 'none'],
             # [5, 6, 1, 'valid', (-2, 1), 0.],
         ],
@@ -381,7 +360,7 @@ def test_onehot_bow_cnn():
             # [16, 2, -1, 'valid',(2,1),0.5, 'relu', 'none']
         ],
         full_connected_layer_units=[
-            (50, 0.5, 'relu', 'none'),
+            # (50, 0.5, 'relu', 'none'),
         ],
         embedding_dropout_rate=0.5,
         nb_epoch=30,
@@ -410,6 +389,29 @@ def test_onehot_bow_cnn():
 
     print onehot_cnn.predict('你好吗', transform_input=True)
 
+def test_onehot_bow_cnn_cv():
+    train_x = ['你好', '测试句子', '我要买手机', '今天天气不错', '无聊']
+    train_y = [1,2,3,2,3]
+    test_x = ['你好', '不错哟']
+    test_y = [1, 2]
+    cv_x = [['你好', '无聊'], ['测试句子', '今天天气不错'], ['我要买手机']]
+    cv_y = [[1, 3], [2, 2], [3]]
+
+    OnehotBowCNN.cross_validation(
+        verbose=0,
+        k=3,
+        train_data = (train_x,train_y),
+        test_data=(test_x,test_y),
+        # cv_data=(cv_x,cv_y),
+        input_length=8,
+        # rand_seed = 3,
+        layer1=[100],
+        l1_conv_filter_type=[[3,'bow']],
+        num_labels=5,
+        # nb_epoch = 30,
+    )
+
 
 if __name__ == '__main__':
-    test_onehot_bow_cnn()
+    # test_onehot_bow_cnn()
+    test_onehot_bow_cnn_cv()
