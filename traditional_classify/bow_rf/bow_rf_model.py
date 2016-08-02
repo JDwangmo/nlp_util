@@ -14,6 +14,7 @@ from data_processing_util.feature_encoder.bow_feature_encoder import FeatureEnco
 from sklearn.metrics import f1_score
 import cPickle as pickle
 from gensim.models import Word2Vec
+import pprint
 
 class BowRandomForest(CommonModel):
     '''
@@ -172,15 +173,19 @@ class BowRandomForest(CommonModel):
                                         max_features='log2',
                                         random_state=self.rand_seed)
         forest.fit(train_X, train_y)
-
         self.model = forest
+
+        y_pred, is_correct, dev_accuracy, f1 = self.accuracy((train_X,train_y),transform_input=False)
+        y_pred, is_correct, val_accuracy, f1 = self.accuracy((validation_X,validation_y),transform_input=False)
+
+        dev_loss,val_loss = 0, 0
 
         # -------------- code start : 结束 -------------
         if self.verbose > 2 :
             logging.debug('-' * 20)
             print('-' * 20)
         # -------------- region end : 训练模型 ---------------
-
+        return dev_loss, dev_accuracy, val_loss, val_accuracy
 
     def predict(self, sentence,transform_input=False):
         '''
@@ -263,15 +268,16 @@ class BowRandomForest(CommonModel):
         # -------------- code start : 开始 -------------
 
         is_correct = y_pred == test_y
-        logging.debug('正确的个数:%d' % (sum(is_correct)))
-        print('正确的个数:%d' % (sum(is_correct)))
         accu = sum(is_correct) / (1.0 * len(test_y))
-        logging.debug('准确率为:%f' % (accu))
-        print('准确率为:%f' % (accu))
-
         f1 = f1_score(test_y, y_pred.tolist(), average=None)
-        logging.debug('F1为：%s' % (str(f1)))
-        print('F1为：%s' % (str(f1)))
+
+        if self.verbose > 0:
+            logging.debug('正确的个数:%d' % (sum(is_correct)))
+            print('正确的个数:%d' % (sum(is_correct)))
+            logging.debug('准确率为:%f' % (accu))
+            print('准确率为:%f' % (accu))
+            logging.debug('F1为：%s' % (str(f1)))
+            print('F1为：%s' % (str(f1)))
 
         # -------------- code start : 结束 -------------
         if self.verbose > 1:
@@ -282,7 +288,67 @@ class BowRandomForest(CommonModel):
         return y_pred, is_correct, accu, f1
 
     @staticmethod
-    def cross_validation(cv_data, test_data, result_file_path, **kwargs):
+    def get_model(
+            feature_encoder,
+            n_estimators,
+            **kwargs
+    ):
+        bow_randomforest = BowRandomForest(
+            rand_seed=1377,
+            verbose=kwargs.get('verbose', 0),
+            feature_encoder=feature_encoder,
+            # optimizers='adadelta',
+            n_estimators=n_estimators,
+            min_samples_leaf=1,
+        )
+
+        return bow_randomforest
+
+    @staticmethod
+    def get_feature_encoder(**kwargs):
+        '''
+            返回 该模型的输入 特征编码器
+
+        :param kwargs: 可设置参数 [ full_mode(#,False), feature_type(#,word),verbose(#,0)],word2vec_to_solve_oov[#,False],word2vec_model_file_path[#,None],加*表示必须提供，加#表示可选，不写则默认。
+
+        :return:
+        '''
+
+        feature_encoder = FeatureEncoder(
+            verbose=kwargs.get('verbose', 0),
+            need_segmented=True,
+            full_mode=kwargs.get('full_mode', False),
+            replace_number=True,
+            remove_stopword=True,
+            lowercase=True,
+            padding_mode='left',
+            add_unkown_word=True,
+            feature_type=kwargs.get('feature_type', 'word'),
+            zhs2zht=True,
+            remove_url=True,
+            # 设置为True，输出 onehot array
+            to_onehot_array=True,
+            feature_method='bow',
+            max_features=2000,
+            word2vec_to_solve_oov=kwargs.get('word2vec_to_solve_oov', False),
+            word2vec_model_file_path=kwargs.get('word2vec_model_file_path', None)
+        )
+        if kwargs.get('verbose', 0) > 0:
+            pprint.pprint(kwargs)
+
+        return feature_encoder
+
+    @staticmethod
+    def cross_validation(
+            train_data=None,
+            test_data=None,
+            cv_data=None,
+            n_estimators_list = None,
+            feature_type = 'word',
+            word2vec_to_solve_oov=False,
+            word2vec_model_file_path=None,
+            verbose=0,
+    ):
         '''
             进行参数的交叉验证
 
@@ -293,105 +359,35 @@ class BowRandomForest(CommonModel):
         :return:
         '''
 
-        feature_type = kwargs['feature_type']
-        remove_stopword = kwargs['remove_stopword']
-        word2vec_to_solve_oov = kwargs['word2vec_to_solve_oov']
-        word2vec_model_file_path = kwargs['word2vec_model_file_path']
-        n_estimators = kwargs['n_estimators']
-        rand_seed = kwargs['rand_seed']
-        shuffle_data = kwargs['shuffle_data']
-        fout = open(result_file_path,'w')
+        from data_processing_util.cross_validation_util import transform_cv_data, get_k_fold_data, get_val_score
+        # 1. 获取交叉验证的数据
+        if cv_data is None:
+            assert train_data is not None, 'cv_data和train_data必须至少提供一个！'
+            cv_data = get_k_fold_data(
+                k=3,
+                train_data=train_data,
+                test_data=test_data,
+                include_train_data=True,
+            )
 
-        print('=' * 150)
-
-        print('使用word2vec:%s\nfeature_type:%s\nremove_stopword:%s\nrand_seed:%s\nshuffle_data:%s' % (
-        word2vec_to_solve_oov, feature_type, remove_stopword, rand_seed,shuffle_data))
-        print('=' * 150)
-
-        fout.write('=' * 150 + '\n')
-        fout.write('single单通道CNN-bow cv结果:\n')
-        fout.write('使用word2vec:%s\nfeature_type:%s\nremove_stopword:%s\nrand_seed:%d' % (
-        word2vec_to_solve_oov, feature_type, remove_stopword, rand_seed))
-        fout.write('=' * 150 + '\n')
-
-
-        from data_processing_util.feature_encoder.bow_feature_encoder import FeatureEncoder
-        from data_processing_util.cross_validation_util import transform_cv_data
-
-        feature_encoder = FeatureEncoder(
-            verbose=0,
-            need_segmented=True,
-            full_mode=True,
-            remove_stopword=remove_stopword,
-            replace_number=True,
-            lowercase=True,
-            zhs2zht=True,
-            remove_url=True,
-            feature_method='bow',
+        # 2. 将数据进行特征编码转换
+        feature_encoder = BowRandomForest.get_feature_encoder(
+            verbose=verbose,
             feature_type=feature_type,
-            max_features=3000,
             word2vec_to_solve_oov=word2vec_to_solve_oov,
             word2vec_model_file_path=word2vec_model_file_path,
         )
+        cv_data = transform_cv_data(feature_encoder, cv_data, verbose=0)
 
-        all_cv_data = transform_cv_data(feature_encoder, cv_data, test_data,**kwargs)
-
-        for estimators in n_estimators:
-            print('estimators:%d' % (estimators))
-
-            fout.write('=' * 150 + '\n')
-            fout.write('estimators:%d\n' % (estimators))
-
-            print('K折交叉验证开始...')
-            fout.write('K折交叉验证开始...\n')
-
-            counter = 0
-            ave_acc = []
-            for dev_X, dev_y, val_X, val_y in all_cv_data:
-                print('-' * 80)
-                fout.write('-' * 80+'\n')
-
-                if counter == 0:
-                    # 第一个数据是训练，之后是交叉验证
-                    print('训练:')
-                    fout.write('训练:\n')
-                else:
-                    print('第%d个验证' % counter)
-                    fout.write('第%d个验证\n' % counter)
-
-                bow_rf = BowRandomForest(
-                    # rand_seed=rand_seed,
-                    verbose=0,
-                    n_estimators=estimators,
-                    min_samples_leaf=1,
-                    feature_encoder=None,
-
-                )
-
-                if kwargs['shuffle_data']:
-                    # 打乱数据
-                    # print(dev_y)
-
-                    dev_X = np.random.RandomState(rand_seed).permutation(dev_X)
-                    dev_y = np.random.RandomState(rand_seed).permutation(dev_y)
-                    # print(dev_y)
-
-                bow_rf.fit(train_data=(dev_X, dev_y),
-                           validation_data=(val_X, val_y))
-                _, _, dev_accuracy, _ = bow_rf.accuracy((dev_X, dev_y), False)
-                _,_,val_accuracy, _ = bow_rf.accuracy((val_X, val_y),False)
-                fout.write('dev:%f\nval:%f\n'%(dev_accuracy,val_accuracy))
-
-                ave_acc.append(val_accuracy)
-                counter += 1
-                fout.flush()
-
-            print('k折验证结果：%s' % ave_acc)
-            print('验证中平均准确率：%f' % np.average(ave_acc[1:]))
-            print('-' * 80)
-            fout.write('k折验证结果：%s\n' % ave_acc)
-            fout.write('验证中平均准确率：%f\n' % np.average(ave_acc[1:]))
-            fout.write('-' * 80 + '\n')
+        # 交叉验证
+        for n_estimators in n_estimators_list:
+            print('=' * 40)
+            print('n_estimators is %d.' % n_estimators)
+            get_val_score(BowRandomForest,
+                          cv_data=cv_data,
+                          verbose=verbose,
+                          n_estimators=n_estimators,
+                          )
 
 
 if __name__ == '__main__':

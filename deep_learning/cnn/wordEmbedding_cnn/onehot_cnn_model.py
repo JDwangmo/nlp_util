@@ -181,7 +181,7 @@ class OnehotBowCNN(CnnBaseClass):
         '''
             返回 该模型的输入 特征编码器
 
-        :param kwargs: 可设置参数 [ sentence_padding_length(*), full_mode(#,False), feature_type(#,word),verbose(#,0)],加*表示必须提供，加#表示可选，不写则默认。
+        :param kwargs: 可设置参数 [ sentence_padding_length(*), full_mode(#,False), feature_type(#,word),verbose(#,0)],word2vec_to_solve_oov[#,False],word2vec_model_file_path[#,None],加*表示必须提供，加#表示可选，不写则默认。
 
         :return:
         '''
@@ -190,7 +190,7 @@ class OnehotBowCNN(CnnBaseClass):
 
         feature_encoder = FeatureEncoder(
             sentence_padding_length=kwargs['input_length'],
-            verbose=0,
+            verbose=kwargs.get('verbose',0),
             need_segmented=True,
             full_mode=kwargs.get('full_mode',False),
             replace_number=True,
@@ -203,6 +203,8 @@ class OnehotBowCNN(CnnBaseClass):
             remove_url=True,
             # 设置为True，输出 onehot array
             to_onehot_array=True,
+            word2vec_to_solve_oov=kwargs.get('word2vec_to_solve_oov',False),
+            word2vec_model_file_path=kwargs.get('word2vec_model_file_path',None)
         )
         if kwargs.get('verbose',0)>0:
             pprint.pprint(kwargs)

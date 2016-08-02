@@ -46,13 +46,15 @@ class OnehotBowCNNWithOneConv(object):
         return onehot_cnn
 
     @staticmethod
-    def cv(
+    def cross_validation(
             train_data=None,
             test_data=None,
             cv_data=None,
             input_length =None,
             num_filter_list=None,
             region_size_list=None,
+            word2vec_to_solve_oov = False,
+            word2vec_model_file_path = None,
             verbose = 0,
            ):
 
@@ -70,8 +72,10 @@ class OnehotBowCNNWithOneConv(object):
         # 2. 将数据进行特征编码转换
         feature_encoder = OnehotBowCNN.get_feature_encoder(
             input_length=input_length,
-            verbose=0,
+            verbose=verbose,
             feature_type='word',
+            word2vec_to_solve_oov = word2vec_to_solve_oov,
+            word2vec_model_file_path=word2vec_model_file_path,
         )
         cv_data = transform_cv_data(feature_encoder, cv_data,verbose=0)
         # 交叉验证
@@ -96,11 +100,14 @@ if __name__ == '__main__':
     cv_x = [['你好', '无聊'], ['测试句子', '今天天气不错'], ['我要买手机']]
     cv_y = [[1, 3], [2, 2], [3]]
 
-    OnehotBowCNNWithOneConv.cv(
+    OnehotBowCNNWithOneConv.cross_validation(
         train_data = (train_x,train_y),
         test_data=(test_x,test_y),
         input_length=8,
         num_filter_list=[5,50],
         region_size_list=range(1,9),
         verbose=0,
+        word2vec_to_solve_oov=True,
+        word2vec_model_file_path = '/home/jdwang/PycharmProjects/corprocessor/word2vec/vector/50dim/vector1000000_50dim.gem'
+
     )

@@ -185,7 +185,6 @@ class WordEmbeddingCNN(CnnBaseClass):
             input_layer=l4_reshape,
             convolution_filter_type=self.l1_conv_filter_type,
         )
-        self.embedding_layer_output = Model(input=l1_input, output=[l5_cnn])
         # print (self.embedding_layer_output.get_weights())
         # model = Model(input=l1_input, output=[l5_cnn])
         # model.summary()
@@ -216,12 +215,14 @@ class WordEmbeddingCNN(CnnBaseClass):
         l8_softmax_output = Activation("softmax")(l7_output)
         model = Model(input=[l1_input], output=[l8_softmax_output])
 
+        self.embedding_layer_output = Model(input=l1_input, output=[l5_cnn])
+        # 卷积层的输出，可以作为深度特征
+        self.conv1_feature_output = K.function([l1_input, K.learning_phase()], [l6_flatten])
+
         # 最后一层隐含层（倒数第二层）的输出
         self.last_hidden_layer = K.function([l1_input, K.learning_phase()], [l7_full_connected_layer])
         # 最后输出层
         self.model_output = K.function([l1_input, K.learning_phase()], [l8_softmax_output])
-        # 卷积层的输出，可以作为深度特征
-        self.conv1_feature_output = K.function([l1_input, K.learning_phase()], [l6_flatten])
 
         if self.verbose > 0:
             model.summary()

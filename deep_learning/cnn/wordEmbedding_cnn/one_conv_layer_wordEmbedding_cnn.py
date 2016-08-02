@@ -5,7 +5,9 @@
     Email:   '383287471@qq.com'
     Describe: 单层卷积层的 CNN（static-w2v） 模型
         - 输入层
-        -
+        - valid convolution layer： 多size
+        - 1-max pooling： 句子方向
+        - softmax output layer
 """
 
 
@@ -35,7 +37,7 @@ class WordEmbeddingCNNWithOneConv(object):
             embedding_weight_trainable=False,
             num_labels=num_labels,
             l1_conv_filter_type=[
-                [num_filter, 3, -1, 'valid', (-1, 1), 0., 'relu', 'batch_normalization'],
+                [num_filter, 3, -1, 'valid', (-1, 1), 0., 'relu', 'none'],
                 [num_filter, 4, -1, 'valid', (-1, 1), 0., 'relu', 'none'],
                 [num_filter, 5, -1, 'valid', (-1, 1), 0., 'relu', 'none'],
             ],
@@ -51,7 +53,7 @@ class WordEmbeddingCNNWithOneConv(object):
         return static_w2v_cnn
 
     @staticmethod
-    def cv(
+    def cross_validation(
             train_data=None,
             test_data=None,
             cv_data=None,
@@ -100,7 +102,7 @@ if __name__ == '__main__':
     cv_x = [['你好', '无聊'], ['测试句子', '今天天气不错'], ['我要买手机']]
     cv_y = [[1, 3], [2, 2], [3]]
 
-    WordEmbeddingCNNWithOneConv.cv(
+    WordEmbeddingCNNWithOneConv.cross_validation(
         train_data = (train_x,train_y),
         test_data=(test_x,test_y),
         input_length=8,

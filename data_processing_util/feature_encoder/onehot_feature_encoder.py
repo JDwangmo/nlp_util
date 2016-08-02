@@ -47,6 +47,8 @@ class FeatureEncoder(object):
                  padding_mode='center',
                  add_unkown_word=True,
                  to_onehot_array=False,
+                 word2vec_to_solve_oov=False,
+                 **kwargs
                  ):
         """
             Onehot特征编码器,将句子转成 onehot 编码(以字典索引形式表示,补齐)
@@ -86,6 +88,8 @@ class FeatureEncoder(object):
             :type padding_mode: str
             :param to_onehot_array: 输出 onehot array，还是字典索引 array，默认为False，输出字典索引,
             :type to_onehot_array: bool
+            :param word2vec_to_solve_oov: 使用word2vec扩展oov词
+            :type word2vec_to_solve_oov: bool
 
 
         """
@@ -102,6 +106,8 @@ class FeatureEncoder(object):
         self.sentence_padding_length = sentence_padding_length
         self.padding_mode = padding_mode
         self.to_onehot_array = to_onehot_array
+        self.word2vec_to_solve_oov = word2vec_to_solve_oov
+        self.kwargs = kwargs
 
         # 检验参数合法性
         assert self.padding_mode in ['center','left','right','none'],'padding mode 只能取: center,left,right,none'
@@ -131,7 +137,9 @@ class FeatureEncoder(object):
         # 训练库句子装成onehot array
         self.train_onehot_array = None
         # word2vec 模型
-        self.word2vec_model = None
+        if word2vec_to_solve_oov:
+            # 加载word2vec模型
+            self.word2vec_model = Word2Vec.load(kwargs['word2vec_model_file_path'])
 
         if verbose > 1:
             logging.debug('build feature encoder...')
@@ -268,6 +276,7 @@ class FeatureEncoder(object):
         :type path: str
         :return:
         '''
+
         self.word2vec_model = Word2Vec.load(path)
         size = self.vocabulary_size
         embedding_weights = np.zeros((size, self.word2vec_model.vector_size))
@@ -362,6 +371,44 @@ class FeatureEncoder(object):
             logging.debug('-' * 20)
             print('-' * 20)
         # -------------- region end : 3.构建训练库字典 ---------------
+
+    def replace_oov_with_similay_word(self,word2vec_model, sentence):
+        '''
+            对句子中oov词使用训练库中最相近的词替换（word2vec余弦相似性）
+
+        :param sentence:
+        :return:
+        '''
+
+        # is_oov = np.asarray([item for item in self.feature_encoder.vocabulary])
+        # has_oov = any(is_oov)
+        sentence = sentence.split()
+        oov_word=[]
+        replace_word = []
+        for item in sentence:
+            if item not in self.vocabulary:
+                oov_word.append(item)
+                keywords_sim_score = np.asarray([self.word_similarity(word2vec_model,item, i) for i in self.vocabulary])
+                sorted_index = np.argsort(keywords_sim_score)[-1::-1]
+                most_similarity_score = keywords_sim_score[sorted_index[0]]
+                most_similarity_word = self.vocabulary[sorted_index[0]]
+                if self.verbose>1:
+                    print(u'%s 最相近的词是%s,分数为:%f' % (item,most_similarity_word, most_similarity_score))
+                replace_word.append(most_similarity_word)
+        sentence += replace_word
+        return ' '.join(sentence)
+
+    def word_similarity(self, word2vec_model,word1, word2):
+        '''
+        计算两个词的相似性
+        :param word1:
+        :param word2:
+        :return:
+        '''
+        try:
+            return word2vec_model.n_similarity(word1, word2)
+        except:
+            return 0
 
     def sentence_to_index(self, sentence):
         """
@@ -585,6 +632,10 @@ class FeatureEncoder(object):
             seg_sentence = self.segment_sentence(sentence)
         else:
             seg_sentence = sentence
+
+        if self.word2vec_to_solve_oov:
+            seg_sentence = self.replace_oov_with_similay_word(self.word2vec_model,
+                                                              seg_sentence)
         # -------------- code start : 结束 -------------
         if self.verbose > 1:
             logging.debug('-' * 20)

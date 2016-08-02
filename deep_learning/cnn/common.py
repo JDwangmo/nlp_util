@@ -686,7 +686,7 @@ class CnnBaseClass(CommonModel):
 
     def get_layer_output(self, sentence, layer='hidden2', transform_input=False):
         """
-            获取最后一层隐含层（网络倒数第二层）的输出
+            获取某一层的输出
 
         :param sentence: 测试句子,['','']
         :type sentence: array-like
@@ -708,8 +708,10 @@ class CnnBaseClass(CommonModel):
         elif layer == 'hidden2':
             output = self.last_hidden_layer([sentence, 0])[0]
         elif layer == 'conv1':
+            assert self.conv1_feature_output is not None,'没有设置 conv1_feature_output！'
             output = self.conv1_feature_output([sentence, 0])[0]
         elif layer == 'conv2':
+            assert self.conv2_feature_output is not None,'没有设置 conv2_feature_output！'
             output = self.conv2_feature_output([sentence, 0])[0]
         else:
             raise NotImplementedError
