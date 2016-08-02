@@ -132,19 +132,24 @@ def transform_cv_data(
         # feature_encoder.print_sentence_length_detail()
         # quit()
         val_x_features = feature_encoder.transform(val_x)
+        # feature_encoder.print_model_descibe()
 
-        cv_features.append((dev_x_features,dev_y,val_x_features,val_y,copy.copy(feature_encoder)))
+        cv_features.append((dev_x_features,dev_y,val_x_features,val_y,copy.deepcopy(feature_encoder)))
 
         if kwargs.get('verbose',0)>0:
             print(','.join(feature_encoder.vocabulary))
             print('dev shape:(%s)'%str(dev_x_features.shape))
             print('val shape:(%s)'%str(val_x_features.shape))
+
+    feature_encoder = None
+
     return cv_features
 
 
 def get_val_score(
         estimator_class,
         cv_data,
+        shuffle_data = False,
         **parameters
 ):
     """
@@ -175,6 +180,11 @@ def get_val_score(
         # print(parameters)
         estimator = estimator_class.get_model(**parameters)
         # estimator.print_model_descibe()
+        if shuffle_data:
+            dev_X = np.random.RandomState(0).permutation(dev_X)
+            dev_y = np.random.RandomState(0).permutation(dev_y)
+            # print(dev_y)
+
         # 拟合数据
         dev_loss, dev_accuracy, val_loss, val_accuracy = estimator.fit((dev_X, dev_y), (val_X, val_y))
 

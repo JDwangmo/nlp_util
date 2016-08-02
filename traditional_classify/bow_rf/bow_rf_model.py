@@ -343,6 +343,7 @@ class BowRandomForest(CommonModel):
             train_data=None,
             test_data=None,
             cv_data=None,
+            shuffle_data = True,
             n_estimators_list = None,
             feature_type = 'word',
             word2vec_to_solve_oov=False,
@@ -386,6 +387,7 @@ class BowRandomForest(CommonModel):
             get_val_score(BowRandomForest,
                           cv_data=cv_data,
                           verbose=verbose,
+                          shuffle_data=shuffle_data,
                           n_estimators=n_estimators,
                           )
 

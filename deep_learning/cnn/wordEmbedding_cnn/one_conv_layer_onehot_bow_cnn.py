@@ -8,6 +8,9 @@
         - bow convolution ： 类似于一个 嵌入层，不同之处，在于将 region of sentence（onehot表示） 转为一个 低维 real-value 向量。
         - max pooling layer
         - softmax output layer
+
+    更多可参考： https://github.com/JDwangmo/coprocessor/tree/master/reference#3effective-use-of-word-order-for-text-categorization-with-convolutional-neural-networks
+
 """
 
 from onehot_cnn_model import OnehotBowCNN
