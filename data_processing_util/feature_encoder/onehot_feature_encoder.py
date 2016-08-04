@@ -64,7 +64,8 @@ class FeatureEncoder(object):
             :param feature_type: 模型设置选项,选择不同粒度的特征单位， 目前只支持 word,seg和 word_seg。
                 - word：直接以字为单位，比如 我要买手机--->我 要 买 手 机
                 - seg：分词后的词单元为单位，比如 我要买手机--->我 要 买 手机
-                - word_seg：分词后的字和词为单位，比如 我要买手机--->我 要 买 手机 手 机
+                - word_seg：分词后的字和词为单位，去重，比如 我要买手机--->我 要 买 手机 手 机
+                - word_seg_concat：分词后的字和词为单位，不去重，比如 我要买手机--->我 要 买 手 机 我 要 买 手机
             :type feature_type: str
             :param remove_stopword: jieba分词选项,是否去除 stop word,默认为True
             :type remove_stopword: bool
@@ -111,7 +112,7 @@ class FeatureEncoder(object):
 
         # 检验参数合法性
         assert self.padding_mode in ['center','left','right','none'],'padding mode 只能取: center,left,right,none'
-        assert self.feature_type in ['word', 'seg','word_seg'], 'feature type 只能取: word,seg和word_seg'
+        assert self.feature_type in ['word', 'seg','word_seg','word_seg_concat'], 'feature type 只能取: word,seg和word_seg'
 
         # 原始训练数据
         self.train_data =None
@@ -200,12 +201,34 @@ class FeatureEncoder(object):
                 remove_url=self.remove_url,
                 HMM=False,
             )
+
             # print(segmented_sentence)
             # 2. 按字切分
             word = self.jieba_seg.iter_each_word(segmented_sentence, sep=' ', need_segmented=False).split()
             # 3. 按词切分
             seg = segmented_sentence.split()
             segmented_sentence = ' '.join(set(seg + word))
+        elif self.feature_type=='word_seg_concat':
+            # 先字后词拼接，不去重
+            # 1. 先使用jieba进行预处理，将数字替换等
+            segmented_sentence = self.jieba_seg.seg(
+                sentence,
+                sep=' ',
+                full_mode=self.full_mode,
+                remove_stopword=self.remove_stopword,
+                replace_number=self.replace_number,
+                lowercase=self.lowercase,
+                zhs2zht=self.zhs2zht,
+                remove_url=self.remove_url,
+                HMM=False,
+            )
+
+            # print(segmented_sentence)
+            # 2. 按字切分
+            word = self.jieba_seg.iter_each_word(segmented_sentence, sep=' ', need_segmented=False).split()
+            # 3. 按词切分
+            seg = segmented_sentence.split()
+            segmented_sentence = ' '.join(word + seg)
         else:
             assert False, '不支持其他粒度的切分！'
 
@@ -241,11 +264,14 @@ class FeatureEncoder(object):
 
         sentence_length = map(self.get_sentence_length,self.train_data)
         le_7 = sum(np.asarray(sentence_length)<=7)/(1.0*len(sentence_length))
-        print('句子长度小于等于7的有：%F'%le_7)
+        print('句子长度小于等于7的有：%f'%le_7)
         le_10 = sum(np.asarray(sentence_length)<=10)/(1.0*len(sentence_length))
-        print('句子长度小于等于10的有：%F'%le_10)
+        print('句子长度小于等于10的有：%f'%le_10)
         le_15 = sum(np.asarray(sentence_length)<=15)/(1.0*len(sentence_length))
-        print('句子长度小于等于15的有：%F'%le_15)
+        print('句子长度小于等于15的有：%f'%le_15)
+        le_20 = sum(np.asarray(sentence_length)<=20)/(1.0*len(sentence_length))
+        print('句子长度小于等于20的有：%f'%le_20)
+
         print('句子长度情况为：%s' % (str(sentence_length)))
         print('句子最长长度为：%d' % (max(sentence_length)))
         print('句子最短长度为：%d' % (min(sentence_length)))
@@ -428,7 +454,7 @@ class FeatureEncoder(object):
 
     def sentence_padding(self, sentence):
         '''
-            将不等长的句子都对齐,超出padding_length长度的句子截断,小于的则补0
+            将不等长的句子都对齐,超出padding_length长度的句子截断,小于的则补 PADDING
 
         :type sentence: str
         :param sentence: 句子,词之间以 空格 分割
@@ -741,7 +767,7 @@ def test_word_onehot():
                                      # full_mode 选择 False
                                      full_mode=False,
                                      # feature_type 选择 word
-                                     feature_type='word',
+                                     feature_type='word_seg_concat',
                                      remove_stopword=True,
                                      replace_number=True,
                                      lowercase=True,

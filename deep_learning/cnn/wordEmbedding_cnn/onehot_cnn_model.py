@@ -131,6 +131,7 @@ class OnehotBowCNN(CnnBaseClass):
 
         # 1. 输入层
         l1_input_shape = ( self.input_length,self.input_dim)
+        # l1_input_shape = ( None,self.input_dim)
         l1_input = Input(shape=l1_input_shape)
 
         # 2. Reshape层： 将embedding转换4-dim的shape
@@ -211,100 +212,6 @@ class OnehotBowCNN(CnnBaseClass):
 
         return feature_encoder
 
-
-    @staticmethod
-    def cross_validation(
-            train_data=None,
-            test_data=None,
-            cv_data=None,
-            **kwargs
-    ):
-        '''
-            进行参数的交叉验证
-            注意：
-                - 如果 cv_data！= None，则使用 cv_data 进行验证;
-                - 如果 cv_data== None，则使用 使用 train_data和test_data获取 cv_data,然后进行验证，需要提供 参数k（进行k折交叉验证）;
-
-        :type train_data: array-like
-        :param train_data: 训练数据,(train-x,train_y)
-        :param test_data: 测试数据,(test_x,test_y)
-        :type test_data: array-like
-        :param cv_data: k份已经分好的验证和测试数据
-        :type cv_data: array-like
-        :return:
-        '''
-
-        from data_processing_util.cross_validation_util import transform_cv_data,get_k_fold_data,get_val_score
-
-        # 获取交叉验证的数据
-        if cv_data is None:
-            assert train_data is not None,'cv_data和train_data必须至少提供一个！'
-            cv_data = get_k_fold_data(
-                k=kwargs['k'],
-                train_data=train_data,
-                test_data=test_data,
-                include_train_data=True,
-                )
-
-        # 将数据进行特征编码转换
-        feature_encoder = OnehotBowCNN.get_feature_encoder(**kwargs)
-        cv_data = transform_cv_data(feature_encoder, cv_data, **kwargs)
-
-        parmater = OnehotBowCNN.get_cv_param(**kwargs)
-
-        for l1, l2, h1, h2 in parmater:
-
-            print('layer1:%d,layer2:%d,hidden1:%d,hidden2:%d' % (l1, l2, h1, h2))
-            l1_conv_filter_type = kwargs['l1_conv_filter_type']
-            l1_conv_filter = []
-            # k = kwargs['k-max']
-            l1_conv_filter=[
-                [l1, l1_conv_filter_type[0][0], -1, l1_conv_filter_type[0][1], (2, 1), 0., 'relu', 'batch_normalization'],
-            ]
-
-            full_connected_layer_units = []
-
-            kwargs['l1_conv_filter_type'] = l1_conv_filter
-            kwargs['l2_conv_filter_type'] = []
-            kwargs['full_connected_layer_units'] = full_connected_layer_units
-
-            get_val_score(OnehotBowCNN, cv_data, **kwargs)
-
-    @staticmethod
-    def get_cv_param(**kwargs):
-        """
-            因为模型参数实在太多了，所以搞出个函数来专门初始化参数
-
-        :param cv_data:
-        :param test_data:
-        :param result_file_path:
-        :param kwargs:
-        :return:
-        """
-        from itertools import product
-
-        verbose = kwargs['verbose']
-
-        kwargs['layer1'] = kwargs['layer1'] if kwargs.get('layer1', []) != [] else [-1]
-        kwargs['layer2'] = kwargs['layer2'] if kwargs.get('layer2', []) != [] else [-1]
-        kwargs['hidden1'] = kwargs['hidden1'] if kwargs.get('hidden1', []) != [] else [-1]
-        kwargs['hidden2'] = kwargs['hidden2'] if kwargs.get('hidden2', []) != [] else [-1]
-
-        if verbose > 0:
-            print('=' * 100)
-            print('调节的参数....')
-            print('=' * 80)
-            from collections import OrderedDict
-            kwargs = OrderedDict(sorted(kwargs.items(), key=lambda t: t[0]))
-            for k, v in kwargs.items():
-                print('\t%s=%s' % (k, v))
-            print('=' * 100)
-
-        # 交叉验证
-        parmater = product(kwargs['layer1'], kwargs['layer2'], kwargs['hidden1'], kwargs['hidden2'])
-
-        return parmater
-
     def print_model_descibe(self):
         detail = {'rand_seed': self.rand_seed,
                   'verbose': self.verbose,
@@ -332,7 +239,7 @@ def test_onehot_bow_cnn():
     test_y = [2, 3, 0]
     sentence_padding_length = 8
     feature_encoder = OnehotBowCNN.get_feature_encoder(
-        sentence_padding_length=sentence_padding_length,
+        input_length=sentence_padding_length,
         verbose=1,
         feature_type='word',
     )
@@ -391,29 +298,6 @@ def test_onehot_bow_cnn():
 
     print onehot_cnn.predict('你好吗', transform_input=True)
 
-def test_onehot_bow_cnn_cv():
-    train_x = ['你好', '测试句子', '我要买手机', '今天天气不错', '无聊']
-    train_y = [1,2,3,2,3]
-    test_x = ['你好', '不错哟']
-    test_y = [1, 2]
-    cv_x = [['你好', '无聊'], ['测试句子', '今天天气不错'], ['我要买手机']]
-    cv_y = [[1, 3], [2, 2], [3]]
-
-    OnehotBowCNN.cross_validation(
-        verbose=0,
-        k=3,
-        train_data = (train_x,train_y),
-        test_data=(test_x,test_y),
-        # cv_data=(cv_x,cv_y),
-        input_length=8,
-        # rand_seed = 3,
-        layer1=[100],
-        l1_conv_filter_type=[[3,'bow']],
-        num_labels=5,
-        # nb_epoch = 30,
-    )
-
-
 if __name__ == '__main__':
-    # test_onehot_bow_cnn()
-    test_onehot_bow_cnn_cv()
+    test_onehot_bow_cnn()
+    # test_onehot_bow_cnn_cv()

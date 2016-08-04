@@ -54,6 +54,7 @@ class OnehotBowCNNWithOneConv(object):
             test_data=None,
             cv_data=None,
             input_length =None,
+            feature_type = 'word',
             num_filter_list=None,
             region_size_list=None,
             word2vec_to_solve_oov = False,
@@ -76,7 +77,7 @@ class OnehotBowCNNWithOneConv(object):
         feature_encoder = OnehotBowCNN.get_feature_encoder(
             input_length=input_length,
             verbose=verbose,
-            feature_type='word',
+            feature_type=feature_type,
             word2vec_to_solve_oov = word2vec_to_solve_oov,
             word2vec_model_file_path=word2vec_model_file_path,
         )
