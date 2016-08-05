@@ -3,7 +3,11 @@
     Author:  'jdwang'
     Date:    'create date: 2016-06-23'
     Email:   '383287471@qq.com'
-    Describe:
+    Describe: CNN(seq)模型，以 onehot向量输入，之后搭建卷积层和隐含层
+            用于实现两种类型的模型：
+                - CNN（seq）: example/one_conv_layer_onehot_cnn.py
+                - CNN(BOW): example/one_conv_layer_onehot_bow_cnn.py
+            更多可参考： https://github.com/JDwangmo/coprocessor/tree/master/reference#3effective-use-of-word-order-for-text-categorization-with-convolutional-neural-networks
 """
 
 import numpy as np
@@ -44,6 +48,7 @@ class OnehotBowCNN(CnnBaseClass):
                  l1_conv_filter_type=None,
                  l2_conv_filter_type=None,
                  nb_epoch=10,
+                 batch_size=32,
                  earlyStoping_patience=50,
                  **kwargs
                  ):
@@ -89,6 +94,7 @@ class OnehotBowCNN(CnnBaseClass):
             input_length=input_length,
             num_labels=num_labels,
             nb_epoch=nb_epoch,
+            batch_size= batch_size,
             earlyStoping_patience=earlyStoping_patience,
         )
 

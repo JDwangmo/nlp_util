@@ -1,51 +1,44 @@
 # encoding=utf8
 """
     Author:  'jdwang'
-    Date:    'create date: 2016-08-02'
+    Date:    'create date: 2016-08-01'
     Email:   '383287471@qq.com'
-    Describe: 单层卷积层的 CNN（static-w2v） 模型
+    Describe: 构架更特定的 CNN-bow模型，本脚本构建一个 只有一层卷积层的 CNN-bow模型
         - 输入层
-        - valid convolution layer： 多size
-        - 1-max pooling： 句子方向
+        - bow convolution ： 类似于一个 嵌入层，不同之处，在于将 region of sentence（onehot表示） 转为一个 低维 real-value 向量。
+        - max pooling layer
         - softmax output layer
 
-    更多可参考： https://github.com/JDwangmo/coprocessor/tree/master/reference#2convolutional-neural-networks-for-sentence-classification
+    更多可参考： https://github.com/JDwangmo/coprocessor/tree/master/reference#3effective-use-of-word-order-for-text-categorization-with-convolutional-neural-networks
 
 """
 
+from deep_learning.cnn.wordEmbedding_cnn.onehot_cnn_model import OnehotBowCNN
 
-from wordEmbedding_cnn_model import WordEmbeddingCNN
-
-class WordEmbeddingCNNWithOneConv(object):
+class OnehotBowCNNWithOneConv(object):
 
     @staticmethod
     def get_model(
             feature_encoder,
             num_filter,
+            region_size,
             num_labels,
-            word2vec_model_file_path,
             **kwargs
     ):
-
-        static_w2v_cnn = WordEmbeddingCNN(
+        onehot_cnn = OnehotBowCNN(
             rand_seed=1377,
             verbose=kwargs.get('verbose',0),
             feature_encoder=feature_encoder,
             # optimizers='adadelta',
             optimizers='sgd',
-            word_embedding_dim=50,
-            # 设置embedding使用训练好的w2v模型初始化
-            embedding_init_weight=feature_encoder.to_embedding_weight(word2vec_model_file_path),
-            # 设置为训练时embedding层权重不变
-            embedding_weight_trainable=False,
             num_labels=num_labels,
             l1_conv_filter_type=[
-                [num_filter, 3, -1, 'valid', (-1, 1), 0., 'relu', 'none'],
-                [num_filter, 4, -1, 'valid', (-1, 1), 0., 'relu', 'none'],
-                [num_filter, 5, -1, 'valid', (-1, 1), 0., 'relu', 'none'],
+                [num_filter, region_size, -1, 'bow', (-1, 1), 0., 'relu', 'batch_normalization'],
             ],
-            l2_conv_filter_type=[],
-            full_connected_layer_units=[],
+            l2_conv_filter_type=[
+            ],
+            full_connected_layer_units=[
+            ],
             embedding_dropout_rate=0.,
             nb_epoch=30,
             nb_batch=32,
@@ -53,7 +46,7 @@ class WordEmbeddingCNNWithOneConv(object):
             lr=1e-2,
         )
 
-        return static_w2v_cnn
+        return onehot_cnn
 
     @staticmethod
     def cross_validation(
@@ -61,9 +54,12 @@ class WordEmbeddingCNNWithOneConv(object):
             test_data=None,
             cv_data=None,
             input_length =None,
+            feature_type = 'word',
             num_filter_list=None,
-            verbose = 0,
+            region_size_list=None,
+            word2vec_to_solve_oov = False,
             word2vec_model_file_path = None,
+            verbose = 0,
            ):
 
         from data_processing_util.cross_validation_util import transform_cv_data, get_k_fold_data, get_val_score
@@ -78,23 +74,26 @@ class WordEmbeddingCNNWithOneConv(object):
             )
 
         # 2. 将数据进行特征编码转换
-        feature_encoder = WordEmbeddingCNN.get_feature_encoder(
+        feature_encoder = OnehotBowCNN.get_feature_encoder(
             input_length=input_length,
-            verbose=0,
-            feature_type='word',
+            verbose=verbose,
+            feature_type=feature_type,
+            word2vec_to_solve_oov = word2vec_to_solve_oov,
+            word2vec_model_file_path=word2vec_model_file_path,
         )
         cv_data = transform_cv_data(feature_encoder, cv_data,verbose=0)
         # 交叉验证
         for num_filter in num_filter_list:
-            print('=' * 40)
-            print('num_filter is %d.'%(num_filter))
-            get_val_score(WordEmbeddingCNNWithOneConv,
-                          cv_data=cv_data,
-                          verbose=verbose,
-                          num_filter=num_filter,
-                          num_labels=24,
-                          word2vec_model_file_path = word2vec_model_file_path,
-                          )
+            for region_size in region_size_list:
+                print('=' * 40)
+                print('num_filter and region_size is %d,%d.'%(num_filter,region_size))
+                get_val_score(OnehotBowCNNWithOneConv,
+                              cv_data=cv_data,
+                              verbose=verbose,
+                              region_size = region_size,
+                              num_filter=num_filter,
+                              num_labels=24
+                              )
 
 
 if __name__ == '__main__':
@@ -105,12 +104,14 @@ if __name__ == '__main__':
     cv_x = [['你好', '无聊'], ['测试句子', '今天天气不错'], ['我要买手机']]
     cv_y = [[1, 3], [2, 2], [3]]
 
-    WordEmbeddingCNNWithOneConv.cross_validation(
+    OnehotBowCNNWithOneConv.cross_validation(
         train_data = (train_x,train_y),
         test_data=(test_x,test_y),
         input_length=8,
         num_filter_list=[5,50],
-        verbose=1,
+        region_size_list=range(1,9),
+        verbose=0,
+        word2vec_to_solve_oov=True,
         word2vec_model_file_path = '/home/jdwang/PycharmProjects/corprocessor/word2vec/vector/50dim/vector1000000_50dim.gem'
 
     )

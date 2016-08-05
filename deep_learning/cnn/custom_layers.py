@@ -230,3 +230,26 @@ class FoldingLayer(Layer):
         if input_shape[2]%2 != 0:
             output = K.concatenate((output,last_line),axis=2)
         return output
+
+
+
+class TransposeLayer(Layer):
+    '''
+        转置层
+
+    '''
+    def __init__(self, axis=None,**kwargs):
+        self.axis = axis
+        super(TransposeLayer, self).__init__(**kwargs)
+
+    def get_output_shape_for(self, input_shape):
+        output_shape = []
+        for i in self.axis:
+            if i == 'x':
+                output_shape.append(1)
+            elif i>=0 and i<len(input_shape):
+                output_shape.append(input_shape[i])
+        return tuple(output_shape)
+    def call(self, x, mask=None):
+        y = x.dimshuffle(self.axis)
+        return y

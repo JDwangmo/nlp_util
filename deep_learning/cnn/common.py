@@ -359,12 +359,14 @@ class CnnBaseClass(CommonModel):
         :param input_layer: 上一层
         :param units: 每一层全连接层的单元数，分别对应(unit，dropout rate，activation，normalization),for example
                 [(50,0.5,'relu','batch_normalization'), (100,0.25,'relu','none')]
+                假如units设置为0,则不使用隐含层
         :type units: array-like
         :return: output, output_shape
         '''
 
         # from keras.models import Sequential
-        from keras.layers import Dense,Dropout,BatchNormalization,Activation
+        from keras.layers import Dense,Dropout,BatchNormalization,Activation,Reshape,Flatten
+        from custom_layers import TransposeLayer
         # output_layer = Sequential(name='full_connected_layer')
         output = input_layer
         for index,unit in enumerate(units):
@@ -392,12 +394,17 @@ class CnnBaseClass(CommonModel):
                 raise NotImplementedError
 
             self.check_param(activation=activation,normalization=normalization)
-
-            output = Dense(output_dim=num_dense, init="glorot_uniform")(output)
+            if num_dense==0:
+                # 假如 设置为0,则不经过隐含层
+                pass
+            else:
+                output = Dense(output_dim=num_dense, init="glorot_uniform")(output)
 
             # 增加一个 规范化层
             if normalization == 'batch_normalization':
-                output = BatchNormalization(axis=1,mode=2)(output)
+                output = TransposeLayer(axis=(0, 'x', 1))(output)
+                output = BatchNormalization(mode=2,axis=1)(output)
+                output = Flatten()(output)
             elif normalization == 'none':
                 pass
             else:

@@ -139,6 +139,7 @@ class FeatureEncoder(object):
         self.train_onehot_array = None
         # word2vec 模型
         if word2vec_to_solve_oov:
+            assert kwargs.has_key('word2vec_model_file_path'),'请提供 属性 word2vec_model_file_path'
             # 加载word2vec模型
             self.word2vec_model = Word2Vec.load(kwargs['word2vec_model_file_path'])
 

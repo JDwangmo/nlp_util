@@ -4,7 +4,10 @@
 ### summary:
 1. 预处理类工具:分词
 2. 深度学习:
-    - cnn
+    - cnn:
+        - wordEmbedding_cnn_model： CNN(词向量模型），比如: CNN(w2v)、CNN(rand)
+        - onehot_cnn_model： CNN(onehot-seq)
+        - onehot_cnn_model： CNN(onehot-seq)
 3. 传统分类器:
     - random forest
 
@@ -16,10 +19,11 @@
         - 官网： https://github.com/fxsjy/jieba
     - Keras 1.0.4: 神经网络的框架
         - 官网： https://github.com/fchollet/keras
+    - Theano 0.8.2:符号运算
+        - 官网： https://github.com/Theano/Theano
     - OpenCC 0.2: Open Chinese Convert 開放中文轉換
         - 官网： https://github.com/BYVoid/OpenCC 和 [Python 接口](https://github.com/lepture/opencc-python)
         - 安装方法：sudo pip install OpenCC
-        
     - scikit-learn 0.17.1: 机器学习工具类，包括计算F1值等
         - 官网： https://github.com/scikit-learn/scikit-learn
         - 安装方法：sudo pip install scikit-learn
@@ -28,7 +32,7 @@
 ## 工具列表
 
 ### commom: 通用类
-- common_model_class：分类器等模型的父类，规范分类器的函数等
+- base/common_model_class：分类器等模型的父类，规范分类器的函数等
 
 ---------------
 
@@ -47,7 +51,6 @@
             - 是否移除stopwords，
             - 是否统一替换数字 
             - 是否繁体转简体
-            
             
 - [word2vec_util](https://github.com/JDwangmo/nlp_util/tree/master/data_processing_util/word2vec_util)      
     - word2vec模型的训练等

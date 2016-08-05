@@ -8,7 +8,7 @@
         -
 """
 from traditional_classify.bow_rf.bow_rf_model import BowRandomForest
-from wordEmbedding_cnn_model import WordEmbeddingCNN
+from deep_learning.cnn.wordEmbedding_cnn.wordEmbedding_cnn_model import WordEmbeddingCNN
 
 # 实现混合模型 RF(CNN(w2v))
 class RFAndWordEmbeddingCnnMerge(object):

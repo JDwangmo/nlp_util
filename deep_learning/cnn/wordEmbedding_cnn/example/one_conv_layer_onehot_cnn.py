@@ -3,19 +3,19 @@
     Author:  'jdwang'
     Date:    'create date: 2016-08-01'
     Email:   '383287471@qq.com'
-    Describe: 构架更特定的 CNN-bow模型，本脚本构建一个 只有一层卷积层的 CNN-bow模型
-        - 输入层
-        - bow convolution ： 类似于一个 嵌入层，不同之处，在于将 region of sentence（onehot表示） 转为一个 低维 real-value 向量。
-        - max pooling layer
+    Describe: 构架更特定的 CNN-seq模型，this example build 一个 只有一层卷积层的 CNN-bow模型
+        - 输入层： onehot representation
+        - valid convolution ： region of sentence（onehot表示） 转为一个 低维 real-value 向量。
+        - 1-max pooling layer
         - softmax output layer
 
     更多可参考： https://github.com/JDwangmo/coprocessor/tree/master/reference#3effective-use-of-word-order-for-text-categorization-with-convolutional-neural-networks
 
 """
 
-from onehot_cnn_model import OnehotBowCNN
+from deep_learning.cnn.wordEmbedding_cnn.onehot_cnn_model import OnehotBowCNN
 
-class OnehotBowCNNWithOneConv(object):
+class OnehotCNNWithOneConv(object):
 
     @staticmethod
     def get_model(
@@ -33,11 +33,12 @@ class OnehotBowCNNWithOneConv(object):
             optimizers='sgd',
             num_labels=num_labels,
             l1_conv_filter_type=[
-                [num_filter, region_size, -1, 'bow', (-1, 1), 0., 'relu', 'batch_normalization'],
+                [num_filter, region_size, -1, 'valid', (-1, 1), 0., 'none', 'none'],
             ],
             l2_conv_filter_type=[
             ],
             full_connected_layer_units=[
+                [0,0,'relu','batch_normalization']
             ],
             embedding_dropout_rate=0.,
             nb_epoch=30,
@@ -87,7 +88,7 @@ class OnehotBowCNNWithOneConv(object):
             for region_size in region_size_list:
                 print('=' * 40)
                 print('num_filter and region_size is %d,%d.'%(num_filter,region_size))
-                get_val_score(OnehotBowCNNWithOneConv,
+                get_val_score(OnehotCNNWithOneConv,
                               cv_data=cv_data,
                               verbose=verbose,
                               region_size = region_size,
@@ -104,14 +105,14 @@ if __name__ == '__main__':
     cv_x = [['你好', '无聊'], ['测试句子', '今天天气不错'], ['我要买手机']]
     cv_y = [[1, 3], [2, 2], [3]]
 
-    OnehotBowCNNWithOneConv.cross_validation(
+    OnehotCNNWithOneConv.cross_validation(
         train_data = (train_x,train_y),
         test_data=(test_x,test_y),
         input_length=8,
         num_filter_list=[5,50],
         region_size_list=range(1,9),
-        verbose=0,
-        word2vec_to_solve_oov=True,
+        verbose=1,
+        word2vec_to_solve_oov=False,
         word2vec_model_file_path = '/home/jdwang/PycharmProjects/corprocessor/word2vec/vector/50dim/vector1000000_50dim.gem'
 
     )

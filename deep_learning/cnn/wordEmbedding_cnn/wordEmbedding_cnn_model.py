@@ -36,7 +36,7 @@ class WordEmbeddingCNN(CnnBaseClass):
                  rand_seed=1337,
                  verbose=0,
                  feature_encoder=None,
-                 full_connected_layer_units=[50],
+                 full_connected_layer_units=None,
                  optimizers='sgd',
                  input_dim=None,
                  word_embedding_dim=None,
@@ -47,7 +47,8 @@ class WordEmbeddingCNN(CnnBaseClass):
                  l1_conv_filter_type=None,
                  l2_conv_filter_type=None,
                  embedding_dropout_rate=0.,
-                 nb_epoch=100,
+                 nb_epoch=30,
+                 batch_size=32,
                  earlyStoping_patience=50,
                  **kwargs
                  ):
@@ -106,11 +107,13 @@ class WordEmbeddingCNN(CnnBaseClass):
             num_labels=num_labels,
             nb_epoch=nb_epoch,
             earlyStoping_patience=earlyStoping_patience,
+            batch_size=batch_size
         )
         self.word_embedding_dim = word_embedding_dim
         self.embedding_init_weight = embedding_init_weight
 
         self.embedding_weight_trainable = embedding_weight_trainable
+
         if feature_encoder != None:
             # 如果feature encoder 不为空，直接用 feature_encoder获取 长度和维度
             self.input_dim = feature_encoder.vocabulary_size
@@ -365,16 +368,11 @@ def test_nonstatic_w2v():
     '''
 
     sentence_padding_length = 8
-    feature_encoder = FeatureEncoder(
-        sentence_padding_length=sentence_padding_length,
-        verbose=0,
-        need_segmented=True,
-        full_mode=True,
-        replace_number=True,
-        remove_stopword=True,
-        lowercase=True,
-        padding_mode='left',
-        add_unkown_word=True,
+    feature_encoder = WordEmbeddingCNN.get_feature_encoder(
+        input_length=sentence_padding_length,
+        full_mode=False,
+        feature_type='word',
+        verbose=1,
     )
     train_X_feature = feature_encoder.fit_transform(train_X)
     test_X_feature = feature_encoder.transform(test_X)

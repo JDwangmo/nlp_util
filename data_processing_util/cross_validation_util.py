@@ -141,7 +141,7 @@ def transform_cv_data(
             print('dev shape:(%s)'%str(dev_x_features.shape))
             print('val shape:(%s)'%str(val_x_features.shape))
 
-    feature_encoder = None
+    # feature_encoder = None
 
     return cv_features
 
@@ -149,7 +149,7 @@ def transform_cv_data(
 def get_val_score(
         estimator_class,
         cv_data,
-        shuffle_data = False,
+        shuffle_data=False,
         **parameters
 ):
     """
@@ -157,6 +157,7 @@ def get_val_score(
 
     :param estimator_class: 分类器的类，必须实现了 get_model() 函数
     :param cv_data: 验证数据，第一份为 训练和测试数据，之后为验证数据
+    :param shuffle_data: 是否打乱数据
     :param parameters: 参数
     :return: [test_accu] + [验证预测平均], train_acc
     """

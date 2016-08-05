@@ -3,7 +3,7 @@
     Author:  'jdwang'
     Date:    'create date: 2016-08-02'
     Email:   '383287471@qq.com'
-    Describe: CNN(w2v+Bow)模型，将CNN(static)和CNN(bow)模型融合，提供多种输入（两种，w2v和 onehot bow），CNN模型
+    Describe: CNN(w2v+Bow)混合模型，将CNN(static)和CNN(bow)模型融合，提供多种输入（两种，w2v和 onehot bow），CNN模型
         - 输入层： 两通道： w2v 和 onehot bow
         - 卷积层： 两通道，分别为 valid convolution 和 bow convolution
         - 合并层： 将两通道合并
