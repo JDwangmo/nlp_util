@@ -129,8 +129,6 @@ def transform_cv_data(
 
     for dev_x,dev_y,val_x,val_y in cv_data:
         dev_x_features = feature_encoder.fit_transform(dev_x)
-        # feature_encoder.print_sentence_length_detail()
-        # quit()
         val_x_features = feature_encoder.transform(val_x)
         # feature_encoder.print_model_descibe()
 
@@ -140,6 +138,8 @@ def transform_cv_data(
             print(','.join(feature_encoder.vocabulary))
             print('dev shape:(%s)'%str(dev_x_features.shape))
             print('val shape:(%s)'%str(val_x_features.shape))
+            feature_encoder.print_sentence_length_detail()
+
 
     # feature_encoder = None
 
