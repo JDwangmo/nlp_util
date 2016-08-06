@@ -88,7 +88,7 @@ class WordEmbeddingCNNWithOneConv(object):
             feature_type=feature_type,
         )
 
-        cv_data = transform_cv_data(feature_encoder, cv_data,verbose=0)
+        cv_data = transform_cv_data(feature_encoder, cv_data,verbose=verbose)
         # 交叉验证
         for num_filter in num_filter_list:
             print('=' * 40)

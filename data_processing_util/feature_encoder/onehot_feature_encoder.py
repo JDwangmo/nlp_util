@@ -255,23 +255,23 @@ class FeatureEncoder(object):
         return sentence_length
 
 
-    def print_sentence_length_detail(self):
+    def print_sentence_length_detail(
+            self,
+            lengths=[7,10,15,20],
+    ):
         '''
             打印训练库中句子的长度情况
 
+        :type lengths: list
+        :param lengths: 长度界限列表
         :return: 句子长度列表
         :rtype: list
         '''
 
         sentence_length = map(self.get_sentence_length,self.train_data)
-        le_7 = sum(np.asarray(sentence_length)<=7)/(1.0*len(sentence_length))
-        print('句子长度小于等于7的有：%f'%le_7)
-        le_10 = sum(np.asarray(sentence_length)<=10)/(1.0*len(sentence_length))
-        print('句子长度小于等于10的有：%f'%le_10)
-        le_15 = sum(np.asarray(sentence_length)<=15)/(1.0*len(sentence_length))
-        print('句子长度小于等于15的有：%f'%le_15)
-        le_20 = sum(np.asarray(sentence_length)<=20)/(1.0*len(sentence_length))
-        print('句子长度小于等于20的有：%f'%le_20)
+        for len in lengths:
+            le_this_len = sum(np.asarray(sentence_length)<=len)/(1.0*len(sentence_length))
+            print('句子长度小于等于%d的有：%f'%(len,le_this_len))
 
         print('句子长度情况为：%s' % (str(sentence_length)))
         print('句子最长长度为：%d' % (max(sentence_length)))
