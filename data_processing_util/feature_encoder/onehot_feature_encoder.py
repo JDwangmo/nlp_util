@@ -269,9 +269,9 @@ class FeatureEncoder(object):
         '''
 
         sentence_length = map(self.get_sentence_length,self.train_data)
-        for len in lengths:
-            le_this_len = sum(np.asarray(sentence_length)<=len)/(1.0*len(sentence_length))
-            print('句子长度小于等于%d的有：%f'%(len,le_this_len))
+        for l in lengths:
+            le_this_len = sum(np.asarray(sentence_length)<=l)/(1.0*len(sentence_length))
+            print('句子长度小于等于%d的有：%f'%(l,le_this_len))
 
         print('句子长度情况为：%s' % (str(sentence_length)))
         print('句子最长长度为：%d' % (max(sentence_length)))

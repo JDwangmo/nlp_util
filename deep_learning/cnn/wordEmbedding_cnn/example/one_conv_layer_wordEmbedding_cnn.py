@@ -51,6 +51,8 @@ class WordEmbeddingCNNWithOneConv(object):
             nb_batch=32,
             earlyStoping_patience=30,
             lr=1e-2,
+            show_validate_accuracy=True
+
         )
 
         return static_w2v_cnn
@@ -116,6 +118,5 @@ if __name__ == '__main__':
         input_length=8,
         num_filter_list=[5,50],
         verbose=1,
-        word2vec_model_file_path = '/home/jdwang/PycharmProjects/corprocessor/word2vec/vector/50dim/vector1000000_50dim.gem'
-
+        word2vec_model_file_path = '/home/jdwang/PycharmProjects/corprocessor/word2vec/vector/50dim/vector1000000_50dim.gem',
     )

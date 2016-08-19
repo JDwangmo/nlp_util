@@ -596,16 +596,17 @@ class CnnBaseClass(CommonModel):
             logging.debug('3. 模型训练')
             print('3. 模型训练')
         # -------------- code start : 开始 -------------
-        self.model.fit(train_X,
-                       train_y,
-                       nb_epoch=self.nb_epoch,
-                       verbose=self.verbose,
-                       # validation_split=0.1,
-                       validation_data=(validation_X, validation_y),
-                       shuffle=True,
-                       batch_size=self.batch_size,
-                       callbacks=[self.early_stop]
-                       )
+        self.model.fit(
+            train_X,
+            train_y,
+            nb_epoch=self.nb_epoch,
+            verbose=self.verbose,
+            # validation_split=0.1,
+            validation_data=(validation_X, validation_y) if self.kwargs.get('show_validate_accuracy',True) else None,
+            shuffle=True,
+            batch_size=self.batch_size,
+            callbacks=[self.early_stop]
+        )
 
         train_loss,train_accuracy = self.model.evaluate(train_X, train_y,verbose=0)
         val_loss,val_accuracy = self.model.evaluate(validation_X, validation_y,verbose=0)
