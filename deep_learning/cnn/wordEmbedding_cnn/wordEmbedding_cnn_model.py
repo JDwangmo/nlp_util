@@ -216,6 +216,7 @@ class WordEmbeddingCNN(CnnBaseClass):
 
         # 8. softmax 分类层
         l8_softmax_output = Activation("softmax")(l7_output)
+        # 模型输出
         model = Model(input=[l1_input], output=[l8_softmax_output])
 
         self.embedding_layer_output = Model(input=l1_input, output=[l5_cnn])

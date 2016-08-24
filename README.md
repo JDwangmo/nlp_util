@@ -1,6 +1,7 @@
 # nlp_util
 ###NLP常用工具
 
+
 ### summary:
 1. 预处理类工具:分词
 2. 深度学习:
@@ -10,6 +11,7 @@
         - onehot_cnn_model： CNN(onehot-seq)
 3. 传统分类器:
     - random forest
+4. [其他机器学习资源大全](https://raw.githubusercontent.com/JDwangmo/nlp_util/master/resource/国外程序员整理的机器学习资源大全.pdf)
 
 ### 环境:
 - Ubuntu 14.04 / Linux mint 17.03
