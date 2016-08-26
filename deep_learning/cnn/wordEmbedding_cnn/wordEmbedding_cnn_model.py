@@ -188,8 +188,8 @@ class WordEmbeddingCNN(CnnBaseClass):
             input_layer=l4_reshape,
             convolution_filter_type=self.l1_conv_filter_type,
         )
-        # print (self.embedding_layer_output.get_weights())
-        # model = Model(input=l1_input, output=[l5_cnn])
+        # model = Model(input=l1_input, output=[l2_embedding])
+        # print (model.get_weights())
         # model.summary()
         # quit()
 
