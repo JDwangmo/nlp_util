@@ -66,6 +66,7 @@ class WordEmbeddingCNNWithOneConv(object):
             input_length =None,
             num_filter_list=None,
             verbose = 0,
+            need_segmented = True,
             word2vec_model_file_path = None,
            ):
         print('='*80)
@@ -85,6 +86,7 @@ class WordEmbeddingCNNWithOneConv(object):
 
         # 2. 将数据进行特征编码转换
         feature_encoder = WordEmbeddingCNN.get_feature_encoder(
+            need_segmented = need_segmented,
             input_length=input_length,
             verbose=0,
             feature_type=feature_type,

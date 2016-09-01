@@ -246,9 +246,9 @@ class WordEmbeddingCNN(CnnBaseClass):
 
         from data_processing_util.feature_encoder.onehot_feature_encoder import FeatureEncoder
         feature_encoder = FeatureEncoder(
+            need_segmented=kwargs.get('need_segmented',True),
             sentence_padding_length=kwargs['input_length'],
             verbose=kwargs.get('verbose',0),
-            need_segmented=True,
             full_mode=kwargs.get('full_mode',False),
             remove_stopword=True,
             replace_number=True,

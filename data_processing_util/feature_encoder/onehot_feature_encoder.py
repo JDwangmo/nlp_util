@@ -281,7 +281,7 @@ class FeatureEncoder(object):
 
     def get_unkown_vector(self, ndim=50):
         rand = np.random.RandomState(1337)
-        return rand.rand(ndim)
+        return rand.uniform(-0.25,0.25,ndim)
 
     def get_w2vEmbedding(self, word):
         try:
@@ -459,8 +459,6 @@ class FeatureEncoder(object):
 
         :type sentence: str
         :param sentence: 句子,词之间以 空格 分割
-        :type padding_length: int
-        :param padding_length: 补齐长度
         :return: 返回补齐后的句子，以空格分割
         :type: str
         '''

@@ -4,10 +4,11 @@
     Date:    'create date: 2016-07-21'
     Email:   '383287471@qq.com'
     Describe: 数据集、语料库等交叉验证的常用方法
-        1. data_split_k_fold: 将数据分为平均分为 K-部分，尽量按类别平均分
-        2. get_k_fold_data: 获取 K折验证的训练和测试集（dev_set, val_set）
-        3. transform_cv_data： 将 cv_data中的 k份数据 全部转为特征编码
-        4. get_val_score： 获取某个参数设置下，模型的交叉验证情况
+        1. data_split_k_fold: 将数据分为平均分为 K-部分，尽量按类别平均分，直接获取数据
+        2、get_splitted_k_fold_data_index： 将数据分为平均分为 K-部分，尽量按类别平均分，获取 数据 每份的标签索引
+        3. get_k_fold_data: 获取 K折验证的训练和测试集（dev_set, val_set）
+        4. transform_cv_data： 将 cv_data中的 k份数据 全部转为特征编码
+        5. get_val_score： 获取某个参数设置下，模型的交叉验证情况
 """
 
 from __future__ import print_function
@@ -43,6 +44,7 @@ def data_split_k_fold(
 
     data = pd.DataFrame(data={'FEATURE_INDEX': range(len(train_X_feature)), 'LABEL': train_y})
 
+    cross_validation_index_split = {i: [] for i in range(k)}
     cross_validation_X_split = {i: [] for i in range(k)}
     cross_validation_y_split = {i: [] for i in range(k)}
     # 按各个类别来取数据
@@ -58,12 +60,57 @@ def data_split_k_fold(
         for index, item in enumerate(sentences):
             # print index%k
             index += start_index
+            cross_validation_index_split[index % k].append(item)
             cross_validation_X_split[index % k].append(train_X_feature[item])
             cross_validation_y_split[index % k].append(label)
 
     for x, y in zip(cross_validation_X_split.values(), cross_validation_y_split.values()):
         yield x, np.asarray(y,dtype=int)
 
+
+def get_splitted_k_fold_data_index(
+        k=5,
+        data=None,
+        rand_seed = 2,
+):
+    '''
+        将数据分为平均分为 K-部分，尽量按类别平均分, 最终数据 每折数据的索引
+
+    :param k: k份
+    :param data: (X,y)。 X 和 y 都是 array-like
+    :type data: (array-like,array-like)
+    :param rand_seed: 随机种子
+    :type rand_seed: int
+    :return:
+    '''
+
+    train_X_feature, train_y = data
+    # 用FEATURE_INDEX字段来记录数据的位置，以便后面复原数据
+    data = pd.DataFrame(data={'FEATURE_INDEX': range(len(train_X_feature)), 'LABEL': train_y})
+
+    cross_validation_index_split = {i: [] for i in range(k)}
+    # 按各个类别来取数据
+    rand = np.random.RandomState(rand_seed)
+    for label, group in data.groupby(by=['LABEL'], axis=0):
+        # print label
+        # print group['SENTENCE_LENGTH'].value_counts()
+        # 取出句子长度为length的所有句子
+        start_index = rand.randint(0, k)
+        sentences = rand.permutation(group['FEATURE_INDEX'].as_matrix())
+        # print(sentences)
+
+        for index, item in enumerate(sentences):
+            # print index%k
+            index += start_index
+            cross_validation_index_split[index % k].append(item)
+
+    for cv_index,data_index_list in cross_validation_index_split.iteritems():
+        # print(cv_index,data_index_list)
+        data.loc[data_index_list,'CV_INDEX'] = cv_index
+
+    data['CV_INDEX'] = data['CV_INDEX'].astype(dtype='int')
+    # print(data['CV_INDEX'].values)
+    return data['CV_INDEX'].values
 
 def get_k_fold_data(
         k=3,
