@@ -166,6 +166,7 @@ class WordEmbeddingCNN(CnnBaseClass):
             weight = None
         else:
             weight = [self.embedding_init_weight]
+            self.word_embedding_dim=self.embedding_init_weight.shape[1]
         l2_embedding = Embedding(
             input_dim=self.input_dim,
             output_dim=self.word_embedding_dim,

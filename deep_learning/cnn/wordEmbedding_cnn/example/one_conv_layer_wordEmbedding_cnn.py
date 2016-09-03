@@ -3,11 +3,14 @@
     Author:  'jdwang'
     Date:    'create date: 2016-08-02'
     Email:   '383287471@qq.com'
-    Describe: 单层卷积层的 CNN（static-w2v） 模型
+    Describe: 单层卷积层的 CNN（static-w2v） or CNN(non-static-w2v) 模型
         - 输入层
         - valid convolution layer： 多size
         - 1-max pooling： 句子方向
         - softmax output layer
+
+    Notes
+
 
     更多可参考： https://github.com/JDwangmo/coprocessor/tree/master/reference#2convolutional-neural-networks-for-sentence-classification
 
@@ -33,7 +36,7 @@ class WordEmbeddingCNNWithOneConv(object):
             feature_encoder=feature_encoder,
             # optimizers='adadelta',
             optimizers='sgd',
-            word_embedding_dim=50,
+            word_embedding_dim=300,
             # 设置embedding使用训练好的w2v模型初始化
             embedding_init_weight=feature_encoder.to_embedding_weight(word2vec_model_file_path),
             # 设置为训练时embedding层权重不变
@@ -52,7 +55,6 @@ class WordEmbeddingCNNWithOneConv(object):
             earlyStoping_patience=30,
             lr=1e-2,
             show_validate_accuracy=True
-
         )
 
         return static_w2v_cnn
@@ -66,9 +68,46 @@ class WordEmbeddingCNNWithOneConv(object):
             input_length =None,
             num_filter_list=None,
             verbose = 0,
+            cv = 3,
             need_segmented = True,
             word2vec_model_file_path = None,
+            num_labels=24,
            ):
+        """
+
+        Parameters
+        ----------
+        train_data:
+        test_data
+        cv_data
+        feature_type
+        input_length
+        num_filter_list
+        verbose
+        cv:int
+            进行 cv 折验证
+        need_segmented:bool
+            是否需要分词
+        word2vec_model_file_path
+
+        Examples
+        ----------
+        >>> train_x = ['你好', '测试句子', '我要买手机', '今天天气不错', '无聊']
+        >>> train_y = [1, 2, 3, 2, 3]
+        >>> test_x = ['你好', '不错哟']
+        >>> test_y = [1, 2]
+        >>> cv_x = [['你好', '无聊'], ['测试句子', '今天天气不错'], ['我要买手机']]
+        >>> cv_y = [[1, 3], [2, 2], [3]]
+        >>> WordEmbeddingCNNWithOneConv.cross_validation(
+        >>>         train_data = (train_x,train_y),
+        >>>         test_data=(test_x,test_y),
+        >>>         input_length=8,
+        >>>         num_filter_list=[5,50],
+        >>>         verbose=1,
+        >>>         word2vec_model_file_path = '/home/jdwang/PycharmProjects/nlp_util/data_processing_util/word2vec_util/vector/50dim/vector1000000_50dim.gem',
+        >>>     )
+
+        """
         print('='*80)
         print('feature_type:%s'%feature_type)
         print('='*80)
@@ -78,10 +117,10 @@ class WordEmbeddingCNNWithOneConv(object):
         if cv_data is None:
             assert train_data is not None, 'cv_data和train_data必须至少提供一个！'
             cv_data = get_k_fold_data(
-                k=3,
+                k=cv,
                 train_data=train_data,
                 test_data=test_data,
-                include_train_data=True,
+                include_train_data=False,
             )
 
         # 2. 将数据进行特征编码转换
@@ -101,7 +140,7 @@ class WordEmbeddingCNNWithOneConv(object):
                           cv_data=cv_data,
                           verbose=verbose,
                           num_filter=num_filter,
-                          num_labels=24,
+                          num_labels=num_labels,
                           word2vec_model_file_path = word2vec_model_file_path,
                           )
 
