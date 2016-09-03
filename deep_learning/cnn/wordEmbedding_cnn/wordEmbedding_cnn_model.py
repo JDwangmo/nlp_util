@@ -52,7 +52,7 @@ class WordEmbeddingCNN(CnnBaseClass):
                  earlyStoping_patience=50,
                  **kwargs
                  ):
-        '''
+        """
             1. 初始化参数，并检验参数合法性。
             2. 设置随机种子，构建模型
 
@@ -94,8 +94,9 @@ class WordEmbeddingCNN(CnnBaseClass):
         :param nb_epoch: cnn设置选项,cnn迭代的次数.
         :type nb_epoch: int
         :param earlyStoping_patience: cnn设置选项,earlyStoping的设置,如果迭代次数超过这个耐心值,依旧不下降,则stop.
-        :type earlyStoping_patience: int
-        '''
+        :type earlyStoping_patience: int,
+        :param kwargs:  lr, batch_size, show_validate_accuracy, output_regularizer, output_constraints
+        """
 
         CnnBaseClass.__init__(
             self,
@@ -152,7 +153,7 @@ class WordEmbeddingCNN(CnnBaseClass):
         :return: cnn model network
         '''
 
-        from keras.layers import Embedding, Input, Activation, Reshape, Dropout, Flatten,BatchNormalization
+        from keras.layers import Embedding, Input, Activation, Reshape, Dropout, Flatten
         from keras.models import Model
         from keras import backend as K
 
@@ -167,6 +168,7 @@ class WordEmbeddingCNN(CnnBaseClass):
         else:
             weight = [self.embedding_init_weight]
             self.word_embedding_dim=self.embedding_init_weight.shape[1]
+
         l2_embedding = Embedding(
             input_dim=self.input_dim,
             output_dim=self.word_embedding_dim,
@@ -201,18 +203,22 @@ class WordEmbeddingCNN(CnnBaseClass):
         )
 
         # 6. Flatten层： 卷积的结果进行拼接,变成一列隐含层
-        l6_flatten = Flatten()(l6_conv)
+        # l6_flatten = Flatten()(l6_conv)
+
         # l6_flatten= BatchNormalization(axis=1)(l6_flatten)
         # 7. 全连接层
         l7_full_connected_layer = self.create_full_connected_layer(
-            input_layer=l6_flatten,
+            input_layer=l6_conv,
             units=self.full_connected_layer_units,
         )
         # l7_activation = Activation("relu")(l7_full_connected_layer)
 
         l7_output = self.create_full_connected_layer(
             input_layer=l7_full_connected_layer,
-            units=[[self.num_labels, 0., 'none', 'none']],
+            units=[[self.num_labels, 0., 'none', 'none',
+                    self.kwargs.get('output_regularizer',('none',0.)),
+                    self.kwargs.get('output_constraints',('none',0.)),
+                    ]],
         )
 
         # 8. softmax 分类层
@@ -222,7 +228,7 @@ class WordEmbeddingCNN(CnnBaseClass):
 
         self.embedding_layer_output = Model(input=l1_input, output=[l5_cnn])
         # 卷积层的输出，可以作为深度特征
-        self.conv1_feature_output = K.function([l1_input, K.learning_phase()], [l6_flatten])
+        self.conv1_feature_output = K.function([l1_input, K.learning_phase()], [l6_conv])
 
         # 最后一层隐含层（倒数第二层）的输出
         self.last_hidden_layer = K.function([l1_input, K.learning_phase()], [l7_full_connected_layer])
@@ -258,7 +264,8 @@ class WordEmbeddingCNN(CnnBaseClass):
             remove_url=True,
             padding_mode='center',
             add_unkown_word=True,
-            feature_type=kwargs.get('feature_type', 'word')
+            feature_type=kwargs.get('feature_type', 'word'),
+            vocabulary_including_test_set=kwargs.get('vocabulary_including_test_set',True),
         )
 
         return feature_encoder

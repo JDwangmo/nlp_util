@@ -183,6 +183,7 @@ def transform_cv_data(
 
         if kwargs.get('verbose',0)>0:
             print(','.join(feature_encoder.vocabulary))
+            print('vocabulary_size: %d'%(feature_encoder.vocabulary_size))
             print('dev shape:(%s)'%str(dev_x_features.shape))
             print('val shape:(%s)'%str(val_x_features.shape))
 
@@ -207,7 +208,7 @@ def get_val_score(
     :param estimator_class: 分类器的类，必须实现了 get_model() 函数
     :param cv_data: 验证数据，第一份为 训练和测试数据，之后为验证数据
     :param shuffle_data: 是否打乱数据
-    :param parameters: 参数
+    :param parameters: 参数, need_validation
     :return: [test_accu] + [验证预测平均], train_acc
     """
 
@@ -243,7 +244,10 @@ def get_val_score(
 
         test_acc.append(val_accuracy)
         train_acc.append(dev_accuracy)
+        if not parameters.get('need_validation','True'):
+            break
         counter += 1
+        del feature_encoder
 
     print('k折验证结果：%s' % test_acc)
     print('验证中训练数据结果：%s' % train_acc)

@@ -1,4 +1,4 @@
-#encoding=utf8
+# encoding=utf8
 """
     Author:  'jdwang'
     Date:    'create date: 2016-06-23'
@@ -9,15 +9,16 @@
 
 import logging
 import numpy as np
-
 from sklearn.metrics import f1_score
 import pickle as pickle
 from base.common_model_class import CommonModel
 import sys
+
 sys.setrecursionlimit(15000)
 
+
 class CnnBaseClass(CommonModel):
-    '''
+    """
         CNN模型的公共父类,包含一些预定义的方法和变量。
 
         包含以下主要函数：
@@ -42,7 +43,7 @@ class CnnBaseClass(CommonModel):
 
             15. accuracy：模型验证
             16. print_model_descibe：打印模型详情
-    '''
+    """
 
     def __init__(self,
                  rand_seed=1337,
@@ -75,7 +76,7 @@ class CnnBaseClass(CommonModel):
         :type nb_epoch: int
         :param earlyStoping_patience: cnn设置选项,earlyStoping的设置,如果迭代次数超过这个耐心值,依旧不下降,则stop.
         :type earlyStoping_patience: int
-        :param kwargs: 目前有 lr , batch_size
+        :param kwargs: 目前有 lr , batch_size ,show_validate_accuracy
         :type kwargs: dict
         """
 
@@ -118,16 +119,14 @@ class CnnBaseClass(CommonModel):
         # 选定随机种子
         if self.rand_seed is not None:
             np.random.seed(self.rand_seed)
-        # 构建模型
-        # self.build_model()
-
+            # 构建模型
+            # self.build_model()
 
     def create_multi_size_convolution_layer(self,
-                                            input_layer = None,
+                                            input_layer=None,
                                             convolution_filter_type=None,
                                             **kwargs
                                             ):
-
 
         """
             创建一个多类型（size，大小）核卷积层模型，可以直接添加到 keras的模型中去。
@@ -157,19 +156,18 @@ class CnnBaseClass(CommonModel):
 
         # assert len(input_shape) == 3, 'warning: 因为必须是一个4D的输入，(n_batch,channel,row,col)，所以input shape必须是一个3D-array，(channel,row,col)!'
 
-        from keras.layers import Dropout,merge,BatchNormalization,Activation
+        from keras.layers import Dropout, merge, BatchNormalization, Activation
 
         dropout_rate = convolution_filter_type[0][-3]
         activation = convolution_filter_type[0][-2]
         normalization = convolution_filter_type[0][-1]
 
-        self.check_param(activation=activation,normalization=normalization)
+        self.check_param(activation=activation, normalization=normalization)
 
         # 构建第一层卷积层和1-max pooling
         conv_layers = []
         for items in convolution_filter_type:
-
-            nb_filter, nb_row, nb_col, border_mode, k,_,_,_ = items
+            nb_filter, nb_row, nb_col, border_mode, k, _, _, _ = items
             m = self.create_one_size_convolution_layer(
                 input_layer,
                 nb_filter,
@@ -178,8 +176,8 @@ class CnnBaseClass(CommonModel):
                 border_mode,
                 k,
                 dropout_rate=0,
-                activation= 'none',
-                normalization ='none',
+                activation='none',
+                normalization='none',
                 **kwargs
             )
             # m.summary()
@@ -192,13 +190,13 @@ class CnnBaseClass(CommonModel):
 
         # 增加一个 规范化层
         if normalization == 'batch_normalization':
-            output = BatchNormalization(axis=1,mode=2)(output)
+            output = BatchNormalization(axis=1, mode=2)(output)
         elif normalization == 'none':
             pass
         else:
             raise NotImplementedError
         # 增加一个 激活函数
-        if activation!='none':
+        if activation != 'none':
             output = Activation(activation)(output)
 
         if dropout_rate > 0:
@@ -210,7 +208,6 @@ class CnnBaseClass(CommonModel):
         # -------------- print end : just print info -------------
         # print(cnn_model.get_output_shape_at(-1))
         return output
-
 
     def create_one_size_convolution_layer(
             self,
@@ -228,8 +225,8 @@ class CnnBaseClass(CommonModel):
 
         self.check_param(activation=activation, normalization=normalization)
 
-        from keras.layers import Dropout,Activation,BatchNormalization,Reshape
-        from custom_layers import Convolution2DWrapper,MaxPooling2DWrapper
+        from keras.layers import Dropout, Activation, BatchNormalization, Reshape
+        from custom_layers import Convolution2DWrapper, MaxPooling2DWrapper
 
         # 普通2D卷积
         conv_output = Convolution2DWrapper(
@@ -248,19 +245,19 @@ class CnnBaseClass(CommonModel):
             output = conv_output
 
         # 增加一个 规范化层
-        if normalization =='batch_normalization':
-            output = BatchNormalization(axis=1,mode=2)(output)
-        elif normalization =='none':
+        if normalization == 'batch_normalization':
+            output = BatchNormalization(axis=1, mode=2)(output)
+        elif normalization == 'none':
             pass
         else:
             raise NotImplementedError
 
         # 增加一个 激活函数
-        if activation!='none':
+        if activation != 'none':
             output = Activation(activation)(output)
 
         if dropout_rate > 0:
-            output= Dropout(p=dropout_rate)(output)
+            output = Dropout(p=dropout_rate)(output)
 
         return output
 
@@ -305,7 +302,8 @@ class CnnBaseClass(CommonModel):
 
         elif len(convolution_filter_type) == 1:
             # 单size 卷积层
-            nb_filter, nb_row, nb_col, border_mode, k,dropout_rate,activation,normalization = convolution_filter_type[0]
+            nb_filter, nb_row, nb_col, border_mode, k, dropout_rate, activation, normalization = \
+            convolution_filter_type[0]
 
             output = self.create_one_size_convolution_layer(
                 input_layer,
@@ -326,14 +324,14 @@ class CnnBaseClass(CommonModel):
         else:
             # 多size 卷积层
             output = self.create_multi_size_convolution_layer(
-                input_layer = input_layer,
+                input_layer=input_layer,
                 convolution_filter_type=convolution_filter_type,
                 **kwargs
             )
 
         return output
 
-    def check_param(self,**kwargs):
+    def check_param(self, **kwargs):
         '''
             检验参数的合法性,activation,normalization
 
@@ -342,68 +340,148 @@ class CnnBaseClass(CommonModel):
         '''
 
         if kwargs.has_key('activation'):
-            assert kwargs['activation'] in ['none', 'linear','relu'], 'create convolution layer error!activation 仅支持 none,linear,relu'
+            assert kwargs['activation'] in ['none', 'linear',
+                                            'relu'], 'create convolution layer error!activation 仅支持 none,linear,relu'
         if kwargs.has_key('normalization'):
-            assert  kwargs['normalization'] in ['none','batch_normalization'], 'create convolution layer error!normalization 仅支持 none,batch_normalization'
+            assert kwargs['normalization'] in ['none',
+                                               'batch_normalization'], 'create convolution layer error!normalization 仅支持 none,batch_normalization'
 
+        if kwargs.has_key('regularizer'):
+            assert kwargs['regularizer'] in ['l1', 'l2', 'l1l2', 'none'], 'regularizer 只能取 [l1,l2,l1l2,none]'
+
+        if kwargs.has_key('constraints'):
+            assert kwargs['constraints'] in ['maxnorm', 'none'], 'regularizer 只能取 [maxnorm,none]'
 
     def create_full_connected_layer(
             self,
             input_layer=None,
-            # input_shape=None,
             units=None,
     ):
-        '''
-            创建多层的全连接层
+        """创建多层的全连接层
 
-        :param input_layer: 上一层
-        :param units: 每一层全连接层的单元数，分别对应(unit，dropout rate，activation，normalization),for example
-                [(50,0.5,'relu','batch_normalization'), (100,0.25,'relu','none')]
-                假如units设置为0,则不使用隐含层
-        :type units: array-like
-        :return: output, output_shape
-        '''
+        Parameters
+        ----------
+        input_layer : object
+            上一层
+        units : array-like
+            - 每一层全连接层的单元数，分别对应
+            - 1. unit，
+            - 2. dropout rate，
+            - 3. activation，
+            - 4. normalization，
+            - 5. （regularizer，regularizer_value）)
+            - 6. （constraints，constraints_value）)
 
-        # from keras.models import Sequential
-        from keras.layers import Dense,Dropout,BatchNormalization,Activation,Reshape,Flatten
+        Returns
+        ----------
+        output: object
+
+        Notes
+        -----------
+        - 假如units设置为0,则不使用隐含层
+        - regularizer 只能取 [l1,l2,l1l2,none]
+        - regularizer 只能取 [maxnorm,none]
+
+        Examples
+        ---------
+        Create a units list:
+
+        >>> units =[
+        >>> [50,0.5,'relu','batch_normalization',('l2',0.1),('maxnorm',3)],
+        >>> [100,0.25,'relu','none'),('l1',0.1),('maxnorm',3)],
+        >>> [100,0.25,'relu','none'),('l1l2',0.1),('none',0)],
+        >>> ]
+
+        """
+
+        import keras.backend as K
+        from keras.layers import Dense, Dropout, BatchNormalization, Activation, Reshape, Flatten
+        from keras.regularizers import l2, l1, l1l2
+        from keras.constraints import maxnorm
         from custom_layers import TransposeLayer
         # output_layer = Sequential(name='full_connected_layer')
         output = input_layer
-        for index,unit in enumerate(units):
+        if K.ndim(output) != 2:
+            output = Flatten()(output)
 
-            if type(unit)==int:
+        regularizer, regularizer_value = None, None
+        constraints, constraints_value = None, None
+        for index, unit in enumerate(units):
+
+            if type(unit) == int:
                 unit = list([unit])
             num_dense = unit[0]
-            if len(unit)==1:
+            if len(unit) == 1:
                 dropout_rate = 0.
                 activation = 'linear'
                 normalization = 'none'
-            elif len(unit)==2:
+            elif len(unit) == 2:
                 dropout_rate = unit[1]
                 activation = 'linear'
                 normalization = 'none'
-            elif len(unit)==3:
+            elif len(unit) == 3:
                 dropout_rate = unit[1]
                 activation = unit[2]
                 normalization = 'none'
-            elif len(unit)==4:
+            elif len(unit) == 4:
                 dropout_rate = unit[1]
                 activation = unit[2]
                 normalization = unit[3]
+            elif len(unit) == 5:
+                dropout_rate = unit[1]
+                activation = unit[2]
+                normalization = unit[3]
+                regularizer, regularizer_value = unit[4]
+            elif len(unit) == 6:
+                dropout_rate = unit[1]
+                activation = unit[2]
+                normalization = unit[3]
+                regularizer, regularizer_value = unit[4]
+                constraints, constraints_value = unit[5]
             else:
                 raise NotImplementedError
 
-            self.check_param(activation=activation,normalization=normalization)
-            if num_dense==0:
+            self.check_param(activation=activation, normalization=normalization, regularizer=regularizer)
+            if num_dense == 0:
                 # 假如 设置为0,则不经过隐含层
                 pass
             else:
-                output = Dense(output_dim=num_dense, init="glorot_uniform")(output)
+                # region 设置 regularizers 和 constraints
+                if regularizer is not None:
+                    if regularizer == 'l1':
+                        W_regularizer = l1(regularizer_value)
+                    elif regularizer == 'l2':
+                        W_regularizer = l2(regularizer_value)
+                    elif regularizer == 'l1l2':
+                        assert len(regularizer_value) == 2, 'regularizer_value 应该有两维！'
+                        W_regularizer = l1l2(regularizer_value[0], regularizer_value[1])
+                    elif regularizer == 'none':
+                        W_regularizer = None
+                    else:
+                        raise NotImplementedError
+                else:
+                    W_regularizer = None
+                # 设置constraints
+                if regularizer is not None:
+                    if constraints == 'maxnorm':
+                        W_constraint = maxnorm(constraints_value)
+                    elif constraints=='none':
+                        W_constraint=None
+                    else:
+                        raise NotImplementedError
+                else:
+                    W_constraint = None
 
+                output = Dense(output_dim=num_dense,
+                               init="glorot_uniform",
+                               W_regularizer=W_regularizer,
+                               W_constraint=W_constraint,
+                               )(output)
+                # endregion
             # 增加一个 规范化层
             if normalization == 'batch_normalization':
                 output = TransposeLayer(axis=(0, 'x', 1))(output)
-                output = BatchNormalization(mode=2,axis=1)(output)
+                output = BatchNormalization(mode=2, axis=1)(output)
                 output = Flatten()(output)
             elif normalization == 'none':
                 pass
@@ -413,8 +491,8 @@ class CnnBaseClass(CommonModel):
             if activation != 'none':
                 output = Activation(activation)(output)
 
-            if dropout_rate>0:
-                output = Dropout(dropout_rate,name='full_connected_dropout%d_%.2f'%(index,dropout_rate))(output)
+            if dropout_rate > 0:
+                output = Dropout(dropout_rate, name='full_connected_dropout%d_%.2f' % (index, dropout_rate))(output)
 
         return output
 
@@ -426,7 +504,7 @@ class CnnBaseClass(CommonModel):
         :return:
         '''
 
-        from keras.optimizers import SGD
+        from keras.optimizers import SGD, Adadelta
         from keras.callbacks import EarlyStopping
 
         # 1. 创建CNN网络
@@ -443,7 +521,8 @@ class CnnBaseClass(CommonModel):
         if self.optimizers == 'sgd':
             optimizers = SGD(lr=self.lr, decay=1e-6, momentum=0.9, nesterov=True)
         elif self.optimizers == 'adadelta':
-            optimizers = 'adadelta'
+            # optimizers = 'adadelta'
+            optimizers = Adadelta(lr=self.lr, rho=0.95, epsilon=1e-6)
         else:
             optimizers = 'adadelta'
         self.model.compile(loss='categorical_crossentropy', optimizer=optimizers, metrics=['accuracy'])
@@ -453,8 +532,7 @@ class CnnBaseClass(CommonModel):
         if self.verbose > 1:
             logging.debug('-' * 20)
             print('-' * 20)
-        # -------------- region end : 2. 设置优化算法,earlystop等 ---------------
-
+            # -------------- region end : 2. 设置优化算法,earlystop等 ---------------
 
     def create_network(self):
         '''
@@ -475,8 +553,8 @@ class CnnBaseClass(CommonModel):
         '''
 
         print('这是common类的create_network函数，如需创建特定任务的模型，请覆盖该方法！')
-        from keras.layers import Embedding,Input, Activation, Reshape, Dropout, Dense, Flatten
-        from keras.models import  Model
+        from keras.layers import Embedding, Input, Activation, Reshape, Dropout, Dense, Flatten
+        from keras.models import Model
         from keras import backend as K
 
         # 1. 输入层
@@ -551,7 +629,6 @@ class CnnBaseClass(CommonModel):
         :return: feature
         '''
 
-
         feature = self.feature_encoder.transform(data)
 
         return feature
@@ -602,21 +679,21 @@ class CnnBaseClass(CommonModel):
             nb_epoch=self.nb_epoch,
             verbose=self.verbose,
             # validation_split=0.1,
-            validation_data=(validation_X, validation_y) if self.kwargs.get('show_validate_accuracy',True) else None,
+            validation_data=(validation_X, validation_y) if self.kwargs.get('show_validate_accuracy', True) else None,
             shuffle=True,
             batch_size=self.batch_size,
             callbacks=[self.early_stop]
         )
 
-        train_loss,train_accuracy = self.model.evaluate(train_X, train_y,verbose=0)
-        val_loss,val_accuracy = self.model.evaluate(validation_X, validation_y,verbose=0)
+        train_loss, train_accuracy = self.model.evaluate(train_X, train_y, verbose=0)
+        val_loss, val_accuracy = self.model.evaluate(validation_X, validation_y, verbose=0)
 
         # -------------- code start : 结束 -------------
         if self.verbose > 1:
             logging.debug('-' * 20)
             print('-' * 20)
         # -------------- region end : 2. 模型训练 ---------------
-        return train_loss,train_accuracy,val_loss,val_accuracy
+        return train_loss, train_accuracy, val_loss, val_accuracy
 
     def save_model(self, path):
         '''
@@ -628,7 +705,7 @@ class CnnBaseClass(CommonModel):
 
         model_file = open(path, 'wb')
         pickle.dump(self.feature_encoder, model_file)
-        pickle.dump(self.model,  model_file)
+        pickle.dump(self.model, model_file)
 
     def model_from_pickle(self, path):
         '''
@@ -716,14 +793,14 @@ class CnnBaseClass(CommonModel):
         elif layer == 'hidden2':
             output = self.last_hidden_layer([sentence, 0])[0]
         elif layer == 'conv1':
-            assert self.conv1_feature_output is not None,'没有设置 conv1_feature_output！'
+            assert self.conv1_feature_output is not None, '没有设置 conv1_feature_output！'
             output = self.conv1_feature_output([sentence, 0])[0]
         elif layer == 'conv2':
-            assert self.conv2_feature_output is not None,'没有设置 conv2_feature_output！'
+            assert self.conv2_feature_output is not None, '没有设置 conv2_feature_output！'
             output = self.conv2_feature_output([sentence, 0])[0]
         else:
             raise NotImplementedError
-        output = output.reshape(len(sentence),-1)
+        output = output.reshape(len(sentence), -1)
 
         # -------------- print start : just print info -------------
         if self.verbose > 2:
@@ -775,7 +852,7 @@ class CnnBaseClass(CommonModel):
         # -------------- code start : 开始 -------------
 
         y_pred = self.batch_predict(test_X)
-        test_loss,test_accuracy = self.model.evaluate(
+        test_loss, test_accuracy = self.model.evaluate(
             test_X,
             self.to_categorical(test_y),
             verbose=0,
@@ -801,7 +878,7 @@ class CnnBaseClass(CommonModel):
         accu = sum(is_correct) / (1.0 * len(test_y))
         logging.debug('准确率为:%f' % (accu))
         print('准确率为:%f' % (accu))
-        print('测试误差为：%f'%test_loss)
+        print('测试误差为：%f' % test_loss)
         f1 = f1_score(test_y, y_pred.tolist(), average=None)
         logging.debug('F1为：%s' % (str(f1)))
         print('F1为：%s' % (str(f1)))
@@ -812,7 +889,7 @@ class CnnBaseClass(CommonModel):
             print('-' * 20)
         # -------------- region end : 3 & 4. 计算准确率和F1值 ---------------
 
-        return y_pred, is_correct, accu, f1,test_loss
+        return y_pred, is_correct, accu, f1, test_loss
 
     def print_model_descibe(self):
         import pprint
@@ -829,4 +906,3 @@ class CnnBaseClass(CommonModel):
         pprint.pprint(detail)
         logging.debug(detail)
         return detail
-

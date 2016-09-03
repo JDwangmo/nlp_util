@@ -323,10 +323,12 @@ class FeatureEncoder(object):
         :type path: str
         :return:
         """
+
         if self.word2vec_model is None:
             w2v_util = Word2vecUtil()
             self.word2vec_model = w2v_util.load(path)
         size = self.vocabulary_size
+
         embedding_weights = np.zeros((size, self.word2vec_model.vector_size))
         words_count_no_in = 0
         words_count_in = 0
@@ -443,11 +445,8 @@ class FeatureEncoder(object):
         self.vocabulary_size = len(self.train_data_dict.keys())
         # 按索引从小到大排序
         self.vocabulary = [token for token, id in sorted(self.train_data_dict.token2id.items(), key=lambda x: x[1])]
-        print(self.vocabulary_size)
-        # print(self.vocabulary)
-        # for item in self.vocabulary:
-        #     print(item)
-        print((self.train_data_dict.token2id.items()))
+        # print(self.vocabulary_size)
+        # print((self.train_data_dict.token2id.items()))
         # quit()
 
         # -------------- print start : just print info -------------
@@ -654,12 +653,10 @@ class FeatureEncoder(object):
         logging.debug('=' * 20)
         if train_X is None:
             logging.debug('没有输入训练数据!')
-            print('没有输入训练数据!')
-            quit()
+            assert False,'没有输入训练数据!'
         if test_X is None:
             logging.debug('构建字典需要全部数据，请输入测试数据!')
-            print('构建字典需要全部数据，请输入测试数据!')
-            quit()
+            assert False,'构建字典需要全部数据，请输入测试数据!'
 
         # region -------------- 1.构建训练库字典 -------------
         if self.verbose > 1:
@@ -829,9 +826,14 @@ def test_word_onehot():
         word2vec_to_solve_oov=False,
 
     )
+    train_padding_index = feature_encoder.fit_transform(train_data=train_data,test_data=train_data)
+
+    embedding_weight = feature_encoder.to_embedding_weight(
+        feature_encoder,
+        '/home/jdwang/PycharmProjects/nlp_util/data_processing_util/word2vec_util/vector/v2.3_train_Sa_891_word_50dim.gem')
+
     quit()
     # 拟合数据
-    train_padding_index = feature_encoder.fit_transform(train_data=train_data)
     print(feature_encoder.print_model_descibe())
     print(','.join(feature_encoder.vocabulary))
 
