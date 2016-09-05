@@ -3,14 +3,17 @@
     Author:  'jdwang'
     Date:    'create date: 2016-08-02'
     Email:   '383287471@qq.com'
-    Describe: 单层卷积层的 CNN（static-w2v） or CNN(non-static-w2v) 模型
+    Describe: 单层卷积层的 CNN（w2v）
+        模型编号： CNN_A00
         - 输入层
         - valid convolution layer： 多size
         - 1-max pooling： 句子方向
         - softmax output layer
 
     Notes
-
+        CNN(rand): rand_weight=True, embedding_weight_trainable =True
+        CNN(static-w2v): rand_weight = False, embedding_weight_trainable =False
+        CNN(non-static-w2v): rand_weight = False, embedding_weight_trainable =True
 
     更多可参考： https://github.com/JDwangmo/coprocessor/tree/master/reference#2convolutional-neural-networks-for-sentence-classification
 
@@ -34,29 +37,52 @@ class WordEmbeddingCNNWithOneConv(object):
             **kwargs
     ):
         # print(WordEmbeddingCNNWithOneConv.weight)
-        if kwargs['dataset_flag']==0:
+        """获取 CNN(w2v)模型
+
+        Parameters
+        ----------
+        feature_encoder : FeatureEncoder
+            特征编码器
+        num_filter : int
+        num_labels : int
+        word2vec_model_file_path : str
+        kwargs : dict
+            - dataset_flag
+            - rand_weight : (default,False)设置为 True 时，为 CNN(rand) 模型
+            - verbose
+            - embedding_weight_trainable
+
+        Returns
+        -------
+
+        """
+        if kwargs.get('rand_weight',False):
+            # CNN(rand)模式
+            weight = None
+        elif kwargs['dataset_flag'] == 0:
             if WordEmbeddingCNNWithOneConv.train_data_weight is None:
                 # 训练集
-                WordEmbeddingCNNWithOneConv.train_data_weight = feature_encoder.to_embedding_weight(word2vec_model_file_path)
-
+                WordEmbeddingCNNWithOneConv.train_data_weight = feature_encoder.to_embedding_weight(
+                    word2vec_model_file_path)
             weight = WordEmbeddingCNNWithOneConv.train_data_weight
-
         else:
             # kwargs['dataset_flag']>0
             if WordEmbeddingCNNWithOneConv.val_data_weight is None:
-                WordEmbeddingCNNWithOneConv.val_data_weight = feature_encoder.to_embedding_weight(word2vec_model_file_path)
+                WordEmbeddingCNNWithOneConv.val_data_weight = feature_encoder.to_embedding_weight(
+                    word2vec_model_file_path)
             weight = WordEmbeddingCNNWithOneConv.val_data_weight
-        print(weight)
+        # print(weight)
         static_w2v_cnn = WordEmbeddingCNN(
             rand_seed=1377,
             verbose=kwargs.get('verbose', 0),
             feature_encoder=feature_encoder,
             # optimizers='adadelta',
             optimizers='sgd',
-            # word_embedding_dim=300,
+            # 当使用CNN (rand) 模式的时候使用到了
+            word_embedding_dim=300,
             # 设置embedding使用训练好的w2v模型初始化
             embedding_init_weight=weight,
-            # 设置为训练时embedding层权重不变
+            # 默认设置为训练时embedding层权重不变
             embedding_weight_trainable=kwargs.get('embedding_weight_trainable', False),
             num_labels=num_labels,
             l1_conv_filter_type=[
@@ -93,6 +119,7 @@ class WordEmbeddingCNNWithOneConv(object):
             word2vec_model_file_path=None,
             num_labels=24,
             embedding_weight_trainable=False,
+            rand_weight=False,
             need_validation=True,
             include_train_data=True,
             vocabulary_including_test_set=True,
@@ -109,6 +136,7 @@ class WordEmbeddingCNNWithOneConv(object):
         include_train_data: 是否包含训练数据一样验证
         need_validation: 是否要验证
         embedding_weight_trainable: 切换 CNN(static-w2v) 和 CNN(non-static-w2v)
+        rand_weight : 切换 CNN（rand） or CNN（static/non-static-w2v）
         train_data:
         test_data
         cv_data
@@ -149,7 +177,7 @@ class WordEmbeddingCNNWithOneConv(object):
         print('feature_type:%s,need_segmented:%s,vocabulary_including_test_set:%s' % (feature_type,
                                                                                       need_segmented,
                                                                                       vocabulary_including_test_set))
-        print('embedding_weight_trainable:%s' % embedding_weight_trainable)
+        print('rand_weight:%s,embedding_weight_trainable:%s' % (rand_weight,embedding_weight_trainable))
         print('=' * 80)
 
         from data_processing_util.cross_validation_util import transform_cv_data, get_k_fold_data, get_val_score
@@ -187,6 +215,7 @@ class WordEmbeddingCNNWithOneConv(object):
                           word2vec_model_file_path=word2vec_model_file_path,
                           embedding_weight_trainable=embedding_weight_trainable,
                           need_validation=need_validation,
+                          rand_weight=rand_weight,
                           )
 
 
