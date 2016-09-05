@@ -378,14 +378,14 @@ class BowRandomForest(CommonModel):
             word2vec_to_solve_oov=word2vec_to_solve_oov,
             word2vec_model_file_path=word2vec_model_file_path,
         )
-        cv_data = transform_cv_data(feature_encoder, cv_data, verbose=0)
+        cv_data = transform_cv_data(feature_encoder, cv_data, verbose=0,diff_train_val_feature_encoder=False)
 
         # 交叉验证
         for n_estimators in n_estimators_list:
             print('=' * 40)
             print('n_estimators is %d.' % n_estimators)
             get_val_score(BowRandomForest,
-                          cv_data=cv_data,
+                          cv_data=cv_data[:],
                           verbose=verbose,
                           shuffle_data=shuffle_data,
                           n_estimators=n_estimators,

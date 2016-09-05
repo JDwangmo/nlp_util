@@ -242,14 +242,14 @@ class WordEmbeddingCNN(CnnBaseClass):
 
     @staticmethod
     def get_feature_encoder(**kwargs):
-        '''
+        """
             获取该分类器的特征编码器
 
         :param kwargs:  可设置参数 [ input_length(*), full_mode(#,False), feature_type(#,word),verbose(#,0)],加*表示必须提供，加#表示可选，不写则默认。
         :return:
-        '''
+        """
 
-        assert kwargs.has_key('input_length'),'请提供 input_length 的属性值'
+        assert kwargs.has_key('input_length') , '请提供 input_length 的属性值'
 
         from data_processing_util.feature_encoder.onehot_feature_encoder import FeatureEncoder
         feature_encoder = FeatureEncoder(
@@ -266,6 +266,7 @@ class WordEmbeddingCNN(CnnBaseClass):
             add_unkown_word=True,
             feature_type=kwargs.get('feature_type', 'word'),
             vocabulary_including_test_set=kwargs.get('vocabulary_including_test_set',True),
+            update_dictionary=kwargs.get('update_dictionary', True)
         )
 
         return feature_encoder

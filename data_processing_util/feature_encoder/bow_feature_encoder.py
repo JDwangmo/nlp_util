@@ -189,8 +189,10 @@ class FeatureEncoder(object):
 
         return segmented_sentence
 
+    def reset(self):
+        pass
 
-    def fit_transform(self, train_data=None):
+    def fit_transform(self, train_data=None,test_data=None):
         '''
             build feature encoder
                 1. 转换数据格式，并分词

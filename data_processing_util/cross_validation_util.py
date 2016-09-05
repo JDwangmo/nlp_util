@@ -27,7 +27,7 @@ __all__ = ['data_split_k_fold',
 def data_split_k_fold(
         k=5,
         data=None,
-        rand_seed = 2,
+        rand_seed=2,
 ):
     '''
         将数据分为平均分为 K-部分，尽量按类别平均分
@@ -65,13 +65,13 @@ def data_split_k_fold(
             cross_validation_y_split[index % k].append(label)
 
     for x, y in zip(cross_validation_X_split.values(), cross_validation_y_split.values()):
-        yield x, np.asarray(y,dtype=int)
+        yield x, np.asarray(y, dtype=int)
 
 
 def get_splitted_k_fold_data_index(
         k=5,
         data=None,
-        rand_seed = 2,
+        rand_seed=2,
 ):
     '''
         将数据分为平均分为 K-部分，尽量按类别平均分, 最终数据 每折数据的索引
@@ -104,18 +104,19 @@ def get_splitted_k_fold_data_index(
             index += start_index
             cross_validation_index_split[index % k].append(item)
 
-    for cv_index,data_index_list in cross_validation_index_split.iteritems():
+    for cv_index, data_index_list in cross_validation_index_split.iteritems():
         # print(cv_index,data_index_list)
-        data.loc[data_index_list,'CV_INDEX'] = cv_index
+        data.loc[data_index_list, 'CV_INDEX'] = cv_index
 
     data['CV_INDEX'] = data['CV_INDEX'].astype(dtype='int')
     # print(data['CV_INDEX'].values)
     return data['CV_INDEX'].values
 
+
 def get_k_fold_data(
         k=3,
         train_data=None,
-        test_data = None,
+        test_data=None,
         include_train_data=True,
         rand_seed=0,
         **kwargs
@@ -137,7 +138,8 @@ def get_k_fold_data(
     test_X, test_y = test_data
     cv_data = []
     if include_train_data:
-        cv_data.append((train_X,train_y,test_X,test_y))
+        # 第一位为 标记位，0表示训练集
+        cv_data.append((0, train_X, train_y, test_X, test_y))
 
     # 获取 K 份数据
     k_fold_data_x = []
@@ -149,14 +151,16 @@ def get_k_fold_data(
     for val_index in range(len(k_fold_data_x)):
         # val set
         val_X, val_y = k_fold_data_x[val_index], k_fold_data_y[val_index]
-        val_y= np.asarray(val_y)
+        val_y = np.asarray(val_y)
         # dev set
         dev_X = k_fold_data_x[:val_index] + k_fold_data_x[val_index + 1:]
         dev_y = k_fold_data_y[:val_index] + k_fold_data_y[val_index + 1:]
         dev_X = np.concatenate(dev_X)
         dev_y = np.concatenate(dev_y)
-        cv_data.append((dev_X, dev_y, val_X,val_y))
+        # 第一位为 标记位，从1开始，表示验证集
+        cv_data.append((val_index + 1, dev_X, dev_y, val_X, val_y))
     return cv_data
+
 
 def transform_cv_data(
         feature_encoder=None,
@@ -168,28 +172,36 @@ def transform_cv_data(
 
     :param feature_encoder: 特征编码器
     :param cv_data: array-like，[[],[]]，k份数据对应k个列表
-    :param kwargs: verbose[#,0]
+    :param kwargs: verbose[#,0], diff_train_val_feature_encoder[#,True]
     :return: cv_features,k 份，每一份 对应（dev_x_features, dev_y, val_x_features, val_y,feature_encoder）
+
+    Notes
+    ---------
+    - 设置 diff_train_val_feature_encoder 为 True ，可以保证 训练集上的feature encoder 和验证集上的 不同
+
     '''
 
     cv_features = []
-
-    for dev_x,dev_y,val_x,val_y in cv_data:
-        dev_x_features = feature_encoder.fit_transform(dev_x,val_x)
+    for flag, dev_x, dev_y, val_x, val_y in cv_data:
+        # print(flag)
+        dev_x_features = feature_encoder.fit_transform(dev_x, val_x)
         val_x_features = feature_encoder.transform(val_x)
         # feature_encoder.print_model_descibe()
 
-        cv_features.append((dev_x_features,dev_y,val_x_features,val_y,copy.deepcopy(feature_encoder)))
+        cv_features.append((flag, dev_x_features, dev_y, val_x_features, val_y, copy.deepcopy(feature_encoder)))
 
-        if kwargs.get('verbose',0)>0:
+        if kwargs.get('verbose', 0) > 0:
             print(','.join(feature_encoder.vocabulary))
-            print('vocabulary_size: %d'%(feature_encoder.vocabulary_size))
-            print('dev shape:(%s)'%str(dev_x_features.shape))
-            print('val shape:(%s)'%str(val_x_features.shape))
+            print('vocabulary_size: %d' % (feature_encoder.vocabulary_size))
+            print('dev shape:(%s)' % str(dev_x_features.shape))
+            print('val shape:(%s)' % str(val_x_features.shape))
 
-        if kwargs.get('verbose',0)>1:
+        if kwargs.get('verbose', 0) > 1:
             feature_encoder.print_sentence_length_detail()
-
+        if kwargs.get('diff_train_val_feature_encoder', True):
+            # 如果设置 让 训练集 和验证集 上的 feature encoder 不同，则训练完训练集feature encoder后清理对象数据
+            if flag == 0:
+                feature_encoder.reset()
 
     # feature_encoder = None
 
@@ -214,18 +226,22 @@ def get_val_score(
 
     # K折
     print('K折交叉验证开始...')
-    counter = 0
+    # counter = 0
     test_acc = []
     train_acc = []
-    for dev_X, dev_y, val_X, val_y, feature_encoder in cv_data:
+    exclude_first = False
+    while len(cv_data) != 0:
+        flag, dev_X, dev_y, val_X, val_y, feature_encoder = cv_data.pop(0)
         # print(len(dev_X))
         print('-' * 80)
-        if counter == 0:
+        if flag == 0:
             # 第一个数据是训练，之后是交叉验证
             print('训练:')
-
+            # 因为第一份是训练排除掉
+            exclude_first = True
         else:
-            print('第%d个验证' % counter)
+            print('第%d个验证' % flag)
+        parameters['dataset_flag'] = flag
         parameters['feature_encoder'] = feature_encoder
         # 构建分类器对象
         # print(parameters)
@@ -237,6 +253,7 @@ def get_val_score(
             # print(dev_y)
 
         # 拟合数据
+        # dev_loss, dev_accuracy, val_loss, val_accuracy = 0,0,0,0
         dev_loss, dev_accuracy, val_loss, val_accuracy = estimator.fit((dev_X, dev_y), (val_X, val_y))
 
         print('dev:%f,%f' % (dev_loss, dev_accuracy))
@@ -244,17 +261,15 @@ def get_val_score(
 
         test_acc.append(val_accuracy)
         train_acc.append(dev_accuracy)
-        if not parameters.get('need_validation','True'):
+        if not parameters.get('need_validation', 'True'):
             break
-        counter += 1
-        del feature_encoder
+            # counter += 1
 
     print('k折验证结果：%s' % test_acc)
     print('验证中训练数据结果：%s' % train_acc)
-    print('验证中测试数据平均准确率：%f' % np.average(test_acc[1:]))
-    print('测试结果汇总：%s'%(test_acc+[np.average(test_acc[1:])]))
-    print('%s,%s'%(train_acc,test_acc))
+    print('验证中测试数据平均准确率：%f' % np.average(test_acc[int(exclude_first):]))
+    print('测试结果汇总：%s' % (test_acc + [np.average(test_acc[int(exclude_first):])]))
+    print('%s,%s' % (train_acc, test_acc))
     print('-' * 80)
 
-    return test_acc + [np.average(test_acc[1:])],train_acc
-
+    return test_acc + [np.average(test_acc[1:])], train_acc

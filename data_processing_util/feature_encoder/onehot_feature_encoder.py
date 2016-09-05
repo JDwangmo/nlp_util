@@ -27,6 +27,7 @@ class FeatureEncoder(object):
             9. print_model_descibe: 打印模型的详情.
             10. sentence_index_to_bow: 将索引转为onehot数据
             11. to_onehot_array： 生成训练库句子的onehot编码
+            12. reset： clear 数据
 
         注意：
             1. 训练库中所有词，包括未知词字符（UNKOWN），的字典索引都是从1开始分配的，索引0是作为填充字符所用。
@@ -91,7 +92,11 @@ class FeatureEncoder(object):
             :type to_onehot_array: bool
             :param word2vec_to_solve_oov: 使用word2vec扩展oov词
             :type word2vec_to_solve_oov: bool
-            :param kwargs: word2vec_model_file_path,vocabulary_including_test_set等
+            :param kwargs:
+                - word2vec_model_file_path:
+                - vocabulary_including_test_set: (default,True)
+                - update_dictionary: (default,True)
+                - 等
 
         """
         self.full_mode = full_mode
@@ -298,19 +303,21 @@ class FeatureEncoder(object):
         -------
         (array,str)
         """
+
         try:
             if word == u'PADDING':
                 vector = np.zeros(self.word2vec_model.vector_size)
                 flag = 'PADDING'
-            # elif word == u'UNKOWN':
-            #     vector = self.get_unkown_vector(self.word2vec_model.vector_size)
-            #     flag = 'NO_IN'
+            elif word == u'UNKOWN':
+                # 当训练
+                vector = self.get_unkown_vector(self.word2vec_model.vector_size)
+                flag = 'NO_IN_MODEL_VOCAB'
             else:
                 vector = self.word2vec_model[word]
                 flag = 'OK'
         except:
             vector = self.get_unkown_vector(self.word2vec_model.vector_size)
-            flag = 'NO_IN'
+            flag = 'NO_IN_W2V'
         return np.asarray(vector), flag
 
     def to_embedding_weight(self, path):
@@ -330,21 +337,25 @@ class FeatureEncoder(object):
         size = self.vocabulary_size
 
         embedding_weights = np.zeros((size, self.word2vec_model.vector_size))
-        words_count_no_in = 0
+        words_count_no_in_w2v = 0
+        words_count_no_in_vacab = 0
         words_count_in = 0
         words_count_paddding = 0
         for key, value in self.train_data_dict.token2id.items():
             vector, flag = self.get_w2vEmbedding(key)
             embedding_weights[value, :] = vector
-            if flag== 'NO_IN':
-                words_count_no_in+=1
+            if flag== 'NO_IN_W2V':
+                words_count_no_in_w2v+=1
+            if flag== 'NO_IN_MODEL_VOCAB':
+                words_count_no_in_vacab+=1
             if flag== 'OK':
                 words_count_in+=1
                 # print(key)
             if flag =='PADDING':
                 words_count_paddding+=1
         if self.verbose>0:
-            print('没有出现在w2v模型中的词有：%d个'%(words_count_no_in))
+            print('没有出现在w2v模型中的词有：%d个'%(words_count_no_in_w2v))
+            print('没有出现在模型vocab中的词有：%d个'%(words_count_no_in_vacab))
             print('出现在w2v模型中的词有：%d个'%(words_count_in))
 
         # self.embedding_weights = embedding_weights
@@ -435,12 +446,12 @@ class FeatureEncoder(object):
 
         # 更新字典,再字典中添加特殊符号,其中
         # UNKOWN表示未知字符,即OOV词汇
-        # if self.add_unkown_word:
-        #     self.train_data_dict.add_documents([[u'UNKOWN']])
+        if self.add_unkown_word:
+            self.train_data_dict.add_documents([[u'UNKOWN']])
 
         # 获取padding和UNKOWN 的字典索引
         self.padding_token_index = self.train_data_dict.token2id.get(u'PADDING', -1)
-        # self.unknow_token_index = self.train_data_dict.token2id.get(u'UNKOWN', -1)
+        self.unknow_token_index = self.train_data_dict.token2id.get(u'UNKOWN', -1)
 
         self.vocabulary_size = len(self.train_data_dict.keys())
         # 按索引从小到大排序
@@ -517,13 +528,18 @@ class FeatureEncoder(object):
 
         """
 
-        # if self.add_unkown_word:
-        #     unknow_token_index = self.train_data_dict.token2id[u'UNKOWN']
-        # else:
-        #     unknow_token_index = 0
+        if self.add_unkown_word:
+            unknow_token_index = self.train_data_dict.token2id[u'UNKOWN']
+        else:
+            unknow_token_index = 0
         # 将训练库中所有句子的每个词映射到索引上,变成索引列表
-        index = [self.train_data_dict.token2id.get(item, -1) for item in sentence.split()]
-        assert not index.__contains__(-1),'%s出现OOV词'%sentence
+        index = [self.train_data_dict.token2id.get(item, unknow_token_index) for item in sentence.split()]
+        if self.verbose>0:
+            if index.__contains__(unknow_token_index):
+                print('出现字典OOV')
+                print(sentence)
+                print(index)
+        # assert not index.__contains__(-1),u'出现OOV词'
         return index
 
     def sentence_padding(self, sentence):
@@ -650,6 +666,11 @@ class FeatureEncoder(object):
             编码后的列表
         """
 
+        if not self.kwargs.get('update_dictionary',True):
+            # 假如不更新字典，则如果原有的字典在，就直接用原有的字典即可
+            if self.vocabulary is not None:
+                return self
+
         logging.debug('=' * 20)
         if train_X is None:
             logging.debug('没有输入训练数据!')
@@ -768,6 +789,14 @@ class FeatureEncoder(object):
         # print train_index[:5]
 
         return np.asarray(index)
+
+    def reset(self):
+        """
+        清理对象中的数据
+           - self.vocabulary
+
+        """
+        self.vocabulary = None
 
     def print_model_descibe(self):
         '''
