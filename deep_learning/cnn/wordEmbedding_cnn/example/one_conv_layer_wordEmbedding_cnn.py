@@ -195,7 +195,7 @@ class WordEmbeddingCNNWithOneConv(object):
         feature_encoder = WordEmbeddingCNN.get_feature_encoder(
             need_segmented=need_segmented,
             input_length=input_length,
-            verbose=1,
+            verbose=0,
             feature_type=feature_type,
             # 设置字典保持一致
             update_dictionary=False,
