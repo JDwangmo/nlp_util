@@ -267,6 +267,7 @@ class FeatureEncoder(object):
 
     def print_sentence_length_detail(
             self,
+            data = None,
             lengths=[7, 10, 15, 20],
     ):
         '''
@@ -278,9 +279,9 @@ class FeatureEncoder(object):
         :rtype: list
         '''
         if self.need_segmented:
-            sentence_length = map(self.get_sentence_length, self.train_data)
+            sentence_length = map(self.get_sentence_length, data)
         else:
-            sentence_length = map(lambda x: len(x.split()), self.train_data)
+            sentence_length = map(lambda x: len(x.split()), data)
         for l in lengths:
             le_this_len = sum(np.asarray(sentence_length) <= l) / (1.0 * len(sentence_length))
             print('句子长度小于等于%d的有：%f' % (l, le_this_len))

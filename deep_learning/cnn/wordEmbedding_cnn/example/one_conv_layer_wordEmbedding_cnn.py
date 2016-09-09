@@ -94,7 +94,7 @@ class WordEmbeddingCNNWithOneConv(object):
             full_connected_layer_units=[],
             embedding_dropout_rate=0.,
             nb_epoch=30,
-            nb_batch=32,
+            nb_batch=kwargs.get('nb_batch',32),
             earlyStoping_patience=30,
             lr=1e-2,
             show_validate_accuracy=True if kwargs.get('verbose', 0) > 0 else False,
@@ -115,6 +115,7 @@ class WordEmbeddingCNNWithOneConv(object):
             num_filter_list=None,
             verbose=0,
             cv=3,
+            nb_batch = 32,
             need_segmented=True,
             word2vec_model_file_path=None,
             num_labels=24,
@@ -181,6 +182,7 @@ class WordEmbeddingCNNWithOneConv(object):
         print('=' * 80)
 
         from data_processing_util.cross_validation_util import transform_cv_data, get_k_fold_data, get_val_score
+
         # 1. 获取交叉验证的数据
         if cv_data is None:
             assert train_data is not None, 'cv_data和train_data必须至少提供一个！'
@@ -195,7 +197,7 @@ class WordEmbeddingCNNWithOneConv(object):
         feature_encoder = WordEmbeddingCNN.get_feature_encoder(
             need_segmented=need_segmented,
             input_length=input_length,
-            verbose=0,
+            verbose=1,
             feature_type=feature_type,
             # 设置字典保持一致
             update_dictionary=False,
@@ -216,6 +218,7 @@ class WordEmbeddingCNNWithOneConv(object):
                           embedding_weight_trainable=embedding_weight_trainable,
                           need_validation=need_validation,
                           rand_weight=rand_weight,
+                          nb_batch=nb_batch,
                           )
 
 

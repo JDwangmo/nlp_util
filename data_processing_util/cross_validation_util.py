@@ -123,6 +123,12 @@ def get_k_fold_data(
 ):
     '''
         将数据分为K-fold,并获取交叉验证的  k份 (dev_set, val_set)
+        每份 格式为 ：
+            - train_or_dev_flag(0==train,1~=dev),
+            - train_X,
+            - train_y,
+            - test_X,
+            - test_y
 
     :param k: 几折
     :param train_data:
@@ -189,7 +195,6 @@ def transform_cv_data(
         # feature_encoder.print_model_descibe()
 
         cv_features.append((flag, dev_x_features, dev_y, val_x_features, val_y, copy.deepcopy(feature_encoder)))
-
         if kwargs.get('verbose', 0) > 0:
             print(','.join(feature_encoder.vocabulary))
             print('vocabulary_size: %d' % (feature_encoder.vocabulary_size))
@@ -197,7 +202,8 @@ def transform_cv_data(
             print('val shape:(%s)' % str(val_x_features.shape))
 
         if kwargs.get('verbose', 0) > 1:
-            feature_encoder.print_sentence_length_detail()
+            feature_encoder.print_sentence_length_detail(dev_x)
+            feature_encoder.print_sentence_length_detail(val_x)
         if kwargs.get('diff_train_val_feature_encoder', True):
             # 如果设置 让 训练集 和验证集 上的 feature encoder 不同，则训练完训练集feature encoder后清理对象数据
             if flag == 0:
