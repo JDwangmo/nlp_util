@@ -202,6 +202,7 @@ def transform_cv_data(
             print('val shape:(%s)' % str(val_x_features.shape))
 
         if kwargs.get('verbose', 0) > 1:
+            feature_encoder.print_sentence_length_detail(np.concatenate((dev_x,val_x),axis=0))
             feature_encoder.print_sentence_length_detail(dev_x)
             feature_encoder.print_sentence_length_detail(val_x)
         if kwargs.get('diff_train_val_feature_encoder', True):
