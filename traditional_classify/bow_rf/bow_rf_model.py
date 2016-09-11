@@ -1,4 +1,4 @@
-#encoding=utf8
+# encoding=utf8
 from __future__ import print_function
 
 __author__ = 'jdwang'
@@ -16,6 +16,7 @@ import cPickle as pickle
 from gensim.models import Word2Vec
 import pprint
 
+
 class BowRandomForest(CommonModel):
     '''
         使用BOW或者TFIDF作为特征输入，使用random forest作为分类器
@@ -27,8 +28,8 @@ class BowRandomForest(CommonModel):
     def __init__(self,
                  rand_seed=1337,
                  verbose=0,
-                 n_estimators = 200,
-                 min_samples_leaf = 2,
+                 n_estimators=200,
+                 min_samples_leaf=2,
                  feature_encoder=None,
 
                  ):
@@ -60,7 +61,6 @@ class BowRandomForest(CommonModel):
         # random forest model
         self.model = None
 
-
     def transform(self, data):
         '''
             批量转换数据转换数据
@@ -91,11 +91,10 @@ class BowRandomForest(CommonModel):
         :return:
         '''
         fout = open(path, 'wb')
-        pickle.dump(self.model,fout)
+        pickle.dump(self.model, fout)
         pickle.dump(self.feature_encoder, fout)
 
-
-    def batch_predict_bestn(self, sentences,transform_input=False, bestn=1):
+    def batch_predict_bestn(self, sentences, transform_input=False, bestn=1):
         '''
             批量预测句子的类别,对输入的句子进行预测
 
@@ -113,11 +112,11 @@ class BowRandomForest(CommonModel):
         assert len(sentences.shape) == 2, 'shape必须是2维的！'
 
         y_pred_prob = self.model.predict_proba(sentences)
-        y_pred_result = y_pred_prob.argsort(axis=-1)[:,::-1][:,:bestn]
-        y_pred_score = np.asarray([score[index] for score,index in zip(y_pred_prob,y_pred_result)])
-        return y_pred_result,y_pred_score
+        y_pred_result = y_pred_prob.argsort(axis=-1)[:, ::-1][:, :bestn]
+        y_pred_score = np.asarray([score[index] for score, index in zip(y_pred_prob, y_pred_result)])
+        return y_pred_result, y_pred_score
 
-    def batch_predict(self, sentences,transform_input=False):
+    def batch_predict(self, sentences, transform_input=False):
         '''
             批量预测句子的类别,对输入的句子进行预测
 
@@ -126,7 +125,7 @@ class BowRandomForest(CommonModel):
         :param transform: 是否转换句子，如果为True,输入原始字符串句子即可，内部已实现转换。
         :type transform: bool
         '''
-        y_pred,_ = self.batch_predict_bestn(sentences,transform_input,1)
+        y_pred, _ = self.batch_predict_bestn(sentences, transform_input, 1)
         y_pred = np.asarray(y_pred).flatten()
 
         return y_pred
@@ -157,10 +156,9 @@ class BowRandomForest(CommonModel):
         validation_X, validation_y = validation_data
         validation_X = np.asarray(validation_X)
 
-
         # -------------- code start : 结束 -------------
         # -------------- region start : 训练模型 -------------
-        if self.verbose > 2 :
+        if self.verbose > 2:
             logging.debug('-' * 20)
             print('-' * 20)
             logging.debug('训练模型')
@@ -175,19 +173,19 @@ class BowRandomForest(CommonModel):
         forest.fit(train_X, train_y)
         self.model = forest
 
-        y_pred, is_correct, dev_accuracy, f1 = self.accuracy((train_X,train_y),transform_input=False)
-        y_pred, is_correct, val_accuracy, f1 = self.accuracy((validation_X,validation_y),transform_input=False)
+        y_pred, is_correct, dev_accuracy, f1 = self.accuracy((train_X, train_y), transform_input=False)
+        y_pred, is_correct, val_accuracy, f1 = self.accuracy((validation_X, validation_y), transform_input=False)
 
-        dev_loss,val_loss = 0, 0
+        dev_loss, val_loss = 0, 0
 
         # -------------- code start : 结束 -------------
-        if self.verbose > 2 :
+        if self.verbose > 2:
             logging.debug('-' * 20)
             print('-' * 20)
         # -------------- region end : 训练模型 ---------------
         return dev_loss, dev_accuracy, val_loss, val_accuracy
 
-    def predict(self, sentence,transform_input=False):
+    def predict(self, sentence, transform_input=False):
         '''
             预测一个句子的类别,对输入的句子进行预测
 
@@ -196,7 +194,7 @@ class BowRandomForest(CommonModel):
         :param transform: 是否转换句子，如果为True,输入原始字符串句子即可，内部已实现转换成字典索引的形式。
         :type transform: bool
         '''
-        y_pred = self.batch_predict([sentence],transform_input)[0]
+        y_pred = self.batch_predict([sentence], transform_input)[0]
         return y_pred
 
     def print_model_descibe(self):
@@ -212,7 +210,7 @@ class BowRandomForest(CommonModel):
         logging.debug(detail)
         return detail
 
-    def accuracy(self, test_data,transform_input=False):
+    def accuracy(self, test_data, transform_input=False):
         '''
             预测,对输入的句子进行预测,并给出准确率
                 1. 转换格式
@@ -251,7 +249,7 @@ class BowRandomForest(CommonModel):
             print('2. 批量预测')
         # -------------- code start : 开始 -------------
 
-        y_pred = self.batch_predict(test_X,transform_input)
+        y_pred = self.batch_predict(test_X, transform_input)
 
         # -------------- code start : 结束 -------------
         if self.verbose > 1:
@@ -316,7 +314,7 @@ class BowRandomForest(CommonModel):
 
         feature_encoder = FeatureEncoder(
             verbose=kwargs.get('verbose', 0),
-            need_segmented=True,
+            need_segmented=kwargs.get('need_segmented', True),
             full_mode=kwargs.get('full_mode', False),
             replace_number=True,
             remove_stopword=True,
@@ -343,42 +341,67 @@ class BowRandomForest(CommonModel):
             train_data=None,
             test_data=None,
             cv_data=None,
-            shuffle_data = True,
-            n_estimators_list = None,
-            feature_type = 'word',
+            shuffle_data=True,
+            n_estimators_list=None,
+            feature_type='word',
             word2vec_to_solve_oov=False,
             word2vec_model_file_path=None,
             verbose=0,
+            cv=3,
+            need_segmented=True,
+            need_validation=True,
+            include_train_data=True,
     ):
-        '''
-            进行参数的交叉验证
+        """进行参数的交叉验证
 
-        :param cv_data: k份训练数据
-        :type cv_data: array-like
-        :param test_data: 测试数据
-        :type test_data: array-like
-        :return:
-        '''
+        Parameters
+        ----------
+        train_data : array-like
+            训练数据
+        test_data : array-like
+            测试数据
+        cv_data : array-like
+            k份验证数据
+        word2vec_to_solve_oov : bool
+            是否使用 w2v 去替换
+        n_estimators_list : array-like
+            验证参数，随机森林棵树
+        feature_type : str
+            特征类型
+        shuffle_data : bool
+            是否打乱数据
+        verbose : int
+            数值越大，输出越详细
+        cv:int
+            进行 cv 折验证
+        need_segmented:bool
+            是否需要分词
+        include_train_data:
+            是否包含训练数据一样验证
+        need_validation:
+            是否要验证
+        """
 
         from data_processing_util.cross_validation_util import transform_cv_data, get_k_fold_data, get_val_score
         # 1. 获取交叉验证的数据
         if cv_data is None:
             assert train_data is not None, 'cv_data和train_data必须至少提供一个！'
             cv_data = get_k_fold_data(
-                k=3,
+                k=cv,
                 train_data=train_data,
                 test_data=test_data,
-                include_train_data=True,
+                include_train_data=include_train_data,
             )
 
         # 2. 将数据进行特征编码转换
         feature_encoder = BowRandomForest.get_feature_encoder(
             verbose=verbose,
+            need_segmented=need_segmented,
             feature_type=feature_type,
             word2vec_to_solve_oov=word2vec_to_solve_oov,
             word2vec_model_file_path=word2vec_model_file_path,
         )
-        cv_data = transform_cv_data(feature_encoder, cv_data, verbose=0,diff_train_val_feature_encoder=False)
+        cv_data = transform_cv_data(feature_encoder, cv_data, verbose=0, diff_train_val_feature_encoder=False)
 
         # 交叉验证
         for n_estimators in n_estimators_list:
@@ -388,15 +411,16 @@ class BowRandomForest(CommonModel):
                           cv_data=cv_data[:],
                           verbose=verbose,
                           shuffle_data=shuffle_data,
+                          need_validation=need_validation,
                           n_estimators=n_estimators,
                           )
 
 
 if __name__ == '__main__':
-    train_X = ['你好', '无聊', '测试句子', '今天天气不错','我要买手机']
-    trian_y = [1,3,2,2,3]
-    test_X = ['你妹','句子','你好']
-    test_y = [2,3,0]
+    train_X = ['你好', '无聊', '测试句子', '今天天气不错', '我要买手机']
+    trian_y = [1, 3, 2, 2, 3]
+    test_X = ['你妹', '句子', '你好']
+    test_y = [2, 3, 0]
 
     feature_encoder = FeatureEncoder(
         verbose=0,
@@ -429,11 +453,11 @@ if __name__ == '__main__':
     # bow_rf.model_from_pickle('model.pkl')
 
 
-    bow_rf.fit(train_data=(train_X_feature,trian_y),
-               validation_data=(test_X_feature,test_y))
-    print(bow_rf.batch_predict(test_X,transform_input=True))
-    print(bow_rf.predict('你好',transform_input=True))
-    bow_rf.accuracy((train_X_feature,trian_y),False)
+    bow_rf.fit(train_data=(train_X_feature, trian_y),
+               validation_data=(test_X_feature, test_y))
+    print(bow_rf.batch_predict(test_X, transform_input=True))
+    print(bow_rf.predict('你好', transform_input=True))
+    bow_rf.accuracy((train_X_feature, trian_y), False)
     # bow_rf.accuracy((test_X_feature,test_y),False)
     bow_rf.print_model_descibe()
 

@@ -130,21 +130,34 @@ class WordEmbeddingCNNWithOneConv(object):
 
         Parameters
         ----------
+        train_data : array-like
+            训练数据
+        test_data : array-like
+            测试数据
+        cv_data : array-like
+            k份验证数据
         num_labels: int
             标签
+        nb_batch : int
+            batch size
         vocabulary_including_test_set: bool,default,True
             字典是否包括测试集
-        include_train_data: 是否包含训练数据一样验证
-        need_validation: 是否要验证
-        embedding_weight_trainable: 切换 CNN(static-w2v) 和 CNN(non-static-w2v)
-        rand_weight : 切换 CNN（rand） or CNN（static/non-static-w2v）
-        train_data:
-        test_data
-        cv_data
-        feature_type
-        input_length
-        num_filter_list
-        verbose
+        include_train_data : bool
+            是否包含训练数据一样验证
+        need_validation: bool
+            是否要验证
+        embedding_weight_trainable : bool
+            切换 CNN(static-w2v) 和 CNN(non-static-w2v)
+        rand_weight : bool
+            切换 CNN（rand） or CNN（static/non-static-w2v）
+        feature_type : str
+            特征类型
+        input_length : int
+            输入长度
+        num_filter_list : array-like
+            验证参数，number of filters
+        verbose : int
+            数值越大，输出越详细
         cv:int
             进行 cv 折验证
         need_segmented:bool
