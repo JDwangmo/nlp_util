@@ -93,10 +93,10 @@ class WordEmbeddingCNNWithOneConv(object):
             l2_conv_filter_type=[],
             full_connected_layer_units=[],
             embedding_dropout_rate=0.,
-            nb_epoch=30,
-            nb_batch=kwargs.get('nb_batch',32),
+            nb_epoch=kwargs.get('nb_epoch',25),
+            batch_size=kwargs.get('batch_size',32),
             earlyStoping_patience=30,
-            lr=1e-2,
+            lr=kwargs.get('lr',1e-2),
             show_validate_accuracy=True if kwargs.get('verbose', 0) > 0 else False,
             # output_regularizer=('l2', 0.5),
             output_constraints=('maxnorm', 3),
@@ -115,7 +115,8 @@ class WordEmbeddingCNNWithOneConv(object):
             num_filter_list=None,
             verbose=0,
             cv=3,
-            nb_batch = 32,
+            batch_size = 32,
+            lr=1e-2,
             need_segmented=True,
             word2vec_model_file_path=None,
             num_labels=24,
@@ -138,7 +139,7 @@ class WordEmbeddingCNNWithOneConv(object):
             k份验证数据
         num_labels: int
             标签
-        nb_batch : int
+        batch_size : int
             batch size
         vocabulary_including_test_set: bool,default,True
             字典是否包括测试集
@@ -223,7 +224,7 @@ class WordEmbeddingCNNWithOneConv(object):
             print('=' * 40)
             print('num_filter is %d.' % num_filter)
             get_val_score(WordEmbeddingCNNWithOneConv,
-                          cv_data=cv_data[:],
+                          cv_data=cv_data[6:7],
                           verbose=verbose,
                           num_filter=num_filter,
                           num_labels=num_labels,
@@ -231,7 +232,8 @@ class WordEmbeddingCNNWithOneConv(object):
                           embedding_weight_trainable=embedding_weight_trainable,
                           need_validation=need_validation,
                           rand_weight=rand_weight,
-                          nb_batch=nb_batch,
+                          batch_size=batch_size,
+                          lr=lr,
                           )
 
 

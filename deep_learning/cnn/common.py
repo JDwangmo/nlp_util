@@ -52,8 +52,8 @@ class CnnBaseClass(CommonModel):
                  optimizers='sgd',
                  input_length=None,
                  num_labels=None,
-                 nb_epoch=100,
-                 earlyStoping_patience=50,
+                 # nb_epoch=100,
+                 # earlyStoping_patience=50,
                  **kwargs
                  ):
         """
@@ -87,8 +87,6 @@ class CnnBaseClass(CommonModel):
         self.verbose = verbose
         self.input_length = input_length
         self.num_labels = num_labels
-        self.nb_epoch = nb_epoch
-        self.earlyStoping_patience = earlyStoping_patience
         self.kwargs = kwargs
 
         assert optimizers in ['sgd', 'adadelta'], 'optimizers只能取 sgd, adadelta！'
@@ -98,6 +96,8 @@ class CnnBaseClass(CommonModel):
         self.lr = self.kwargs.get('lr', 1e-2)
         # 批量大小
         self.batch_size = self.kwargs.get('batch_size', 32)
+        self.nb_epoch =  self.kwargs.get('nb_epoch',30)
+        self.earlyStoping_patience =  self.kwargs.get('earlyStoping_patience',25)
 
         # cnn model
         self.model = None

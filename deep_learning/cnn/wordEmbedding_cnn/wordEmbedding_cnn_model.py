@@ -47,9 +47,9 @@ class WordEmbeddingCNN(CnnBaseClass):
                  l1_conv_filter_type=None,
                  l2_conv_filter_type=None,
                  embedding_dropout_rate=0.,
-                 nb_epoch=30,
-                 batch_size=32,
-                 earlyStoping_patience=50,
+                 # nb_epoch=30,
+                 # batch_size=32,
+                 # earlyStoping_patience=50,
                  **kwargs
                  ):
         """
@@ -95,9 +95,8 @@ class WordEmbeddingCNN(CnnBaseClass):
         :type nb_epoch: int
         :param earlyStoping_patience: cnn设置选项,earlyStoping的设置,如果迭代次数超过这个耐心值,依旧不下降,则stop.
         :type earlyStoping_patience: int,
-        :param kwargs:  lr, batch_size, show_validate_accuracy, output_regularizer, output_constraints
+        :param kwargs:  lr, batch_size, nb_epoch, earlyStoping_patience, show_validate_accuracy, output_regularizer, output_constraints
         """
-
         CnnBaseClass.__init__(
             self,
             rand_seed=rand_seed,
@@ -106,10 +105,12 @@ class WordEmbeddingCNN(CnnBaseClass):
             optimizers=optimizers,
             input_length=input_length,
             num_labels=num_labels,
-            nb_epoch=nb_epoch,
-            earlyStoping_patience=earlyStoping_patience,
-            batch_size=batch_size
+            # nb_epoch=nb_epoch,
+            # earlyStoping_patience=earlyStoping_patience,
+            # batch_size=batch_size,
+            **kwargs
         )
+
         self.word_embedding_dim = word_embedding_dim
         self.embedding_init_weight = embedding_init_weight
 
