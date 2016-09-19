@@ -185,8 +185,8 @@ class Word2vecUtil(object):
 
         Examples
         ----------
-        >>> data_util = DataUtil()
-        >>> data_util.transform_word2vec_model_name(flag='50d_weibo_100w')
+        >>> w2v_util = Word2vecUtil()
+        >>> w2v_util.transform_word2vec_model_name(flag='50d_weibo_100w')
 
         """
 
@@ -205,7 +205,7 @@ class Word2vecUtil(object):
         elif flag == '300d_google_news':
             word2vec_model_file_path = self.word2vec_model_root_path + '300dim/GoogleNews-vectors-negative300.bin'
         else:
-            word2vec_model_file_path = self.word2vec_model_root_path + '50dim/vector1000000_50dim.gem'
+            raise NotImplementedError
 
         return word2vec_model_file_path
 
