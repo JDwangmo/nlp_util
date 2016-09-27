@@ -131,10 +131,10 @@ def get_k_fold_data(
             - test_y
 
     :param k: 几折
-    :param train_data:
-    :type train_data: array-like
-    :param test_data:
-    :type test_data: array-like
+    :param train_data: (train_X, train_y)
+    :type train_data: (array-like, array-like)
+    :param test_data: (test_X, test_y)
+    :type test_data: (array-like, array-like)
     :param include_train_data: cv_data中是否需要包含 (train_data,test_data)
     :type include_train_data: bool
     :return:

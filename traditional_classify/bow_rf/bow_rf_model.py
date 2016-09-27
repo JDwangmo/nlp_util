@@ -3,7 +3,11 @@
     Author:  'jdwang'
     Date:    'create date: 2016-07-06'; 'last updated date: 2016-09-27'
     Email:   '383287471@qq.com'
-    Describe: RF（BOC/BOW） 模型
+    Describe:
+    #########    RF（BOC/BOW） 模型    #########
+    Bag of Words (BOW) or TFIDF as input features, random forest (RF) as classifier.
+
+
 """
 
 from __future__ import print_function
@@ -19,21 +23,23 @@ from data_processing_util.feature_encoder.bow_feature_encoder import FeatureEnco
 
 
 class BowRandomForest(CommonModel):
-    '''
+    """
         使用BOW或者TFIDF作为特征输入，使用random forest作为分类器
         函数有：
             1. transform
             2. fit
-    '''
+            3、cross_validation
+            4、get_model ： get BowRandomForset object
 
-    def __init__(self,
-                 rand_seed=1337,
-                 verbose=0,
-                 n_estimators=200,
-                 min_samples_leaf=2,
-                 feature_encoder=None,
+        Examples
+        --------
+        >>> BowRandomForest.cross_validation(
 
-                 ):
+        )
+
+    """
+
+    def __init__(self, rand_seed=1337, verbose=0, n_estimators=200, min_samples_leaf=2, feature_encoder=None, **kwargs):
         '''
             1. 初始化参数，并检验参数合法性。
             2. 设置随机种子，构建模型
@@ -48,16 +54,15 @@ class BowRandomForest(CommonModel):
         :type verbose: int
         :param feature_encoder: 输入数据的设置选项，设置输入编码器
         :type feature_encoder: bow_feature_encoder.FeatureEncoder
-        :param word2vec_to_solve_oov: 是否使用word2vec找训练库中近义词替换 oov
-        :type word2vec_to_solve_oov: bool
         :param kwargs: 目前有 ‘word2vec_model_file_path’
         '''
 
-        self.rand_seed = rand_seed
-        self.verbose = verbose
+        super(BowRandomForest, self).__init__(rand_seed, verbose)
+
         self.n_estimators = n_estimators
         self.min_samples_leaf = min_samples_leaf
         self.feature_encoder = feature_encoder
+        self.kwargs = kwargs
 
         # random forest model
         self.model = None
@@ -268,6 +273,7 @@ class BowRandomForest(CommonModel):
 
         is_correct = y_pred == test_y
         accu = sum(is_correct) / (1.0 * len(test_y))
+        # quit()
         f1 = f1_score(test_y, y_pred.tolist(), average=None)
 
         if self.verbose > 0:
@@ -320,13 +326,10 @@ class BowRandomForest(CommonModel):
             replace_number=True,
             remove_stopword=True,
             lowercase=True,
-            padding_mode='left',
             add_unkown_word=True,
             feature_type=kwargs.get('feature_type', 'word'),
             zhs2zht=True,
             remove_url=True,
-            # 设置为True，输出 onehot array
-            to_onehot_array=True,
             feature_method='bow',
             max_features=2000,
             word2vec_to_solve_oov=kwargs.get('word2vec_to_solve_oov', False),
@@ -357,10 +360,10 @@ class BowRandomForest(CommonModel):
 
         Parameters
         ----------
-        train_data : array-like
-            训练数据
-        test_data : array-like
-            测试数据
+        train_data : (array-like,array-like)
+            训练数据 (train_X,train_y)
+        test_data : (array-like,array-like)
+            测试数据 (test_X,test_y)
         cv_data : array-like
             k份验证数据
         word2vec_to_solve_oov : bool
@@ -368,7 +371,7 @@ class BowRandomForest(CommonModel):
         n_estimators_list : array-like
             验证参数，随机森林棵树
         feature_type : str
-            特征类型
+            特征类型, only in ['word','seg','word_seg']
         shuffle_data : bool
             是否打乱数据
         verbose : int
@@ -393,7 +396,6 @@ class BowRandomForest(CommonModel):
                 test_data=test_data,
                 include_train_data=include_train_data,
             )
-
         # 2. 将数据进行特征编码转换
         feature_encoder = BowRandomForest.get_feature_encoder(
             verbose=verbose,
@@ -402,7 +404,7 @@ class BowRandomForest(CommonModel):
             word2vec_to_solve_oov=word2vec_to_solve_oov,
             word2vec_model_file_path=word2vec_model_file_path,
         )
-        cv_data = transform_cv_data(feature_encoder, cv_data, verbose=0, diff_train_val_feature_encoder=False)
+        cv_data = transform_cv_data(feature_encoder, cv_data, verbose=verbose, diff_train_val_feature_encoder=True)
 
         # 交叉验证
         for n_estimators in n_estimators_list:
@@ -415,6 +417,7 @@ class BowRandomForest(CommonModel):
                           need_validation=need_validation,
                           n_estimators=n_estimators,
                           )
+
 
 
 if __name__ == '__main__':

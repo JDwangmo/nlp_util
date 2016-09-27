@@ -111,7 +111,7 @@ class Word2vecUtil(object):
 
     def load(self, input_path):
         """
-            加载w2v模型
+            加载w2v模型,会根据不同类型的word2vec模型来加载模型
             注意文件名(input_path)后缀，模型加载的方式会不同如果：
                 - *.gem: 默认为使用 gensim.Word2Vec训练的模型 ，使用 Word2Vec.load(input_path) 方式加载
                 - *.bin: 默认为使用 C版本的 word2vec模型训练，二进制，使用 Word2Vec.load_word2vec_format(input_path,binary=True) 方式加载

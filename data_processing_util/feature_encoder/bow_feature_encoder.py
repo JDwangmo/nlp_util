@@ -1,13 +1,15 @@
 # encoding=utf8
-
+"""
+    Author:  'jdwang'
+    Date:    'create date: 2016-06-24'; 'last updated date: 2016-09-27'
+    Email:   '383287471@qq.com'
+    Describe: BOW feature encoder
+"""
 from __future__ import print_function
 
-__author__ = 'jdwang'
-__date__ = 'create date: 2016-06-24'
-__email__ = '383287471@qq.com'
 import numpy as np
 import logging
-from gensim.models import Word2Vec
+from data_processing_util.word2vec_util.word2vec_util import Word2vecUtil
 from data_processing_util.jiebanlp.jieba_util import Jieba_Util
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 
@@ -38,9 +40,10 @@ class FeatureEncoder(object):
                  zhs2zht=True,
                  remove_url=True,
                  feature_method='bow',
-                 feature_type = 'seg',
+                 feature_type='seg',
                  max_features=None,
                  word2vec_to_solve_oov=False,
+                 save_middle_result=False,
                  **kwargs
                  ):
         '''
@@ -74,12 +77,15 @@ class FeatureEncoder(object):
             :type max_features: int
             :param word2vec_to_solve_oov: 使用word2vec扩展oov词
             :type word2vec_to_solve_oov: bool
+            :param save_middle_result: 是否保存中间结果，为了节约空间默认关闭！
+            :type save_middle_result: bool
             :param kwargs: 支持 word2vec_model_file_path等
-            :param kwargs: dict
+            :type kwargs: dict
 
 
         '''
         # self.rand_seed = rand_seed
+        self.save_middle_result = save_middle_result
         self.verbose = verbose
         self.full_mode = full_mode
         self.remove_stopword = remove_stopword
@@ -96,34 +102,45 @@ class FeatureEncoder(object):
 
         # 检验参数合法性
         assert self.feature_method in ['bow', 'tfidf'], 'feature method 只能取: bow,tfidf'
-        assert self.feature_type in ['word', 'seg','word_seg'], 'feature type 只能取: word,seg和word_seg'
+        assert self.feature_type in ['word', 'seg', 'word_seg'], 'feature type 只能取: word,seg和word_seg'
 
         if word2vec_to_solve_oov:
             # 加载word2vec模型
-            self.word2vec_model = Word2Vec.load(kwargs['word2vec_model_file_path'])
+            if word2vec_to_solve_oov:
+                assert kwargs.has_key('word2vec_model_file_path'), '请提供 属性 word2vec_model_file_path'
+                # 加载word2vec模型
+                w2v_util = Word2vecUtil()
+                self.word2vec_model = w2v_util.load(kwargs.get('word2vec_model_file_path'))
 
-        # 原始训练数据
-        self.train_data = None
-        # 特征编码器:
-        self.feature_encoder = None
         # 初始化jieba分词器
         if need_segmented:
             self.jieba_seg = Jieba_Util(verbose=self.verbose)
-        # 切完词的句子
-        self.segmented_sentences = None
+
+        # 特征编码器: bow or tf-idf transformer
+        self.feature_encoder = None
         # 训练库提取出来的字典对象
         self.train_data_dict = None
         # 训练库提取出来的字典词汇列表
         self.vocabulary = None
         # 训练库提取出来的字典词汇个数
         self.vocabulary_size = None
-        # 训练句子特征
-        self.train_features = None
+        # 训练样例的个数
+        self.train_data_count = 0
 
-        # word2vec 模型
-        # self.word2vec_model = None
+        # region 为了节约内存空间，实际运行中时，建议设置 save_middle_result = False（关闭中间结果的保存）
+        if self.save_middle_result:
+            # 原始训练数据
+            self.train_data = None
+            # 切完词的句子
+            self.segmented_sentences = None
+            # 训练句子特征
+            self.train_features = None
+            # endregion
 
-        # self.fit_transform()
+            # word2vec 模型
+            # self.word2vec_model = None
+
+            # self.fit_transform()
 
     def segment_sentence(self, sentence):
         '''
@@ -180,28 +197,49 @@ class FeatureEncoder(object):
             )
             # print(segmented_sentence)
             # 2. 按字切分
-            word = self.jieba_seg.iter_each_word(segmented_sentence,sep=' ',need_segmented=False).split()
+            word = self.jieba_seg.iter_each_word(segmented_sentence, sep=' ', need_segmented=False).split()
             # 3. 按词切分
             seg = segmented_sentence.split()
-            segmented_sentence = ' '.join(set(seg+word))
+            segmented_sentence = ' '.join(set(seg + word))
         else:
             assert False, '不支持其他粒度的切分！'
 
         return segmented_sentence
 
     def reset(self):
-        pass
+        """重置对象
 
-    def fit_transform(self, train_data=None,test_data=None):
-        '''
+        Returns
+        -------
+
+        """
+        self.feature_encoder=None
+
+    def fit_transform(self, train_data=None, test_data=None):
+        """
             build feature encoder
-                1. 转换数据格式，并分词
-                2. 构建vectorizer并拟合数据
+                1. fit
+                2. transform拟合数据
 
         :param train_data: 训练句子列表:['','',...,'']
         :type train_data: array-like.
         :return: train_data 编码后的向量
-        '''
+        """
+        # 训练样例的个数
+        self.train_data_count = len(train_data)
+
+        return self.fit(train_data, test_data).transform(train_data)
+
+    def fit(self, train_data=None, test_data=None):
+        """
+            build feature encoder
+                1. 转换数据格式，并分词
+                2. 构建vectorizer
+
+        :param train_data: 训练句子列表:['','',...,'']
+        :type train_data: array-like.
+        :return: train_data 编码后的向量
+        """
 
         if self.verbose > 1:
             logging.debug('build feature encoder...')
@@ -218,13 +256,15 @@ class FeatureEncoder(object):
         assert train_data is not None, '没有输入训练数据!'
 
         train_data = np.asarray(train_data)
-        self.train_data = train_data
+        # 为了节约内存空间，实际运行中时，建议设置 save_middle_result = False（关闭中间结果的保存）
+        if self.save_middle_result:
+            self.train_data = train_data
 
         if self.need_segmented:
             # 分词
             train_segmented_sentences = map(self.segment_sentence, train_data)
-
         else:
+            # 不需要分词
             train_segmented_sentences = train_data
 
         # -------------- code start : 结束 -------------
@@ -232,52 +272,68 @@ class FeatureEncoder(object):
             logging.debug('-' * 20)
             print('-' * 20)
         # -------------- region end : 1. 转换数据格式，并分词 ---------------
+        if self.feature_encoder is None:
+            # 当 feature_encoder 还没创建过时，则创建
+            if self.feature_method == 'tfidf':
+                self.feature_encoder = TfidfVectorizer(
+                    analyzer="word",
+                    token_pattern=u'(?u)\\b\w+\\b',
+                    tokenizer=None,
+                    preprocessor=None,
+                    lowercase=False,
+                    stop_words=None,
+                    # vocabulary = tfidf_vocabulary,
+                    max_features=self.max_features,
+                )
 
-        if self.feature_method == 'tfidf':
-            vectorizer = TfidfVectorizer(analyzer="word",
-                                         token_pattern=u'(?u)\\b\w+\\b',
-                                         tokenizer=None,
-                                         preprocessor=None,
-                                         lowercase=False,
-                                         stop_words=None,
-                                         # vocabulary = tfidf_vocabulary,
-                                         max_features=self.max_features,
-                                         )
+            elif self.feature_method == 'bow':
+                self.feature_encoder = CountVectorizer(
+                    analyzer="word",
+                    token_pattern=u'(?u)\\b\w+\\b',
+                    tokenizer=None,
+                    preprocessor=None,
+                    lowercase=False,
+                    stop_words=None,
+                    # vocabulary = tfidf_vocabulary,
+                    max_features=self.max_features,
+                )
+            else:
+                raise NotImplementedError
 
-        elif self.feature_method == 'bow':
-            vectorizer = CountVectorizer(analyzer="word",
-                                         token_pattern=u'(?u)\\b\w+\\b',
-                                         tokenizer=None,
-                                         preprocessor=None,
-                                         lowercase=False,
-                                         stop_words=None,
-                                         # vocabulary = tfidf_vocabulary,
-                                         max_features=self.max_features,
-                                         )
-        else:
-            vectorizer = None
-        train_features = vectorizer.fit_transform(train_segmented_sentences).toarray()
+        train_features = self.feature_encoder.fit_transform(train_segmented_sentences).toarray()
 
-        self.train_features = train_features
-        self.feature_encoder = vectorizer
-        self.vocabulary = vectorizer.get_feature_names()
-        self.vocabulary_size = len(vectorizer.get_feature_names())
+        # 为了节约内存空间，实际运行中时，建议设置 save_middle_result = False（关闭中间结果的保存）
+        if self.save_middle_result:
+            self.train_features = train_features
 
-        return train_features
+        # 字典
+        self.vocabulary = self.feature_encoder.get_feature_names()
+        # 字典个数
+        self.vocabulary_size = len(self.vocabulary)
 
-    def word_similarity(self, word2vec_model,word1, word2):
+        return self
+
+    def word_similarity(self, word2vec_model, word1, word2):
         '''
         计算两个词的相似性
-        :param word1:
-        :param word2:
-        :return:
+
+        Parameters
+        ----------
+        word2vec_model : gensim object
+            word2vec_model gensim Word2Vec model
+        word2:
+        word1:
+
+        Returns
+        --------
+            similarity score: float
         '''
         try:
             return word2vec_model.n_similarity(word1, word2)
         except:
             return 0
 
-    def replace_oov_with_similay_word(self,word2vec_model, sentence):
+    def replace_oov_with_similay_word(self, word2vec_model, sentence):
         '''
             对句子中oov词使用训练库中最相近的词替换（word2vec余弦相似性）
 
@@ -288,17 +344,18 @@ class FeatureEncoder(object):
         # is_oov = np.asarray([item for item in self.feature_encoder.vocabulary])
         # has_oov = any(is_oov)
         sentence = sentence.split()
-        oov_word=[]
+        oov_word = []
         replace_word = []
         for item in sentence:
             if item not in self.vocabulary:
                 oov_word.append(item)
-                keywords_sim_score = np.asarray([self.word_similarity(word2vec_model,item, i) for i in self.vocabulary])
+                keywords_sim_score = np.asarray(
+                    [self.word_similarity(word2vec_model, item, i) for i in self.vocabulary])
                 sorted_index = np.argsort(keywords_sim_score)[-1::-1]
                 most_similarity_score = keywords_sim_score[sorted_index[0]]
                 most_similarity_word = self.vocabulary[sorted_index[0]]
-                if self.verbose>1:
-                    print(u'%s 最相近的词是%s,分数为:%f' % (item,most_similarity_word, most_similarity_score))
+                if self.verbose > 1:
+                    print(u'%s 最相近的词是%s,分数为:%f' % (item, most_similarity_word, most_similarity_score))
                 replace_word.append(most_similarity_word)
         sentence += replace_word
         return ' '.join(sentence)
@@ -317,7 +374,7 @@ class FeatureEncoder(object):
         :rtype: array-like
         '''
 
-        # -------------- region start : 1. 分词 -------------
+        # region -------------- 1. 分词 -------------
         if self.verbose > 1:
             logging.debug('-' * 20)
             print('-' * 20)
@@ -339,9 +396,9 @@ class FeatureEncoder(object):
         if self.verbose > 1:
             logging.debug('-' * 20)
             print('-' * 20)
-        # -------------- region end : 1. 分词 ---------------
+        # endregion -------------- 1. 分词 ---------------
 
-        # -------------- region start : 2. 转为字典索引列表,之后补齐,输入为补齐的字典索引列表 -------------
+        # region -------------- 2. 特征转换 -------------
         if self.verbose > 1:
             logging.debug('-' * 20)
             print('-' * 20)
@@ -350,11 +407,12 @@ class FeatureEncoder(object):
         # -------------- code start : 开始 -------------
 
         features = self.feature_encoder.transform([seg_sentence]).toarray()[0]
+
         # -------------- code start : 结束 -------------
         if self.verbose > 1:
             logging.debug('-' * 20)
             print('-' * 20)
-        # -------------- region end : 2. 转为字典索引列表,之后补齐,输入为补齐的字典索引列表 ---------------
+        # endregion -------------- 2. 特征转换 ---------------
 
         return features
 
@@ -365,18 +423,16 @@ class FeatureEncoder(object):
             批量转换数据，跟 transform_sentence()一样的操作
                 1. 直接调用 self.transform_sentence 进行处理
 
-        :param sentence: 输入句子
-        :type sentence: array-like
+        :param data: 输入句子集合
+        :type data: array-like
         :return: bow vector
         :rtype: array-like
         '''
 
-        index = map(lambda x: self.transform_sentence(x),data)
+        index = map(self.transform_sentence, data)
         # print(index[:5])
 
         return np.asarray(index)
-
-
 
     def print_model_descibe(self):
         '''
@@ -386,9 +442,9 @@ class FeatureEncoder(object):
         :rtype: dict 或 {}
         '''
         import pprint
-        detail = {'train_data_count': len(self.train_data),
+        detail = {'train_data_count': self.train_data_count,
                   'need_segmented': self.need_segmented,
-                  'word2vec_to_solve_oov':self.word2vec_to_solve_oov,
+                  'word2vec_to_solve_oov': self.word2vec_to_solve_oov,
                   'vocabulary_size': self.vocabulary_size,
                   'verbose': self.verbose,
                   # 'rand_seed': self.rand_seed,
@@ -452,6 +508,7 @@ def test_seg_bow_feature():
     print(feature_encoder.vocabulary_size)
     feature_encoder.print_model_descibe()
 
+
 def test_word_seg_bow_feature():
     feature_encoder = FeatureEncoder(
         verbose=0,
@@ -475,13 +532,12 @@ def test_word_seg_bow_feature():
     # feature_encoder.print_model_descibe()
 
 
-
 if __name__ == '__main__':
-    train_data = ['你好，你好', '測試句子', '无聊', '测试句子', '今天天气不错', '买手机','50元','妈B', '你要买手机','ch2r']
+    train_data = ['你好，你好', '測試句子', '无聊', '测试句子', '今天天气不错', '买手机', '50元', '妈B', '你要买手机', 'ch2r']
     test_data = ['你好，你好,si', '无聊']
     # 测试字的bow向量编码
-    # test_word_bow_feature()
+    test_word_bow_feature()
     # 测试词的bow向量编码
     # test_seg_bow_feature()
     # 测试以字和词为单位的向量编码
-    test_word_seg_bow_feature()
+    # test_word_seg_bow_feature()
