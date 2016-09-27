@@ -1,20 +1,21 @@
 # encoding=utf8
+"""
+    Author:  'jdwang'
+    Date:    'create date: 2016-07-06'; 'last updated date: 2016-09-27'
+    Email:   '383287471@qq.com'
+    Describe: RF（BOC/BOW） 模型
+"""
+
 from __future__ import print_function
 
-__author__ = 'jdwang'
-__date__ = 'create date: 2016-07-06'
-__email__ = '383287471@qq.com'
-import numpy as np
-import pandas as pd
+import cPickle as pickle
 import logging
-import timeit
+import pprint
+import numpy as np
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import f1_score
 from base.common_model_class import CommonModel
 from data_processing_util.feature_encoder.bow_feature_encoder import FeatureEncoder
-from sklearn.metrics import f1_score
-import cPickle as pickle
-from gensim.models import Word2Vec
-import pprint
 
 
 class BowRandomForest(CommonModel):
