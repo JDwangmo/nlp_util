@@ -56,7 +56,7 @@ class WordEmbeddingCNNWithOneConv(object):
         -------
 
         """
-        if kwargs.get('rand_weight',False):
+        if kwargs.get('rand_weight', False):
             # CNN(rand)模式
             weight = None
         elif kwargs['dataset_flag'] == 0:
@@ -93,10 +93,10 @@ class WordEmbeddingCNNWithOneConv(object):
             l2_conv_filter_type=[],
             full_connected_layer_units=[],
             embedding_dropout_rate=0.,
-            nb_epoch=kwargs.get('nb_epoch',25),
-            batch_size=kwargs.get('batch_size',32),
+            nb_epoch=kwargs.get('nb_epoch', 25),
+            batch_size=kwargs.get('batch_size', 32),
             earlyStoping_patience=30,
-            lr=kwargs.get('lr',1e-2),
+            lr=kwargs.get('lr', 1e-2),
             show_validate_accuracy=True if kwargs.get('verbose', 0) > 0 else False,
             # output_regularizer=('l2', 0.5),
             output_constraints=('maxnorm', 3),
@@ -115,7 +115,7 @@ class WordEmbeddingCNNWithOneConv(object):
             num_filter_list=None,
             verbose=0,
             cv=3,
-            batch_size = 32,
+            batch_size=32,
             lr=1e-2,
             need_segmented=True,
             word2vec_model_file_path=None,
@@ -167,7 +167,7 @@ class WordEmbeddingCNNWithOneConv(object):
 
         Notes
         ----------
-        - 为了提高效率，默认设置 update_dictionary = True ,以保证feature encoder的字典一致，避免重复构造字典
+        - 为了提高效率，默认设置 update_dictionary = False ,以保证feature encoder的字典一致，避免重复构造字典
         - 同时设置 diff_train_val_feature_encoder=True来保证训练集上和验证集上的feature encoder 不同，因为字典大小不同
 
         Examples
@@ -192,7 +192,7 @@ class WordEmbeddingCNNWithOneConv(object):
         print('feature_type:%s,need_segmented:%s,vocabulary_including_test_set:%s' % (feature_type,
                                                                                       need_segmented,
                                                                                       vocabulary_including_test_set))
-        print('rand_weight:%s,embedding_weight_trainable:%s' % (rand_weight,embedding_weight_trainable))
+        print('rand_weight:%s,embedding_weight_trainable:%s' % (rand_weight, embedding_weight_trainable))
         print('=' * 80)
 
         from data_processing_util.cross_validation_util import transform_cv_data, get_k_fold_data, get_val_score
@@ -218,13 +218,14 @@ class WordEmbeddingCNNWithOneConv(object):
             vocabulary_including_test_set=vocabulary_including_test_set,
         )
 
-        cv_data = transform_cv_data(feature_encoder, cv_data, verbose=verbose, diff_train_val_feature_encoder=True)
+        cv_data = transform_cv_data(feature_encoder, cv_data, verbose=verbose, diff_train_val_feature_encoder=0)
+
         # 交叉验证
         for num_filter in num_filter_list:
             print('=' * 40)
             print('num_filter is %d.' % num_filter)
             get_val_score(WordEmbeddingCNNWithOneConv,
-                          cv_data=cv_data[6:7],
+                          cv_data=cv_data[:],
                           verbose=verbose,
                           num_filter=num_filter,
                           num_labels=num_labels,

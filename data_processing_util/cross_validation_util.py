@@ -183,7 +183,8 @@ def transform_cv_data(
 
     Notes
     ---------
-    - 设置 diff_train_val_feature_encoder 为 True ，可以保证 训练集上的feature encoder 和验证集上的 不同
+    - 设置 diff_train_val_feature_encoder 为 0 ，可以保证 训练集上的feature encoder 和验证集上的 不同
+    - 设置 diff_train_val_feature_encoder 为 1 ，可以保证 每次（含训练和验证上）的feature encoder 都 不同
 
     '''
 
@@ -205,10 +206,15 @@ def transform_cv_data(
             feature_encoder.print_sentence_length_detail(np.concatenate((dev_x,val_x),axis=0))
             feature_encoder.print_sentence_length_detail(dev_x)
             feature_encoder.print_sentence_length_detail(val_x)
-        if kwargs.get('diff_train_val_feature_encoder', True):
+        if kwargs.get('diff_train_val_feature_encoder', 0)==0:
             # 如果设置 让 训练集 和验证集 上的 feature encoder 不同，则训练完训练集feature encoder后清理对象数据
             if flag == 0:
                 feature_encoder.reset()
+        elif kwargs.get('diff_train_val_feature_encoder', 0)==1:
+            # 每次feature_encoder 都重置
+            feature_encoder.reset()
+        else:
+            raise NotImplementedError
 
     # feature_encoder = None
 

@@ -300,11 +300,11 @@ class FeatureEncoder(object):
             else:
                 raise NotImplementedError
 
-        train_features = self.feature_encoder.fit_transform(train_segmented_sentences).toarray()
+            self.feature_encoder.fit_transform(train_segmented_sentences).toarray()
 
         # 为了节约内存空间，实际运行中时，建议设置 save_middle_result = False（关闭中间结果的保存）
-        if self.save_middle_result:
-            self.train_features = train_features
+        # if self.save_middle_result:
+        #     self.train_features = train_features
 
         # 字典
         self.vocabulary = self.feature_encoder.get_feature_names()

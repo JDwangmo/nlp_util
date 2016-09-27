@@ -404,7 +404,8 @@ class BowRandomForest(CommonModel):
             word2vec_to_solve_oov=word2vec_to_solve_oov,
             word2vec_model_file_path=word2vec_model_file_path,
         )
-        cv_data = transform_cv_data(feature_encoder, cv_data, verbose=verbose, diff_train_val_feature_encoder=True)
+        # diff_train_val_feature_encoder=1 每次feature encoder 都不同
+        cv_data = transform_cv_data(feature_encoder, cv_data, verbose=verbose, diff_train_val_feature_encoder=1)
 
         # 交叉验证
         for n_estimators in n_estimators_list:
