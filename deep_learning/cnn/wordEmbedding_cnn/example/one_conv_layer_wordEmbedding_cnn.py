@@ -130,7 +130,6 @@ class WordEmbeddingCNNWithOneConv(object):
             need_validation=True,
             include_train_data=True,
             vocabulary_including_test_set=True,
-
     ):
         """
 
@@ -248,17 +247,19 @@ class WordEmbeddingCNNWithOneConv(object):
                 lr=lr,
             )
 
-            with open(middle_layer_output_file,'w') as fout:
-                # 保存中间结果
-                flag, dev_X, dev_y, val_X, val_y, feature_encoder = cv_data[0]
-                # dev
-                pickle.dump(dev_X,fout)
-                pickle.dump(middle_output_dev,fout)
-                pickle.dump(dev_y,fout)
-                # val
-                pickle.dump(val_X,fout)
-                pickle.dump(middle_output_val,fout)
-                pickle.dump(val_y,fout)
+            if get_cnn_middle_layer_output:
+                # 保存结果
+                with open(middle_layer_output_file,'w') as fout:
+                    # 保存中间结果
+                    flag, dev_X, dev_y, val_X, val_y, feature_encoder = cv_data[0]
+                    # dev
+                    pickle.dump(dev_X,fout)
+                    pickle.dump(middle_output_dev,fout)
+                    pickle.dump(dev_y,fout)
+                    # val
+                    pickle.dump(val_X,fout)
+                    pickle.dump(middle_output_val,fout)
+                    pickle.dump(val_y,fout)
 
 
 
