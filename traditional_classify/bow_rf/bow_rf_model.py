@@ -352,6 +352,7 @@ class BowRandomForest(CommonModel):
             word2vec_model_file_path=None,
             verbose=0,
             cv=3,
+            need_transform_input = True,
             need_segmented=True,
             need_validation=True,
             include_train_data=True,
@@ -360,6 +361,8 @@ class BowRandomForest(CommonModel):
 
         Parameters
         ----------
+        word2vec_model_file_path : str
+            word2vec模型路径
         train_data : (array-like,array-like)
             训练数据 (train_X,train_y)
         test_data : (array-like,array-like)
@@ -378,6 +381,8 @@ class BowRandomForest(CommonModel):
             数值越大，输出越详细
         cv:int
             进行 cv 折验证
+        need_transform_input : bool
+            是否需要转换数据
         need_segmented:bool
             是否需要分词
         include_train_data:
@@ -396,18 +401,22 @@ class BowRandomForest(CommonModel):
                 test_data=test_data,
                 include_train_data=include_train_data,
             )
-        # 2. 将数据进行特征编码转换
-        feature_encoder = BowRandomForest.get_feature_encoder(
-            verbose=verbose,
-            need_segmented=need_segmented,
-            feature_type=feature_type,
-            word2vec_to_solve_oov=word2vec_to_solve_oov,
-            word2vec_model_file_path=word2vec_model_file_path,
-        )
-        # diff_train_val_feature_encoder=1 每次feature encoder 都不同
-        cv_data = transform_cv_data(feature_encoder, cv_data, verbose=verbose, diff_train_val_feature_encoder=1)
+        # region 2. 将数据进行特征编码转换
+        if need_transform_input:
+            feature_encoder = BowRandomForest.get_feature_encoder(
+                verbose=verbose,
+                need_segmented=need_segmented,
+                feature_type=feature_type,
+                word2vec_to_solve_oov=word2vec_to_solve_oov,
+                word2vec_model_file_path=word2vec_model_file_path,
+            )
+            # diff_train_val_feature_encoder=1 每次feature encoder 都不同
+            cv_data = transform_cv_data(feature_encoder, cv_data, verbose=verbose, diff_train_val_feature_encoder=1)
+        else:
+            cv_data = [item+[None] for item in cv_data]
+        # endregion
 
-        # 交叉验证
+        #region 3. 交叉验证
         for n_estimators in n_estimators_list:
             print('=' * 40)
             print('n_estimators is %d.' % n_estimators)
@@ -419,7 +428,7 @@ class BowRandomForest(CommonModel):
                           n_estimators=n_estimators,
                           )
 
-
+        # endregion
 
 if __name__ == '__main__':
     train_X = ['你好', '无聊', '测试句子', '今天天气不错', '我要买手机']

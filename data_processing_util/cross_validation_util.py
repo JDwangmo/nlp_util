@@ -145,7 +145,7 @@ def get_k_fold_data(
     cv_data = []
     if include_train_data:
         # 第一位为 标记位，0表示训练集
-        cv_data.append((0, train_X, train_y, test_X, test_y))
+        cv_data.append([0, train_X, train_y, test_X, test_y])
 
     # 获取 K 份数据
     k_fold_data_x = []
@@ -164,7 +164,7 @@ def get_k_fold_data(
         dev_X = np.concatenate(dev_X)
         dev_y = np.concatenate(dev_y)
         # 第一位为 标记位，从1开始，表示验证集
-        cv_data.append((val_index + 1, dev_X, dev_y, val_X, val_y))
+        cv_data.append([val_index + 1, dev_X, dev_y, val_X, val_y])
     return cv_data
 
 
@@ -183,8 +183,9 @@ def transform_cv_data(
 
     Notes
     ---------
-    - 设置 diff_train_val_feature_encoder 为 0 ，可以保证 训练集上的feature encoder 和验证集上的 不同
-    - 设置 diff_train_val_feature_encoder 为 1 ，可以保证 每次（含训练和验证上）的feature encoder 都 不同
+    - 设置 diff_train_val_feature_encoder 为 0 ， feature encoder 都一样，不重置
+    - 设置 diff_train_val_feature_encoder 为 1 ，可以保证 训练集上的feature encoder 和验证集上的 不同
+    - 设置 diff_train_val_feature_encoder 为 2 ，可以保证 每次（含训练和验证上）的feature encoder 都 不同
 
     '''
 
@@ -203,14 +204,18 @@ def transform_cv_data(
             print('val shape:(%s)' % str(val_x_features.shape))
 
         if kwargs.get('verbose', 0) > 1:
-            feature_encoder.print_sentence_length_detail(np.concatenate((dev_x,val_x),axis=0))
+            feature_encoder.print_sentence_length_detail(np.concatenate((dev_x, val_x), axis=0))
             feature_encoder.print_sentence_length_detail(dev_x)
             feature_encoder.print_sentence_length_detail(val_x)
-        if kwargs.get('diff_train_val_feature_encoder', 0)==0:
+
+        if kwargs.get('diff_train_val_feature_encoder', 0) == 0:
+            # 不重置，都用同一个
+            pass
+        elif kwargs.get('diff_train_val_feature_encoder', 0) == 1:
             # 如果设置 让 训练集 和验证集 上的 feature encoder 不同，则训练完训练集feature encoder后清理对象数据
             if flag == 0:
                 feature_encoder.reset()
-        elif kwargs.get('diff_train_val_feature_encoder', 0)==1:
+        elif kwargs.get('diff_train_val_feature_encoder', 0) == 2:
             # 每次feature_encoder 都重置
             feature_encoder.reset()
         else:
@@ -233,8 +238,8 @@ def get_val_score(
     :param estimator_class: 分类器的类，必须实现了 get_model() 函数
     :param cv_data: 验证数据，第一份为 训练和测试数据，之后为验证数据
     :param shuffle_data: 是否打乱数据
-    :param parameters: 参数, need_validation
-    :return: [test_accu] + [验证预测平均], train_acc
+    :param parameters: 参数, need_validation, get_cnn_middle_layer_output(#,False)
+    :return: [test_accu] + [验证预测平均], train_acc, conv_middle_output_dev, conv_middle_output_val
     """
 
     # K折
@@ -242,6 +247,8 @@ def get_val_score(
     # counter = 0
     test_acc = []
     train_acc = []
+    conv_middle_output_dev = []
+    conv_middle_output_val = []
     exclude_first = False
     while len(cv_data) != 0:
         flag, dev_X, dev_y, val_X, val_y, feature_encoder = cv_data.pop(0)
@@ -269,6 +276,12 @@ def get_val_score(
         # dev_loss, dev_accuracy, val_loss, val_accuracy = 0,0,0,0
         dev_loss, dev_accuracy, val_loss, val_accuracy = estimator.fit((dev_X, dev_y), (val_X, val_y))
 
+
+        if parameters.get('get_cnn_middle_layer_output', False):
+            # 获取中间层输出
+            conv_middle_output_dev = estimator.get_layer_output(dev_X)
+            conv_middle_output_val = estimator.get_layer_output(val_X)
+
         print('dev:%f,%f' % (dev_loss, dev_accuracy))
         print('val:%f,%f' % (val_loss, val_accuracy))
 
@@ -285,4 +298,4 @@ def get_val_score(
     print('%s,%s' % (train_acc, test_acc))
     print('-' * 80)
 
-    return test_acc + [np.average(test_acc[1:])], train_acc
+    return test_acc + [np.average(test_acc[1:])], train_acc, conv_middle_output_dev, conv_middle_output_val

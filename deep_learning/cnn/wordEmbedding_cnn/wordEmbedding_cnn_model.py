@@ -95,7 +95,9 @@ class WordEmbeddingCNN(CnnBaseClass):
         :type nb_epoch: int
         :param earlyStoping_patience: cnn设置选项,earlyStoping的设置,如果迭代次数超过这个耐心值,依旧不下降,则stop.
         :type earlyStoping_patience: int,
-        :param kwargs:  lr, batch_size, nb_epoch, earlyStoping_patience, show_validate_accuracy, output_regularizer, output_constraints
+        :param kwargs:  lr, batch_size, nb_epoch, earlyStoping_patience, show_validate_accuracy,
+                        output_regularizer, output_constraints,
+                        save_middle_output(#,False)
         """
         CnnBaseClass.__init__(
             self,
@@ -132,7 +134,7 @@ class WordEmbeddingCNN(CnnBaseClass):
         self.kwargs = kwargs
 
         # 嵌入层的输出
-        self.embedding_layer_output = None
+        # self.embedding_layer_output = None
 
         # 构建模型
         self.build_model()
@@ -168,7 +170,7 @@ class WordEmbeddingCNN(CnnBaseClass):
             weight = None
         else:
             weight = [self.embedding_init_weight]
-            self.word_embedding_dim=self.embedding_init_weight.shape[1]
+            self.word_embedding_dim = self.embedding_init_weight.shape[1]
 
         l2_embedding = Embedding(
             input_dim=self.input_dim,
@@ -217,8 +219,8 @@ class WordEmbeddingCNN(CnnBaseClass):
         l7_output = self.create_full_connected_layer(
             input_layer=l7_full_connected_layer,
             units=[[self.num_labels, 0., 'none', 'none',
-                    self.kwargs.get('output_regularizer',('none',0.)),
-                    self.kwargs.get('output_constraints',('none',0.)),
+                    self.kwargs.get('output_regularizer', ('none', 0.)),
+                    self.kwargs.get('output_constraints', ('none', 0.)),
                     ]],
         )
 
@@ -227,14 +229,27 @@ class WordEmbeddingCNN(CnnBaseClass):
         # 模型输出
         model = Model(input=[l1_input], output=[l8_softmax_output])
 
-        self.embedding_layer_output = Model(input=l1_input, output=[l5_cnn])
+        # self.embedding_layer_output = Model(input=l1_input, output=[l5_cnn])
         # 卷积层的输出，可以作为深度特征
-        self.conv1_feature_output = K.function([l1_input, K.learning_phase()], [l6_conv])
+        # self.conv1_feature_output = K.function([l1_input, K.learning_phase()], [l6_conv])
 
         # 最后一层隐含层（倒数第二层）的输出
-        self.last_hidden_layer = K.function([l1_input, K.learning_phase()], [l7_full_connected_layer])
+        # self.last_hidden_layer = K.function([l1_input, K.learning_phase()], [l7_full_connected_layer])
         # 最后输出层
-        self.model_output = K.function([l1_input, K.learning_phase()], [l8_softmax_output])
+        # self.model_output = K.function([l1_input, K.learning_phase()], [l8_softmax_output])
+        if self.kwargs.get('save_middle_output', False):
+            self.middle_layer_output = K.function(
+                inputs=[l1_input, K.learning_phase()],
+                outputs=[
+                    l2_embedding,
+                    l4_reshape,
+                    l5_cnn,
+                    l6_conv,
+                    l7_full_connected_layer,
+                    l7_output,
+                    l8_softmax_output,
+                ]
+            )
 
         if self.verbose > 0:
             model.summary()
@@ -250,14 +265,14 @@ class WordEmbeddingCNN(CnnBaseClass):
         :return:
         """
 
-        assert kwargs.has_key('input_length') , '请提供 input_length 的属性值'
+        assert kwargs.has_key('input_length'), '请提供 input_length 的属性值'
 
         from data_processing_util.feature_encoder.onehot_feature_encoder import FeatureEncoder
         feature_encoder = FeatureEncoder(
-            need_segmented=kwargs.get('need_segmented',True),
+            need_segmented=kwargs.get('need_segmented', True),
             sentence_padding_length=kwargs['input_length'],
-            verbose=kwargs.get('verbose',0),
-            full_mode=kwargs.get('full_mode',False),
+            verbose=kwargs.get('verbose', 0),
+            full_mode=kwargs.get('full_mode', False),
             remove_stopword=True,
             replace_number=True,
             lowercase=True,
@@ -266,7 +281,7 @@ class WordEmbeddingCNN(CnnBaseClass):
             padding_mode='center',
             add_unkown_word=True,
             feature_type=kwargs.get('feature_type', 'word'),
-            vocabulary_including_test_set=kwargs.get('vocabulary_including_test_set',True),
+            vocabulary_including_test_set=kwargs.get('vocabulary_including_test_set', True),
             update_dictionary=kwargs.get('update_dictionary', True)
         )
 
@@ -289,6 +304,7 @@ class WordEmbeddingCNN(CnnBaseClass):
                   'nb_epoch': self.nb_epoch,
                   'earlyStoping_patience': self.earlyStoping_patience,
                   'embedding_init use rand': self.embedding_init_weight is None,
+                  'save_middle_output': self.kwargs.get('save_middle_output', False),
                   'lr': self.lr,
                   'batch_size': self.batch_size,
                   }
@@ -333,9 +349,9 @@ def test_static_w2v():
         input_length=sentence_padding_length,
         num_labels=5,
         l1_conv_filter_type=[
-            [4, 2, -1, 'valid', (2, 1), 0.5,'none','none'],
-            [4, 4, -1, 'valid', (2, 1), 0.,'none','none'],
-            [4, 5, -1, 'valid', (2, 1), 0.,'none','none'],
+            [4, 2, -1, 'valid', (2, 1), 0.5, 'none', 'none'],
+            [4, 4, -1, 'valid', (2, 1), 0., 'none', 'none'],
+            [4, 5, -1, 'valid', (2, 1), 0., 'none', 'none'],
         ],
         l2_conv_filter_type=[
             # [16, 2, 1, 'valid', (2, 1), 0.]
@@ -354,7 +370,7 @@ def test_static_w2v():
     # 从保存的pickle中加载模型
     print (static_w2v_cnn.embedding_layer_output.get_weights()[0][1])
     static_w2v_cnn.fit((train_X_feature, trian_y),
-                           (test_X_feature, test_y))
+                       (test_X_feature, test_y))
     print (static_w2v_cnn.embedding_layer_output.get_weights()[0][1])
     static_w2v_cnn.accuracy((train_X_feature, trian_y), transform_input=False)
 

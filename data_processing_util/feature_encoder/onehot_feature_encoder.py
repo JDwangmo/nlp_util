@@ -267,7 +267,7 @@ class FeatureEncoder(object):
 
     def print_sentence_length_detail(
             self,
-            data = None,
+            data=None,
             lengths=[7, 10, 15, 20],
     ):
         '''
@@ -318,6 +318,8 @@ class FeatureEncoder(object):
                 flag = 'OK'
         except:
             vector = self.get_unkown_vector(self.word2vec_model.vector_size)
+            if self.verbose > 1:
+                print('OOV: %s' % word)
             flag = 'NO_IN_W2V'
         return np.asarray(vector), flag
 
@@ -345,25 +347,25 @@ class FeatureEncoder(object):
         for key, value in self.train_data_dict.token2id.items():
             vector, flag = self.get_w2vEmbedding(key)
             embedding_weights[value, :] = vector
-            if flag== 'NO_IN_W2V':
-                words_count_no_in_w2v+=1
-            if flag== 'NO_IN_MODEL_VOCAB':
-                words_count_no_in_vacab+=1
-            if flag== 'OK':
-                words_count_in+=1
+            if flag == 'NO_IN_W2V':
+                words_count_no_in_w2v += 1
+            if flag == 'NO_IN_MODEL_VOCAB':
+                words_count_no_in_vacab += 1
+            if flag == 'OK':
+                words_count_in += 1
                 # print(key)
-            if flag =='PADDING':
-                words_count_paddding+=1
-        if self.verbose>0:
-            print('没有出现在w2v模型中的词有：%d个'%(words_count_no_in_w2v))
-            print('没有出现在模型vocab中的词有：%d个'%(words_count_no_in_vacab))
-            print('出现在w2v模型中的词有：%d个'%(words_count_in))
+            if flag == 'PADDING':
+                words_count_paddding += 1
+        if self.verbose > 0:
+            print('没有出现在w2v模型中的词有：%d个' % (words_count_no_in_w2v))
+            print('没有出现在模型vocab中的词有：%d个' % (words_count_no_in_vacab))
+            print('出现在w2v模型中的词有：%d个' % (words_count_in))
 
         # self.embedding_weights = embedding_weights
 
         return embedding_weights
 
-    def build_dictionary(self,train_X=None,test_X=None):
+    def build_dictionary(self, train_X=None, test_X=None):
         """
             1.对数据进行分词
             2.构建训练库字典,插入 一个特殊字符 'UNKOWN'表示未知词
@@ -380,17 +382,17 @@ class FeatureEncoder(object):
         """
 
         # region -------------- 1.将训练集和测试集合并 -------------
-        if self.verbose>1:
+        if self.verbose > 1:
             logging.debug('-' * 20)
             print('-' * 20)
             logging.debug('1.将训练集和测试集合并')
             print('1.将训练集和测试集合并')
-        if self.kwargs.get('vocabulary_including_test_set',True):
-            X = np.concatenate((train_X,test_X),axis=0)
+        if self.kwargs.get('vocabulary_including_test_set', True):
+            X = np.concatenate((train_X, test_X), axis=0)
         else:
             X = train_X
 
-        if self.verbose>1:
+        if self.verbose > 1:
             logging.debug('-' * 20)
             print('-' * 20)
         # endregion -------------- 1.将训练集和测试集合并 ---------------
@@ -535,7 +537,7 @@ class FeatureEncoder(object):
             unknow_token_index = 0
         # 将训练库中所有句子的每个词映射到索引上,变成索引列表
         index = [self.train_data_dict.token2id.get(item, unknow_token_index) for item in sentence.split()]
-        if self.verbose>0:
+        if self.verbose > 0:
             if index.__contains__(unknow_token_index):
                 print('出现字典OOV')
                 print(sentence)
@@ -641,7 +643,7 @@ class FeatureEncoder(object):
     def fit_transform(self,
                       train_data=None,
                       test_data=None):
-        return self.fit(train_data,test_data).transform(train_data)
+        return self.fit(train_data, test_data).transform(train_data)
 
     def fit(self,
             train_X=None,
@@ -667,7 +669,7 @@ class FeatureEncoder(object):
             编码后的列表
         """
 
-        if not self.kwargs.get('update_dictionary',True):
+        if not self.kwargs.get('update_dictionary', True):
             # 假如不更新字典，则如果原有的字典在，就直接用原有的字典即可
             if self.vocabulary is not None:
                 return self
@@ -675,10 +677,10 @@ class FeatureEncoder(object):
         logging.debug('=' * 20)
         if train_X is None:
             logging.debug('没有输入训练数据!')
-            assert False,'没有输入训练数据!'
+            assert False, '没有输入训练数据!'
         if test_X is None:
             logging.debug('构建字典需要全部数据，请输入测试数据!')
-            assert False,'构建字典需要全部数据，请输入测试数据!'
+            assert False, '构建字典需要全部数据，请输入测试数据!'
 
         # region -------------- 1.构建训练库字典 -------------
         if self.verbose > 1:
@@ -856,7 +858,7 @@ def test_word_onehot():
         word2vec_to_solve_oov=False,
 
     )
-    train_padding_index = feature_encoder.fit_transform(train_data=train_data,test_data=train_data)
+    train_padding_index = feature_encoder.fit_transform(train_data=train_data, test_data=train_data)
 
     embedding_weight = feature_encoder.to_embedding_weight(
         feature_encoder,

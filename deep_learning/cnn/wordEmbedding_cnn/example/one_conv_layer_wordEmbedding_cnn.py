@@ -20,7 +20,7 @@
 """
 
 from deep_learning.cnn.wordEmbedding_cnn.wordEmbedding_cnn_model import WordEmbeddingCNN
-
+import pickle
 
 class WordEmbeddingCNNWithOneConv(object):
     # 如果使用全体数据作为字典，则使用这个变量来存放权重，避免重复加载权重，因为每次加载的权重都是一样的。
@@ -100,6 +100,8 @@ class WordEmbeddingCNNWithOneConv(object):
             show_validate_accuracy=True if kwargs.get('verbose', 0) > 0 else False,
             # output_regularizer=('l2', 0.5),
             output_constraints=('maxnorm', 3),
+            save_middle_output=kwargs.get('get_cnn_middle_layer_output', False),
+
         )
         # static_w2v_cnn.print_model_descibe()
         # quit()
@@ -121,6 +123,9 @@ class WordEmbeddingCNNWithOneConv(object):
             word2vec_model_file_path=None,
             num_labels=24,
             embedding_weight_trainable=False,
+            # 获取中间层输出
+            get_cnn_middle_layer_output=False,
+            middle_layer_output_file=None,
             rand_weight=False,
             need_validation=True,
             include_train_data=True,
@@ -131,6 +136,10 @@ class WordEmbeddingCNNWithOneConv(object):
 
         Parameters
         ----------
+        middle_layer_output_file : str
+            中间层输出到哪个文件
+        get_cnn_middle_layer_output : bool
+            是否获取中间层输出（#,False）
         train_data : array-like
             训练数据
         test_data : array-like
@@ -168,7 +177,7 @@ class WordEmbeddingCNNWithOneConv(object):
         Notes
         ----------
         - 为了提高效率，默认设置 update_dictionary = False ,以保证feature encoder的字典一致，避免重复构造字典
-        - 同时设置 diff_train_val_feature_encoder=True来保证训练集上和验证集上的feature encoder 不同，因为字典大小不同
+        - 同时设置 diff_train_val_feature_encoder=1 来保证训练集上和验证集上的feature encoder 不同，因为字典大小不同
 
         Examples
         ----------
@@ -218,24 +227,39 @@ class WordEmbeddingCNNWithOneConv(object):
             vocabulary_including_test_set=vocabulary_including_test_set,
         )
 
-        cv_data = transform_cv_data(feature_encoder, cv_data, verbose=verbose, diff_train_val_feature_encoder=0)
+        cv_data = transform_cv_data(feature_encoder, cv_data, verbose=verbose, diff_train_val_feature_encoder=1)
 
         # 交叉验证
         for num_filter in num_filter_list:
             print('=' * 40)
             print('num_filter is %d.' % num_filter)
-            get_val_score(WordEmbeddingCNNWithOneConv,
-                          cv_data=cv_data[:],
-                          verbose=verbose,
-                          num_filter=num_filter,
-                          num_labels=num_labels,
-                          word2vec_model_file_path=word2vec_model_file_path,
-                          embedding_weight_trainable=embedding_weight_trainable,
-                          need_validation=need_validation,
-                          rand_weight=rand_weight,
-                          batch_size=batch_size,
-                          lr=lr,
-                          )
+            _, _, middle_output_dev, middle_output_val = get_val_score(
+                WordEmbeddingCNNWithOneConv,
+                cv_data=cv_data[:],
+                verbose=verbose,
+                num_filter=num_filter,
+                num_labels=num_labels,
+                word2vec_model_file_path=word2vec_model_file_path,
+                embedding_weight_trainable=embedding_weight_trainable,
+                get_cnn_middle_layer_output=get_cnn_middle_layer_output,
+                need_validation=need_validation,
+                rand_weight=rand_weight,
+                batch_size=batch_size,
+                lr=lr,
+            )
+
+            with open(middle_layer_output_file,'w') as fout:
+                # 保存中间结果
+                flag, dev_X, dev_y, val_X, val_y, feature_encoder = cv_data[0]
+                # dev
+                pickle.dump(dev_X,fout)
+                pickle.dump(middle_output_dev,fout)
+                pickle.dump(dev_y,fout)
+                # val
+                pickle.dump(val_X,fout)
+                pickle.dump(middle_output_val,fout)
+                pickle.dump(val_y,fout)
+
 
 
 if __name__ == '__main__':

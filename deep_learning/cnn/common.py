@@ -96,25 +96,28 @@ class CnnBaseClass(CommonModel):
         self.lr = self.kwargs.get('lr', 1e-2)
         # 批量大小
         self.batch_size = self.kwargs.get('batch_size', 32)
-        self.nb_epoch =  self.kwargs.get('nb_epoch',30)
-        self.earlyStoping_patience =  self.kwargs.get('earlyStoping_patience',25)
+        self.nb_epoch = self.kwargs.get('nb_epoch', 30)
+        self.earlyStoping_patience = self.kwargs.get('earlyStoping_patience', 25)
 
         # cnn model
         self.model = None
         # cnn model early_stop
         self.early_stop = None
 
-        # 第一层卷积层输出
-        self.conv1_feature_output = None
-        # 第二层卷积层输出
-        self.conv2_feature_output = None
-        # 最后一层隐含层（倒数第二层）的输出
-        self.last_hidden_layer = None
-        # 输出层的输出
-        self.output_layer = None
-
+        # region 中间层输出
+        self.middle_layer_output = None
+        # 下面全部注释掉，只用middle_layer_output集合在一起的就行
+        # # 第一层卷积层输出
+        # self.conv1_feature_output = None
+        # # 第二层卷积层输出
+        # self.conv2_feature_output = None
+        # # 最后一层隐含层（倒数第二层）的输出
+        # self.last_hidden_layer = None
+        # # 输出层的输出
+        # self.output_layer = None
         # cnn model 的输出函数
-        self.model_output = None
+        # self.model_output = None
+        # endregion
 
         # 选定随机种子
         if self.rand_seed is not None:
@@ -303,7 +306,7 @@ class CnnBaseClass(CommonModel):
         elif len(convolution_filter_type) == 1:
             # 单size 卷积层
             nb_filter, nb_row, nb_col, border_mode, k, dropout_rate, activation, normalization = \
-            convolution_filter_type[0]
+                convolution_filter_type[0]
 
             output = self.create_one_size_convolution_layer(
                 input_layer,
@@ -465,8 +468,8 @@ class CnnBaseClass(CommonModel):
                 if regularizer is not None:
                     if constraints == 'maxnorm':
                         W_constraint = maxnorm(constraints_value)
-                    elif constraints=='none':
-                        W_constraint=None
+                    elif constraints == 'none':
+                        W_constraint = None
                     else:
                         raise NotImplementedError
                 else:
@@ -784,23 +787,26 @@ class CnnBaseClass(CommonModel):
         assert layer in ['conv1', 'conv2', 'hidden1', 'hidden2',
                          'output'], 'layer 仅支持 conv1,conv2,hidden1,hidden2,output'
 
+        assert self.middle_layer_output is not None, '功能没开启，请先设置 save_middle_output=True'
+
         if transform_input:
             assert type(sentence) == list, 'sentence 的 type 为 list！'
             sentence = self.transform(sentence)
 
-        if layer == 'output':
-            output = self.output_layer([sentence, 0])[0]
-        elif layer == 'hidden2':
-            output = self.last_hidden_layer([sentence, 0])[0]
-        elif layer == 'conv1':
-            assert self.conv1_feature_output is not None, '没有设置 conv1_feature_output！'
-            output = self.conv1_feature_output([sentence, 0])[0]
-        elif layer == 'conv2':
-            assert self.conv2_feature_output is not None, '没有设置 conv2_feature_output！'
-            output = self.conv2_feature_output([sentence, 0])[0]
-        else:
-            raise NotImplementedError
-        output = output.reshape(len(sentence), -1)
+        output = self.middle_layer_output([sentence, 0])
+        # if layer == 'output':
+        #     output = self.output_layer([sentence, 0])[0]
+        # elif layer == 'hidden2':
+        #     output = self.last_hidden_layer([sentence, 0])[0]
+        # elif layer == 'conv1':
+        #     assert self.conv1_feature_output is not None, '没有设置 conv1_feature_output！'
+        #     output = self.conv1_feature_output([sentence, 0])[0]
+        # elif layer == 'conv2':
+        #     assert self.conv2_feature_output is not None, '没有设置 conv2_feature_output！'
+        #     output = self.conv2_feature_output([sentence, 0])[0]
+        # else:
+        #     raise NotImplementedError
+        # output = output.reshape(len(sentence), -1)
 
         # -------------- print start : just print info -------------
         if self.verbose > 2:
