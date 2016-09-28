@@ -22,6 +22,7 @@
 from deep_learning.cnn.wordEmbedding_cnn.wordEmbedding_cnn_model import WordEmbeddingCNN
 import pickle
 
+
 class WordEmbeddingCNNWithOneConv(object):
     # 如果使用全体数据作为字典，则使用这个变量来存放权重，避免重复加载权重，因为每次加载的权重都是一样的。
     train_data_weight = None
@@ -249,18 +250,11 @@ class WordEmbeddingCNNWithOneConv(object):
 
             if get_cnn_middle_layer_output:
                 # 保存结果
-                with open(middle_layer_output_file,'w') as fout:
+                with open(middle_layer_output_file, 'w') as fout:
                     # 保存中间结果
-                    flag, dev_X, dev_y, val_X, val_y, feature_encoder = cv_data[0]
-                    # dev
-                    pickle.dump(dev_X,fout)
-                    pickle.dump(middle_output_dev,fout)
-                    pickle.dump(dev_y,fout)
-                    # val
-                    pickle.dump(val_X,fout)
-                    pickle.dump(middle_output_val,fout)
-                    pickle.dump(val_y,fout)
-
+                    pickle.dump(cv_data, fout)
+                    pickle.dump(middle_output_dev, fout)
+                    pickle.dump(middle_output_val, fout)
 
 
 if __name__ == '__main__':

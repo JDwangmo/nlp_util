@@ -279,8 +279,8 @@ def get_val_score(
 
         if parameters.get('get_cnn_middle_layer_output', False):
             # 获取中间层输出
-            conv_middle_output_dev = estimator.get_layer_output(dev_X)
-            conv_middle_output_val = estimator.get_layer_output(val_X)
+            conv_middle_output_dev.append(estimator.get_layer_output(dev_X))
+            conv_middle_output_val.append(estimator.get_layer_output(val_X))
 
         print('dev:%f,%f' % (dev_loss, dev_accuracy))
         print('val:%f,%f' % (val_loss, val_accuracy))

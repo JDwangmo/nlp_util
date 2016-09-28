@@ -413,7 +413,9 @@ class BowRandomForest(CommonModel):
             # diff_train_val_feature_encoder=1 每次feature encoder 都不同
             cv_data = transform_cv_data(feature_encoder, cv_data, verbose=verbose, diff_train_val_feature_encoder=1)
         else:
-            cv_data = [item+[None] for item in cv_data]
+            if len(cv_data[0])<6:
+                # cv_data 每项都需要 6项, 不够则补齐
+                cv_data = [item+[None] for item in cv_data]
         # endregion
 
         #region 3. 交叉验证
