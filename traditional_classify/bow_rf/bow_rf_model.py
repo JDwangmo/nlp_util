@@ -1,7 +1,7 @@
 # encoding=utf8
 """
     Author:  'jdwang'
-    Date:    'create date: 2016-07-06'; 'last updated date: 2016-09-27'
+    Date:    'create date: 2016-07-06'; 'last updated date: 2016-09-28'
     Email:   '383287471@qq.com'
     Describe:
     #########    RF（BOC/BOW） 模型    #########

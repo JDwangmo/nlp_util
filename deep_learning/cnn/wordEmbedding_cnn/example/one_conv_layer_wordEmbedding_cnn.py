@@ -1,7 +1,7 @@
 # encoding=utf8
 """
     Author:  'jdwang'
-    Date:    'create date: 2016-08-02'
+    Date:    'create date: 2016-08-02'; 'last updated date: 2016-09-28'
     Email:   '383287471@qq.com'
     Describe: 单层卷积层的 CNN（w2v）
         模型编号： CNN_A00
