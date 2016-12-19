@@ -346,9 +346,9 @@ def test_word_similarity():
     """
     w2v_util = Word2vecUtil()
     w2v_util.load(
-        input_path=w2v_util.transform_word2vec_model_name(flag='400d_wiki_zh'),
+        input_path=w2v_util.transform_word2vec_model_name(flag='50d_weibo_100w'),
     )
-    print(w2v_util.get_word_similarity(u'发展', u'd进展'))
+    print(w2v_util.get_word_similarity(u'苹果', u'乔布斯'))
 
 
 if __name__ == '__main__':
