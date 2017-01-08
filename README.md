@@ -3,7 +3,12 @@
 
 
 ### summary:
-1. 预处理类工具:分词
+1. 数据获取/处理类工具:
+    - 分词：jieba
+    - 特征编码: onehot 编码等
+    - word2vec 词向量的训练
+    - 数据爬取：爬虫 Crawler
+    
 2. 深度学习:
     - cnn:
         - wordEmbedding_cnn_model： CNN(词向量模型），比如: CNN(w2v)、CNN(rand)
@@ -11,12 +16,13 @@
         - onehot_cnn_model： CNN(onehot-seq)
 3. 传统分类器:
     - random forest
+    
 4. [其他机器学习资源大全](https://raw.githubusercontent.com/JDwangmo/nlp_util/master/resource/国外程序员整理的机器学习资源大全.pdf)
 
 ### 环境:
 - Ubuntu 14.04 / Linux mint 17.03
 - Python: 2.7.6版本.
-- python lib: 
+- python lib: 详见 `requirements.txt`
     - jieba 0.38: 分词工具
         - 官网： https://github.com/fxsjy/jieba
     - Keras 1.0.4: 神经网络的框架
@@ -29,7 +35,7 @@
     - scikit-learn 0.17.1: 机器学习工具类，包括计算F1值等
         - 官网： https://github.com/scikit-learn/scikit-learn
         - 安装方法：sudo pip install scikit-learn
-
+    - Scrapy 1.3.0: 爬虫框架
 
 ## 工具列表
 
@@ -65,7 +71,10 @@
         - `onehot_feature_encoder.py`:特征编码类,将原始输入的句子转换为补齐的字典索引的形式,使用0补长.
         - `bow_feature_encoder.py`:
     
-    
+- [crawler](https://github.com/JDwangmo/nlp_util/tree/master/data_processing_util/crawler)
+    - 数据爬虫，用户数据爬取,提供了一个使用例子，可以直接复制过去，再重写
+    - 依赖包：Scrapy==1.3.0
+
 ---------------
 ### deep_learning: 深度学习类工具
 
