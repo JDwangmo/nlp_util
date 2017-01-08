@@ -25,3 +25,5 @@
     - `cd crawler`
     - `scrapy crawl xiaohuar --nolog` 即可运行，格式：scrapy crawl+爬虫名(name属性)  --nolog即不显示日志
 - 2 运行 run.py ，通过脚本运行爬虫
+- 3 如果需要修改爬虫的速度，修改"settings.py"里的下载延迟和最大并发数即可
+    - 该爬虫没有提供代理池中间件，为了防止网站ban IP地址，下载延迟应该尽量调大一点，最大并发数尽量调小一点。
