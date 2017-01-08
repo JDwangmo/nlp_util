@@ -3,7 +3,7 @@
 - 参考： [教你分分钟学会用python爬虫框架Scrapy爬取心目中的女神](http://www.cnblogs.com/wanghzh/p/5824181.html):
     - [备用地址](https://app.yinxiang.com/shard/s8/nl/1386165/1ccc5940-9302-48dc-b9c8-d13e999186a4)
 - 本项目更多的只是作为一个例子,以爬取 [汉语字典](http://xh.5156edu.com/ciyu/83130begin38794.html) 上某个词的相关词为例子;
-
+- 另外一个爬虫例子:[CnblogsSpider](https://github.com/JDwangmo/CnblogsSpider)
 
 ### Project Structure
 - 这里的结构是直接使用 scrapy 提供的命令创建的默认架构：
