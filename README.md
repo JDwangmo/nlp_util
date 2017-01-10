@@ -91,3 +91,8 @@
     
 - [cnn/dynamic_cnn:]
     - describe:动态 k-max poooling 操作。
+
+
+## Change Log
+- version 1.0   
+    - 2017.01.10 发布
