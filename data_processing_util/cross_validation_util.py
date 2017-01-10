@@ -117,11 +117,12 @@ def get_k_fold_data(
         k=3,
         train_data=None,
         test_data=None,
+        shuffle_data=False,
         include_train_data=True,
         rand_seed=0,
         **kwargs
 ):
-    '''
+    """
         将数据分为K-fold,并获取交叉验证的  k份 (dev_set, val_set)
         每份 格式为 ：
             - train_or_dev_flag(0==train,1~=dev),
@@ -138,7 +139,7 @@ def get_k_fold_data(
     :param include_train_data: cv_data中是否需要包含 (train_data,test_data)
     :type include_train_data: bool
     :return:
-    '''
+    """
 
     train_X, train_y = train_data
     test_X, test_y = test_data
@@ -171,23 +172,29 @@ def get_k_fold_data(
 def transform_cv_data(
         feature_encoder=None,
         cv_data=None,
+        shuffle_data=True,
         **kwargs
 ):
-    '''
-        将 cv_data中的 k份数据 全部转为特征编码
+    """
+        将数据特征转换 ---- 将 cv_data中的 k份数据 全部转为特征编码
 
     :param feature_encoder: 特征编码器
     :param cv_data: array-like，[[],[]]，k份数据对应k个列表
-    :param kwargs: verbose[#,0], diff_train_val_feature_encoder[#,True]
+        - train_or_dev_flag(0==train,1~=dev),
+        - train_X,
+        - train_y,
+        - test_X,
+        - test_y
+    :param shuffle_data: 是否打乱数据
+    :param kwargs:
+        - verbose[#,0],
+        - diff_train_val_feature_encoder[#,True] : 设置 不同数据集之间的 feature encoder是否一样
+            - 设置 diff_train_val_feature_encoder 为 0 ， feature encoder 都一样，不重置
+            - 设置 diff_train_val_feature_encoder 为 1 ，可以保证 训练集上的feature encoder 和验证集上的 不同
+            - 设置 diff_train_val_feature_encoder 为 2 ，可以保证 每次（含训练和验证上）的feature encoder 都 不同
     :return: cv_features,k 份，每一份 对应（dev_x_features, dev_y, val_x_features, val_y,feature_encoder）
 
-    Notes
-    ---------
-    - 设置 diff_train_val_feature_encoder 为 0 ， feature encoder 都一样，不重置
-    - 设置 diff_train_val_feature_encoder 为 1 ，可以保证 训练集上的feature encoder 和验证集上的 不同
-    - 设置 diff_train_val_feature_encoder 为 2 ，可以保证 每次（含训练和验证上）的feature encoder 都 不同
-
-    '''
+    """
 
     cv_features = []
     for flag, dev_x, dev_y, val_x, val_y in cv_data:
@@ -195,11 +202,16 @@ def transform_cv_data(
         dev_x_features = feature_encoder.fit_transform(dev_x, val_x)
         val_x_features = feature_encoder.transform(val_x)
         # feature_encoder.print_model_descibe()
+        if shuffle_data:
+            # 是否打乱数据
+            dev_x_features = np.random.RandomState(0).permutation(dev_x_features)
+            dev_y = np.random.RandomState(0).permutation(dev_y)
+            # print(dev_y)
 
         cv_features.append((flag, dev_x_features, dev_y, val_x_features, val_y, copy.deepcopy(feature_encoder)))
         if kwargs.get('verbose', 0) > 0:
             print(','.join(feature_encoder.vocabulary))
-            print('vocabulary_size: %d' % (feature_encoder.vocabulary_size))
+            print('vocabulary_size: %d' % feature_encoder.vocabulary_size)
             print('dev shape:(%s)' % str(dev_x_features.shape))
             print('val shape:(%s)' % str(val_x_features.shape))
 
@@ -229,7 +241,6 @@ def transform_cv_data(
 def get_val_score(
         estimator_class,
         cv_data,
-        shuffle_data=False,
         **parameters
 ):
     """
@@ -237,8 +248,9 @@ def get_val_score(
 
     :param estimator_class: 分类器的类，必须实现了 get_model() 函数
     :param cv_data: 验证数据，第一份为 训练和测试数据，之后为验证数据
-    :param shuffle_data: 是否打乱数据
-    :param parameters: 参数, need_validation, get_cnn_middle_layer_output(#,False)
+    :param parameters: 参数,
+        - need_validation: 是否进行交叉验证，默认为 True ，即进行交叉验证
+        - get_cnn_middle_layer_output(#,False)： 是否获取中间层的输出，神经网络模型的参数，默认为 False
     :return: [test_accu] + [验证预测平均], train_acc, conv_middle_output_dev, conv_middle_output_val
     """
 
@@ -257,7 +269,7 @@ def get_val_score(
         if flag == 0:
             # 第一个数据是训练，之后是交叉验证
             print('训练:')
-            # 因为第一份是训练排除掉
+            # 因为第一份是训练排除掉 (后面要对交叉验证结果进行平均，将训练集的结果排除掉)
             exclude_first = True
         else:
             print('第%d个验证' % flag)
@@ -267,15 +279,11 @@ def get_val_score(
         # print(parameters)
         estimator = estimator_class.get_model(**parameters)
         # estimator.print_model_descibe()
-        if shuffle_data:
-            dev_X = np.random.RandomState(0).permutation(dev_X)
-            dev_y = np.random.RandomState(0).permutation(dev_y)
-            # print(dev_y)
+
 
         # 拟合数据
         # dev_loss, dev_accuracy, val_loss, val_accuracy = 0,0,0,0
         dev_loss, dev_accuracy, val_loss, val_accuracy = estimator.fit((dev_X, dev_y), (val_X, val_y))
-
 
         if parameters.get('get_cnn_middle_layer_output', False):
             # 获取中间层输出

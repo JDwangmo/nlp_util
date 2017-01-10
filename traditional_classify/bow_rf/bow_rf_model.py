@@ -101,16 +101,17 @@ class BowRandomForest(CommonModel):
         pickle.dump(self.feature_encoder, fout)
 
     def batch_predict_bestn(self, sentences, transform_input=False, bestn=1):
-        '''
+        """
             批量预测句子的类别,对输入的句子进行预测
 
         :param sentences: 测试句子,
         :type sentences: array-like
-        :param transform: 是否转换句子，如果为True,输入原始字符串句子即可，内部已实现转换。
-        :type transform: bool
+        :param transform_input: 是否转换句子，如果为True,输入原始字符串句子即可，内部已实现转换。
+        :type transform_input: bool
         :param bestn: 预测，并取出bestn个结果。
         :type bestn: int
-        '''
+        :return: y_pred_result, y_pred_score
+        """
         if transform_input:
             sentences = self.transform(sentences)
         sentences = np.asarray(sentences)

@@ -6,13 +6,9 @@
     Describe:
 """
 
-import numpy as np
-from deep_learning.cnn.common import CnnBaseClass
 import logging
-import cPickle as pickle
-from data_processing_util.feature_encoder.onehot_feature_encoder import FeatureEncoder
-from itertools import product
-
+from deep_learning.cnn.common import CnnBaseClass
+__version__ = '1.1'
 
 class WordEmbeddingCNN(CnnBaseClass):
     '''
@@ -156,7 +152,7 @@ class WordEmbeddingCNN(CnnBaseClass):
         :return: cnn model network
         '''
 
-        from keras.layers import Embedding, Input, Activation, Reshape, Dropout, Flatten
+        from keras.layers import Embedding, Input, Activation, Reshape, Dropout
         from keras.models import Model
         from keras import backend as K
 

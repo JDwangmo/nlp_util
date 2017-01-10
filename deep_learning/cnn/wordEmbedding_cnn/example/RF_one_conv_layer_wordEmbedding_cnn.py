@@ -10,10 +10,13 @@
 
 from traditional_classify.bow_rf.bow_rf_model import BowRandomForest
 from deep_learning.cnn.wordEmbedding_cnn.wordEmbedding_cnn_model import WordEmbeddingCNN
+import pickle
+from deep_learning.cnn.common import CnnBaseClass
+__version__ = '1.1'
 
 
 # 实现混合模型 RF(CNN(w2v))
-class RFAndWordEmbeddingCnnMerge(object):
+class RFAndWordEmbeddingCnnMerge(CnnBaseClass):
     # 如果使用全体数据作为字典，则使用这个变量来存放权重，避免重复加载权重，因为每次加载的权重都是一样的。
     train_data_weight = None
     # 验证数据是一份权重，不包含测试集了
@@ -27,11 +30,18 @@ class RFAndWordEmbeddingCnnMerge(object):
                  word2vec_model_file_path,
                  **kwargs
                  ):
+        self.static_w2v_cnn = None
+        self.bow_randomforest = None
+
+        if not kwargs.get('init_model', True):
+            # 不初始化模型，一般在恢复模型时候用
+            return
 
         if kwargs.get('rand_weight', False):
             # CNN(rand)模式
             weight = None
         elif kwargs['dataset_flag'] == 0:
+            # 训练集
             if RFAndWordEmbeddingCnnMerge.train_data_weight is None:
                 # 训练集
                 RFAndWordEmbeddingCnnMerge.train_data_weight = feature_encoder.to_embedding_weight(
@@ -97,6 +107,95 @@ class RFAndWordEmbeddingCnnMerge(object):
         validation_x_features = self.static_w2v_cnn.get_layer_output(validation_X)[4]
 
         return self.bow_randomforest.fit((train_x_features, train_y), (validation_x_features, validation_y))
+
+    def save_model(self, path):
+        """
+            保存模型,保存成pickle形式
+        :param path: 模型保存的路径
+        :type path: 模型保存的路径
+        :return:
+        """
+
+        model_file = open(path, 'wb')
+        pickle.dump(self.static_w2v_cnn, model_file)
+        pickle.dump(self.bow_randomforest, model_file)
+
+    def model_from_pickle(self, path):
+        '''
+            从模型文件中直接加载模型
+        :param path:
+        :return: RandEmbeddingCNN object
+        '''
+
+        model_file = file(path, 'rb')
+        self.static_w2v_cnn = pickle.load(model_file)
+        self.bow_randomforest = pickle.load(model_file)
+
+    @staticmethod
+    def get_feature_encoder(**kwargs):
+        """
+            获取该分类器的特征编码器
+
+        :param kwargs:  可设置参数 [ input_length(*), full_mode(#,False), feature_type(#,word),verbose(#,0)],加*表示必须提供，加#表示可选，不写则默认。
+        :return:
+        """
+
+        assert kwargs.has_key('input_length'), '请提供 input_length 的属性值'
+
+        from data_processing_util.feature_encoder.onehot_feature_encoder import FeatureEncoder
+        feature_encoder = FeatureEncoder(
+            need_segmented=kwargs.get('need_segmented', True),
+            sentence_padding_length=kwargs['input_length'],
+            verbose=kwargs.get('verbose', 0),
+            full_mode=kwargs.get('full_mode', False),
+            remove_stopword=True,
+            replace_number=True,
+            lowercase=True,
+            zhs2zht=True,
+            remove_url=True,
+            padding_mode='center',
+            add_unkown_word=True,
+            feature_type=kwargs.get('feature_type', 'word'),
+            vocabulary_including_test_set=kwargs.get('vocabulary_including_test_set', True),
+            update_dictionary=kwargs.get('update_dictionary', True)
+        )
+
+        return feature_encoder
+
+    # def predict(self, sentence, transform_input=False):
+    #     '''
+    #         预测一个句子的类别,对输入的句子进行预测 best1
+    #
+    #     :param sentence: 测试句子,原始字符串句子即可，内部已实现转换成字典索引的形式
+    #     :type sentence: str
+    #     :param transform_input: 是否转换句子，如果为True,输入原始字符串句子即可，内部已实现转换成字典索引的形式。
+    #     :type transform_input: bool
+    #     '''
+    #
+    #     train_x_features = self.static_w2v_cnn.get_layer_output(train_X)[4]
+
+    def batch_predict_bestn(self, sentences, transform_input=False, bestn=1):
+        """
+                    批量预测句子的类别,对输入的句子进行预测
+
+                :param sentences: 测试句子,
+                :type sentences: array-like
+                :param transform_input: 是否转换句子，如果为True,输入原始字符串句子即可，内部已实现转换成字典索引的形式。
+                :type transform_input: bool
+                :param bestn: 预测，并取出bestn个结果。
+                :type bestn: int
+                :return: y_pred_result, y_pred_score
+                """
+        if transform_input:
+            sentences = self.static_w2v_cnn.transform(sentences)
+        # sentences = np.asarray(sentences)
+        # assert len(sentences.shape) == 2, 'shape必须是2维的！'
+
+        train_x_features = self.static_w2v_cnn.get_layer_output(sentences)[4]
+        # print(train_x_features)
+        # print(train_x_features.shape)
+
+        return self.bow_randomforest.batch_predict_bestn(train_x_features, transform_input=False, bestn=bestn)
 
 
 class RFAndRFAndWordEmbeddingCnnMerge(object):
@@ -165,7 +264,7 @@ class RFAndRFAndWordEmbeddingCnnMerge(object):
             )
 
         # 2. 将数据进行特征编码转换
-        feature_encoder = WordEmbeddingCNN.get_feature_encoder(
+        feature_encoder = RFAndWordEmbeddingCnnMerge.get_feature_encoder(
             need_segmented=need_segmented,
             input_length=input_length,
             verbose=1,
@@ -174,8 +273,10 @@ class RFAndRFAndWordEmbeddingCnnMerge(object):
             update_dictionary=False,
             vocabulary_including_test_set=vocabulary_including_test_set,
         )
-
-        cv_data = transform_cv_data(feature_encoder, cv_data, verbose=verbose, diff_train_val_feature_encoder=1)
+        # 转换数据
+        # diff_train_val_feature_encoder=1 ----> 训练集和验证集的 feature_encoder 字典 强制不一样。
+        cv_data = transform_cv_data(feature_encoder, cv_data, verbose=verbose, shuffle_data=shuffle_data,
+                                    diff_train_val_feature_encoder=1)
 
         # 交叉验证
         for num_filter in num_filter_list:
@@ -194,7 +295,6 @@ class RFAndRFAndWordEmbeddingCnnMerge(object):
                               rand_weight=rand_weight,
                               batch_size=batch_size,
                               lr=lr,
-                              shuffle_data=shuffle_data,
                               )
 
 

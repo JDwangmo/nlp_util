@@ -1,9 +1,9 @@
 # encoding=utf8
 """
     Author:  'jdwang'
-    Date:    'create date: 2016-06-24'
+    Date:    'create date: 2016-06-24'; 'last updated date: 2017-01-10'
     Email:   '383287471@qq.com'
-    Describe: onehot encoder
+    Describe: Onehot Encoder --- Onehot特征编码器,将句子转成 onehot编码
 """
 from __future__ import print_function
 import numpy as np
@@ -12,10 +12,13 @@ from data_processing_util.word2vec_util.word2vec_util import Word2vecUtil
 from gensim.corpora.dictionary import Dictionary
 from data_processing_util.jiebanlp.jieba_util import Jieba_Util
 
+__version__ = '1.0'
+
 
 class FeatureEncoder(object):
-    '''
-        Onehot特征编码器,将句子转成onehot编码(以字典索引形式表示,补齐),包含以下函数：
+    """
+        Onehot特征编码器,将句子转成 onehot编码
+        函数列表为：
             1. segment_sentence：对句子分词
             2. build_dictionary：构建字典
             3. sentence_to_index：将原始字符串句子转为字典索引列表
@@ -30,9 +33,12 @@ class FeatureEncoder(object):
             12. reset： clear 数据
 
         注意：
-            1. 训练库中所有词，包括未知词字符（UNKOWN），的字典索引都是从1开始分配的，索引0是作为填充字符所用。
-            2. 训练库字典大小 （vocabulary_size）是计入索引0的，计算训练库中所有词和填充字符（PADDING）未知词字符（UNKOWN），如果不使用可以关闭。
-    '''
+            1. onehot编码 有两种形式：通过设置 to_onehot_array 切换
+                - 字典索引形式表示,补齐 （默认是这种形式）
+                - onehot 向量
+            0. 训练库中所有词，包括未知词字符（UNKOWN），的字典索引都是从1开始分配的，索引0是作为填充字符所用。
+            1. 训练库字典大小 （vocabulary_size）是计入索引0的，计算训练库中所有词和填充字符（PADDING）未知词字符（UNKOWN），如果不使用可以关闭。
+    """
 
     def __init__(self,
                  need_segmented=True,
@@ -160,14 +166,14 @@ class FeatureEncoder(object):
             # self.fit_transform()
 
     def segment_sentence(self, sentence):
-        '''
+        """
         对句子进行分词,使用jieba分词
 
         :param sentence: 句子
         :type sentence: str
         :return: 分完词句子，以空格连接
         :rtype: str
-        '''
+        """
 
         if self.feature_type == 'seg':
             segmented_sentence = self.jieba_seg.seg(
@@ -647,14 +653,16 @@ class FeatureEncoder(object):
 
     def fit(self,
             train_X=None,
-            test_X=None):
+            test_X=None
+            ):
         """
-            build feature encoder
-                1. 构建训练库字典
-                2. 分词，并将句子补齐到等长,补齐长度为: self.sentence_padding_length
-                3. 将训练句子转成字典索引形式
-                4. 将每个词的字典索引变成onehot向量
+            build feature encoder ---- 构建训练库字典
 
+            Notes
+            ------
+            update_dictionary: 设置 再次调用fit()函数时，是否更新字典，默认为 True，即只在第一次调用fit()函数时才更新 字典
+            vocabulary_including_test_set： 设置 是否 字典是否包含测试集的词汇，默认包含，即字典包含训练集和测试集的所有词汇。
+                - 设置为 False ，则 字典只包含训练集中的词汇
 
         Parameters
         ----------
@@ -678,9 +686,11 @@ class FeatureEncoder(object):
         if train_X is None:
             logging.debug('没有输入训练数据!')
             assert False, '没有输入训练数据!'
-        if test_X is None:
-            logging.debug('构建字典需要全部数据，请输入测试数据!')
-            assert False, '构建字典需要全部数据，请输入测试数据!'
+
+        if self.kwargs.get('vocabulary_including_test_set', True):
+            if test_X is None:
+                logging.debug('vocabulary_including_test_set=True，构建字典需要全部数据，请输入测试数据!')
+                assert False, 'vocabulary_including_test_set=True，构建字典需要全部数据，请输入测试数据!'
 
         # region -------------- 1.构建训练库字典 -------------
         if self.verbose > 1:
@@ -706,7 +716,11 @@ class FeatureEncoder(object):
             转换一个句子的格式。跟训练数据一样的操作,对输入句子进行 padding index 编码,将sentence转为补齐的字典索引
                 1. 分词
                 2. 转为字典索引列表,之后补齐,输入为补齐的字典索引列表
+                    - 当 参数 to_onehot_array = True （默认为 False）时，直接返回 字典索引 ;
+                    - 当 参数 to_onehot_array = False （默认为 False）时，进入第3步，进一步转换成 onehot 向量 ;
                 3. 每个词的字典索引变成onehot向量
+                    - 这一步不一定会执行
+                    - to_onehot_array = True 时， 执行
 
         :param sentence: 输入句子,不用分词,进来后会有分词处理
         :type sentence: str

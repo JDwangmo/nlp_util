@@ -1,7 +1,7 @@
 # encoding=utf8
 """
     Author:  'jdwang'
-    Date:    'create date: 2016-06-23'
+    Date:    'create date: 2016-06-23'; 'last updated date: 2017-01-10'
     Email:   '383287471@qq.com'
     Describe: CNN base class
                 提供一些公共的函数
@@ -10,10 +10,11 @@
 import logging
 import numpy as np
 from sklearn.metrics import f1_score
-import pickle as pickle
+import pickle
 from base.common_model_class import CommonModel
 import sys
 
+__version__ = '1.1'
 sys.setrecursionlimit(15000)
 
 
@@ -794,19 +795,6 @@ class CnnBaseClass(CommonModel):
             sentence = self.transform(sentence)
 
         output = self.middle_layer_output([sentence, 0])
-        # if layer == 'output':
-        #     output = self.output_layer([sentence, 0])[0]
-        # elif layer == 'hidden2':
-        #     output = self.last_hidden_layer([sentence, 0])[0]
-        # elif layer == 'conv1':
-        #     assert self.conv1_feature_output is not None, '没有设置 conv1_feature_output！'
-        #     output = self.conv1_feature_output([sentence, 0])[0]
-        # elif layer == 'conv2':
-        #     assert self.conv2_feature_output is not None, '没有设置 conv2_feature_output！'
-        #     output = self.conv2_feature_output([sentence, 0])[0]
-        # else:
-        #     raise NotImplementedError
-        # output = output.reshape(len(sentence), -1)
 
         # -------------- print start : just print info -------------
         if self.verbose > 2:

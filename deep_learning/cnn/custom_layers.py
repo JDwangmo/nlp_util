@@ -1,7 +1,7 @@
 #encoding=utf8
 """
     Author:  'jdwang'
-    Date:    'create date: 2016-07-21'
+    Date:    'create date: 2016-07-21';
     Email:   '383287471@qq.com'
     Describe: 
 """
@@ -11,16 +11,18 @@ from keras.layers import Convolution2D,MaxPooling2D
 from keras import backend as K
 import theano.tensor as T
 
+__version__ = '1.1'
+
 
 class Convolution2DWrapper(Convolution2D):
-    '''
+    """
         Convolution2D's wrapper.在原有的Convolution2D的基础上进行封装。使得可以创建更多样的卷积层。
         不同之处：
             1. 原本卷积核的行列只支持大于0的数值，即 nb_row > 0 and nb_col > 0.
             现进行修改，当nb_row为 -1 ，则取image的行大小为卷积核的行大小;当nb_col为 -1 ，则取image的列大小为卷积核的列大小。
             2. 支持 bow-convolution, 1D convolution(DCNN)
 
-    '''
+    """
 
     def __init__(self, nb_filter, nb_row, nb_col, init='glorot_uniform', activation='linear', weights=None,
                  border_mode='valid', subsample=(1, 1), dim_ordering=K.image_dim_ordering(), W_regularizer=None,
