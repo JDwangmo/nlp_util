@@ -1,17 +1,19 @@
 # encoding=utf8
 """
     Author:  'jdwang'
-    Date:    'create date: 2016-06-23'
+    Date:    'create date: 2016-06-23'; 'last updated date: 2017-01-11'
     Email:   '383287471@qq.com'
     Describe:
 """
 
 import logging
 from deep_learning.cnn.common import CnnBaseClass
+
 __version__ = '1.1'
 
+
 class WordEmbeddingCNN(CnnBaseClass):
-    '''
+    """
         一层CNN模型,随机初始化词向量,CNN-rand模型.借助Keras和jieba实现。
         架构各个层次分别为: 输入层,embedding层,dropout层,卷积层,1-max pooling层,全连接层,softmax层
         具体见:
@@ -26,7 +28,8 @@ class WordEmbeddingCNN(CnnBaseClass):
             7. model_from_pickle：恢复模型
             8. accuracy：模型验证
             9. print_model_descibe：打印模型详情
-    '''
+    """
+    __version__ = '1.1'
 
     def __init__(self,
                  rand_seed=1337,

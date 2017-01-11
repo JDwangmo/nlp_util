@@ -1,7 +1,7 @@
 # encoding=utf8
 """
     Author:  'jdwang'
-    Date:    'create date: 2016-08-30'
+    Date:    'create date: 2016-08-30'; 'last updated date: 2017-01-11'
     Email:   '383287471@qq.com'
     Describe: 一些经常用到的函数：
                 1、transform_word2vec_model_name： 通过 名字获取 word2vec 模型名
@@ -14,11 +14,11 @@ import pandas as pd
 
 
 class DataUtil(object):
+    __version__ = '1.1'
+
     def __init__(self):
         # 训练数据的根目录
         self.jieba_util = None
-
-
 
     def save_data(self, data, path):
         '''

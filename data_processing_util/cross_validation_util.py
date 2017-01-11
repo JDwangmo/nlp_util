@@ -1,7 +1,7 @@
 # encoding=utf8
 """
     Author:  'jdwang'
-    Date:    'create date: 2016-07-21'
+    Date:    'create date: 2016-07-21'; 'last updated date: 2017-01-11'
     Email:   '383287471@qq.com'
     Describe: 数据集、语料库等交叉验证的常用方法
         1. data_split_k_fold: 将数据分为平均分为 K-部分，尽量按类别平均分，直接获取数据
@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 import logging
 import copy
-
+__version = '1.1'
 __all__ = ['data_split_k_fold',
            'get_k_fold_data',
            'transform_cv_data',

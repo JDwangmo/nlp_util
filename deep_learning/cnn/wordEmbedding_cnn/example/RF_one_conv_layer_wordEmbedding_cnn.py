@@ -12,11 +12,13 @@ from traditional_classify.bow_rf.bow_rf_model import BowRandomForest
 from deep_learning.cnn.wordEmbedding_cnn.wordEmbedding_cnn_model import WordEmbeddingCNN
 import pickle
 from deep_learning.cnn.common import CnnBaseClass
+
 __version__ = '1.1'
 
 
 # 实现混合模型 RF(CNN(w2v))
 class RFAndWordEmbeddingCnnMerge(CnnBaseClass):
+    __version__ = '1.1'
     # 如果使用全体数据作为字典，则使用这个变量来存放权重，避免重复加载权重，因为每次加载的权重都是一样的。
     train_data_weight = None
     # 验证数据是一份权重，不包含测试集了
@@ -32,6 +34,7 @@ class RFAndWordEmbeddingCnnMerge(CnnBaseClass):
                  ):
         self.static_w2v_cnn = None
         self.bow_randomforest = None
+        self.feature_encoder = feature_encoder
 
         if not kwargs.get('init_model', True):
             # 不初始化模型，一般在恢复模型时候用
@@ -117,6 +120,7 @@ class RFAndWordEmbeddingCnnMerge(CnnBaseClass):
         """
 
         model_file = open(path, 'wb')
+        pickle.dump(self.feature_encoder, model_file)
         pickle.dump(self.static_w2v_cnn, model_file)
         pickle.dump(self.bow_randomforest, model_file)
 
@@ -128,6 +132,7 @@ class RFAndWordEmbeddingCnnMerge(CnnBaseClass):
         '''
 
         model_file = file(path, 'rb')
+        self.feature_encoder = pickle.load(model_file)
         self.static_w2v_cnn = pickle.load(model_file)
         self.bow_randomforest = pickle.load(model_file)
 
@@ -161,18 +166,6 @@ class RFAndWordEmbeddingCnnMerge(CnnBaseClass):
         )
 
         return feature_encoder
-
-    # def predict(self, sentence, transform_input=False):
-    #     '''
-    #         预测一个句子的类别,对输入的句子进行预测 best1
-    #
-    #     :param sentence: 测试句子,原始字符串句子即可，内部已实现转换成字典索引的形式
-    #     :type sentence: str
-    #     :param transform_input: 是否转换句子，如果为True,输入原始字符串句子即可，内部已实现转换成字典索引的形式。
-    #     :type transform_input: bool
-    #     '''
-    #
-    #     train_x_features = self.static_w2v_cnn.get_layer_output(train_X)[4]
 
     def batch_predict_bestn(self, sentences, transform_input=False, bestn=1):
         """

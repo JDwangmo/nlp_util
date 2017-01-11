@@ -1,7 +1,7 @@
 # encoding=utf8
 """
     Author:  'jdwang'
-    Date:    'create date: 2016-07-02','last update date: 2016-09-02'
+    Date:    'create date: 2016-07-02','last update date: 2017-01-11'
     Email:   '383287471@qq.com'
     Describe:
 """
@@ -11,14 +11,17 @@ from gensim.models import Word2Vec
 from data_processing_util.jiebanlp.jieba_util import Jieba_Util
 import os
 
+__version__ = '1.1'
+
 
 class Word2vecUtil(object):
-    '''
+    """
         在gensim.Word2Vec基础上封装一层，包含的函数有：
             1. train：训练word2vec模型
             2. save： 保存模型文件
             3. load：加载word2vec模型
-    '''
+    """
+    __version__ = '1.1'
 
     def __init__(self,
                  verbose=0,
@@ -162,7 +165,7 @@ class Word2vecUtil(object):
         except:
             # 如果都不在model中，返回错误代码
             sim = 0
-        return sim,flag
+        return sim, flag
 
     def transform_word2vec_model_name(self, flag):
         """

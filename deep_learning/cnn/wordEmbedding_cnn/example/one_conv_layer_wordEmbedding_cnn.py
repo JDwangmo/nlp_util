@@ -1,7 +1,7 @@
 # encoding=utf8
 """
     Author:  'jdwang'
-    Date:    'create date: 2016-08-02'; 'last updated date: 2016-09-28'
+    Date:    'create date: 2016-08-02'; 'last updated date: 2017-01-11'
     Email:   '383287471@qq.com'
     Describe: 单层卷积层的 CNN（w2v）
         模型编号： CNN_A00
@@ -22,8 +22,11 @@
 from deep_learning.cnn.wordEmbedding_cnn.wordEmbedding_cnn_model import WordEmbeddingCNN
 import pickle
 
+__version__ = '1.1'
+
 
 class WordEmbeddingCNNWithOneConv(object):
+    __version__ = '1.1'
     # 如果使用全体数据作为字典，则使用这个变量来存放权重，避免重复加载权重，因为每次加载的权重都是一样的。
     train_data_weight = None
     # 验证数据是一份权重，不包含测试集了

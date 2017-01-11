@@ -21,6 +21,8 @@ from sklearn.metrics import f1_score
 from base.common_model_class import CommonModel
 from data_processing_util.feature_encoder.bow_feature_encoder import FeatureEncoder
 
+__version__ = '1.1'
+
 
 class BowRandomForest(CommonModel):
     """
@@ -38,6 +40,7 @@ class BowRandomForest(CommonModel):
         )
 
     """
+    __version__ = '1.1'
 
     def __init__(self, rand_seed=1337, verbose=0, n_estimators=200, min_samples_leaf=2, feature_encoder=None, **kwargs):
         '''
@@ -353,7 +356,7 @@ class BowRandomForest(CommonModel):
             word2vec_model_file_path=None,
             verbose=0,
             cv=3,
-            need_transform_input = True,
+            need_transform_input=True,
             need_segmented=True,
             need_validation=True,
             include_train_data=True,
@@ -414,12 +417,12 @@ class BowRandomForest(CommonModel):
             # diff_train_val_feature_encoder=1 每次feature encoder 都不同
             cv_data = transform_cv_data(feature_encoder, cv_data, verbose=verbose, diff_train_val_feature_encoder=1)
         else:
-            if len(cv_data[0])<6:
+            if len(cv_data[0]) < 6:
                 # cv_data 每项都需要 6项, 不够则补齐
-                cv_data = [item+[None] for item in cv_data]
+                cv_data = [item + [None] for item in cv_data]
         # endregion
 
-        #region 3. 交叉验证
+        # region 3. 交叉验证
         for n_estimators in n_estimators_list:
             print('=' * 40)
             print('n_estimators is %d.' % n_estimators)
@@ -431,7 +434,8 @@ class BowRandomForest(CommonModel):
                           n_estimators=n_estimators,
                           )
 
-        # endregion
+            # endregion
+
 
 if __name__ == '__main__':
     train_X = ['你好', '无聊', '测试句子', '今天天气不错', '我要买手机']

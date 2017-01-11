@@ -1,6 +1,13 @@
 # encoding=utf8
+"""
+    Author:  'jdwang'
+    Date:    'create date: 2016-05-15'; 'last updated date: 2017-01-10'
+    Email:   '383287471@qq.com'
+    Describe: Onehot Encoder --- Onehot特征编码器,将句子转成 onehot编码
+"""
 __author__ = 'jdwang'
-__date__ = 'create date: 2016-05-15'
+__version__ = '1.1'
+
 import numpy as np
 import logging
 import timeit
@@ -13,13 +20,14 @@ import opencc
 
 
 class Jieba_Util(object):
-    '''
+    """
         the wrapper of jieba tool.
         对jieba分词进行一层包装.函数有：
             1. convert_to_simple_chinese： 转换为简体中文
             2. seg： 中文分词
 
-    '''
+    """
+    __version__ = '1.1'
 
     def __init__(self,
                  verbose=0):
@@ -75,7 +83,7 @@ class Jieba_Util(object):
         simple_chinese = opencc.convert(sentence, config='zht2zhs.ini')
         return simple_chinese
 
-    def iter_each_word(self,sentence,sep=' ',need_segmented=True,**kwargs):
+    def iter_each_word(self, sentence, sep=' ', need_segmented=True, **kwargs):
         '''
             返回句子的每个词（中文字或英文单词），比如
                 - 500 元  --> [500,元]
@@ -93,17 +101,17 @@ class Jieba_Util(object):
             sentence = self.seg(
                 sentence,
                 sep=' ',
-                full_mode=kwargs.get('full_mode',True),
-                remove_stopword=kwargs.get('remove_stopword',True),
-                replace_number=kwargs.get('replace_number',True),
-                lowercase=kwargs.get('lowercase',True),
-                zhs2zht=kwargs.get('zhs2zht',True),
-                remove_url=kwargs.get('remove_url',True),
-                HMM=kwargs.get('HMM',False),
+                full_mode=kwargs.get('full_mode', True),
+                remove_stopword=kwargs.get('remove_stopword', True),
+                replace_number=kwargs.get('replace_number', True),
+                lowercase=kwargs.get('lowercase', True),
+                zhs2zht=kwargs.get('zhs2zht', True),
+                remove_url=kwargs.get('remove_url', True),
+                HMM=kwargs.get('HMM', False),
             )
         words = []
         for item in sentence.split():
-            if re.findall(u'[0-9A-Za-z]+',item):
+            if re.findall(u'[0-9A-Za-z]+', item):
                 words.append(item)
             else:
                 if type(item) is not unicode:
@@ -123,7 +131,7 @@ class Jieba_Util(object):
             lowercase=True,
             zhs2zht=True,
             remove_url=True,
-            HMM = False,
+            HMM=False,
             ):
         """
             使用 jieba 分词进行分词
@@ -151,7 +159,7 @@ class Jieba_Util(object):
 
         """
         # 先去除所有空格
-        sentence = sentence.replace(' ','')
+        sentence = sentence.replace(' ', '')
 
         if lowercase:
             # 转成小写
@@ -172,7 +180,7 @@ class Jieba_Util(object):
                 if not replace_number:
                     words.append(item)
                 elif item not in self.exclude_word_list:
-                    word = num_pattern.sub('NUMBER',item)
+                    word = num_pattern.sub('NUMBER', item)
                     words.append(word)
                     if self.verbose > 1:
                         logging.debug(u'句子（%s）将数字："%s" 替换成标记："NUMBER"' % (sentence, item))
@@ -187,20 +195,19 @@ class Jieba_Util(object):
             else:
                 # 其他词如果词性是 x， 则识别到标点符号
                 is_x = False
-                for word,pos in jseg.lcut(item, HMM=HMM):
+                for word, pos in jseg.lcut(item, HMM=HMM):
                     # print word,pos
                     if pos in ['x']:
-                        is_x=True
+                        is_x = True
                         # words.append(word)
 
-                if is_x :
+                if is_x:
                     # 标点符号
                     # print item
                     if self.verbose > 1:
                         logging.debug(u'句子（%s）将标点符号："%s"替换成""' % (sentence, ''))
                 else:
                     words.append(item)
-
 
         sentence = ' '.join(words)
         # print sentence
@@ -239,8 +246,8 @@ if __name__ == '__main__':
     # print ','.join(jieba.cut(sent,HMM=True))
     # print ','.join(jieba.cut(sent,HMM=False))
     # print jieba_util.iter_each_word('你 是 谁', sep=' ',need_segmented=False)
-    print jieba_util.iter_each_word(u'妈b', sep=' ',need_segmented=True,full_mode=False)
-    print jieba_util.iter_each_word('ch2r', sep=' ',need_segmented=False)
+    print jieba_util.iter_each_word(u'妈b', sep=' ', need_segmented=True, full_mode=False)
+    print jieba_util.iter_each_word('ch2r', sep=' ', need_segmented=False)
     print(jieba_util.seg(sent,
                          full_mode=False,
                          remove_stopword=False,

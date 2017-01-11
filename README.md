@@ -3,7 +3,7 @@
 
 
 ### summary:
-- 当前版本： version1.1
+- 当前版本： version1.2
 1. 数据获取/处理类工具:
     - 分词：jieba
     - 特征编码: onehot 编码等
@@ -102,3 +102,7 @@
     - 2017.01.10 发布
     - 更正模型： RF_one_conv_layer_wordEmbedding_cnn.py
     - 更正模型： wordEmbedding_cnn_model.py.py
+    
+- version 1.2  
+    - 2017.01.11 发布
+    - 更新项目架构

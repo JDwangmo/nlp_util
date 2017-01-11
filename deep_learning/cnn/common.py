@@ -45,6 +45,7 @@ class CnnBaseClass(CommonModel):
             15. accuracy：模型验证
             16. print_model_descibe：打印模型详情
     """
+    __version__ = '1.1'
 
     def __init__(self,
                  rand_seed=1337,
