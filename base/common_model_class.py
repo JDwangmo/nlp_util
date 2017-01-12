@@ -13,7 +13,7 @@ from __future__ import print_function
 __author__ = 'jdwang'
 __date__ = 'create date: 2016-07-06'
 __email__ = '383287471@qq.com'
-__version__ = '1.1'
+__version__ = '1.2'
 
 from abc import ABCMeta, abstractmethod
 
@@ -24,7 +24,7 @@ class CommonModel(object):
 
     """
     __metaclass__ = ABCMeta
-    __version__ = '1.1'
+    __version__ = '1.2'
 
     @abstractmethod
     def __init__(self,

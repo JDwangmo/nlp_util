@@ -12,7 +12,7 @@ from data_processing_util.word2vec_util.word2vec_util import Word2vecUtil
 from gensim.corpora.dictionary import Dictionary
 from data_processing_util.jiebanlp.jieba_util import Jieba_Util
 
-__version__ = '1.1'
+__version__ = '1.2'
 
 
 class FeatureEncoder(object):
@@ -39,7 +39,7 @@ class FeatureEncoder(object):
             0. 训练库中所有词，包括未知词字符（UNKOWN），的字典索引都是从1开始分配的，索引0是作为填充字符所用。
             1. 训练库字典大小 （vocabulary_size）是计入索引0的，计算训练库中所有词和填充字符（PADDING）未知词字符（UNKOWN），如果不使用可以关闭。
     """
-    __version__ = '1.1'
+    __version__ = '1.2'
 
     def __init__(self,
                  need_segmented=True,

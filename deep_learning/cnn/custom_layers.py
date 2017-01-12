@@ -11,7 +11,7 @@ from keras.layers import Convolution2D,MaxPooling2D
 from keras import backend as K
 import theano.tensor as T
 
-__version__ = '1.1'
+__version__ = '1.2'
 
 
 class Convolution2DWrapper(Convolution2D):
@@ -23,7 +23,7 @@ class Convolution2DWrapper(Convolution2D):
             2. 支持 bow-convolution, 1D convolution(DCNN)
 
     """
-    __version__ = '1.1'
+    __version__ = '1.2'
 
     def __init__(self, nb_filter, nb_row, nb_col, init='glorot_uniform', activation='linear', weights=None,
                  border_mode='valid', subsample=(1, 1), dim_ordering=K.image_dim_ordering(), W_regularizer=None,

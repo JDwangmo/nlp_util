@@ -21,7 +21,7 @@ from sklearn.metrics import f1_score
 from base.common_model_class import CommonModel
 from data_processing_util.feature_encoder.bow_feature_encoder import FeatureEncoder
 
-__version__ = '1.1'
+__version__ = '1.2'
 
 
 class BowRandomForest(CommonModel):
@@ -40,7 +40,7 @@ class BowRandomForest(CommonModel):
         )
 
     """
-    __version__ = '1.1'
+    __version__ = '1.2'
 
     def __init__(self, rand_seed=1337, verbose=0, n_estimators=200, min_samples_leaf=2, feature_encoder=None, **kwargs):
         '''

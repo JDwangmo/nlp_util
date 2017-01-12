@@ -9,7 +9,7 @@
 import logging
 from deep_learning.cnn.common import CnnBaseClass
 
-__version__ = '1.1'
+__version__ = '1.2'
 
 
 class WordEmbeddingCNN(CnnBaseClass):
@@ -29,7 +29,7 @@ class WordEmbeddingCNN(CnnBaseClass):
             8. accuracy：模型验证
             9. print_model_descibe：打印模型详情
     """
-    __version__ = '1.1'
+    __version__ = '1.2'
 
     def __init__(self,
                  rand_seed=1337,

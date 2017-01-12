@@ -13,12 +13,12 @@ from deep_learning.cnn.wordEmbedding_cnn.wordEmbedding_cnn_model import WordEmbe
 import pickle
 from deep_learning.cnn.common import CnnBaseClass
 
-__version__ = '1.1'
+__version__ = '1.2'
 
 
 # 实现混合模型 RF(CNN(w2v))
 class RFAndWordEmbeddingCnnMerge(CnnBaseClass):
-    __version__ = '1.1'
+    __version__ = '1.2'
     # 如果使用全体数据作为字典，则使用这个变量来存放权重，避免重复加载权重，因为每次加载的权重都是一样的。
     train_data_weight = None
     # 验证数据是一份权重，不包含测试集了

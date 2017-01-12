@@ -6,7 +6,7 @@
     Describe: Onehot Encoder --- Onehot特征编码器,将句子转成 onehot编码
 """
 __author__ = 'jdwang'
-__version__ = '1.1'
+__version__ = '1.2'
 
 import numpy as np
 import logging
@@ -27,7 +27,7 @@ class Jieba_Util(object):
             2. seg： 中文分词
 
     """
-    __version__ = '1.1'
+    __version__ = '1.2'
 
     def __init__(self,
                  verbose=0):
