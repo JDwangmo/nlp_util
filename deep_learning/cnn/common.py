@@ -14,7 +14,7 @@ import pickle
 from base.common_model_class import CommonModel
 import sys
 
-__version__ = '1.2'
+__version__ = '1.3'
 sys.setrecursionlimit(15000)
 
 
@@ -45,7 +45,7 @@ class CnnBaseClass(CommonModel):
             15. accuracy：模型验证
             16. print_model_descibe：打印模型详情
     """
-    __version__ = '1.2'
+    __version__ = '1.3'
 
     def __init__(self,
                  rand_seed=1337,

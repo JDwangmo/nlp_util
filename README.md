@@ -105,4 +105,10 @@
     
 - version 1.2  
     - 2017.01.11 发布
-    - 更新项目架构
+    - 更新项目架构  
+      
+- version 1.3  
+    - 2017.02.17 发布
+    - data_processing_util/jiebanlp 
+        - 添加 261,529 个用户词典（来自在线新华词典的抓取）
+        - 添加 线程数（num_of_parallel） 参数设置 

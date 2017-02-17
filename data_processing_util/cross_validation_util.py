@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 import logging
 import copy
-__version = '1.1'
+__version__ = '1.3'
 __all__ = ['data_split_k_fold',
            'get_k_fold_data',
            'transform_cv_data',

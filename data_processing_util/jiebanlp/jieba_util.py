@@ -6,7 +6,7 @@
     Describe: Onehot Encoder --- Onehot特征编码器,将句子转成 onehot编码
 """
 __author__ = 'jdwang'
-__version__ = '1.2'
+__version__ = '1.3'
 
 import numpy as np
 import logging
@@ -27,21 +27,26 @@ class Jieba_Util(object):
             2. seg： 中文分词
 
     """
-    __version__ = '1.2'
+    __version__ = '1.3'
 
     def __init__(self,
+                 num_of_parallel=10,
                  verbose=0):
-        '''
+        """
             1. 初始化参数
             2. 加载用户字典和stop word列表
-        :param verbose: 数值越大，打印越多的详细信息，设置为0时，什么信息都不显示.
-        :type verbose: int
 
-        '''
+        Parameters
+        ----------
+        num_of_parallel : int
+            并行的线程数
+        verbose: int
+            数值越大，打印越多的详细信息，设置为0时，什么信息都不显示.
+        """
         # 初始化参数
         self.verbose = verbose
         # 设置jieba分词对线程
-        jieba.enable_parallel(10)
+        jieba.enable_parallel(num_of_parallel)
 
         # -------------- region start : 2. 加载用户字典和stop word列表 -------------
         if verbose > 1:
@@ -52,8 +57,11 @@ class Jieba_Util(object):
         # -------------- code start : 开始 -------------
 
 
-
+        # region 添加用户字典
         jieba.load_userdict(os.path.dirname(__file__) + '/userdict.txt')
+        # 添加 261,529 个用户词典（来自在线新华词典的抓取）
+        jieba.load_userdict(os.path.dirname(__file__) + '/vocabulary_len2_xiandaihanyu.txt')
+        # endregion
         self.stopword_list = io.open(os.path.dirname(__file__) + '/stopword.txt', 'r',
                                      encoding='utf8').read().strip().split()
         self.exclude_word_list = set(['886', '88'])
@@ -236,6 +244,8 @@ if __name__ == '__main__':
     sent = u'拜拜'
     sent = u'妈B'
     sent = u'我不知道买哪款好'
+    sent = u'见让坐。'
+    sent = u'云计算'
 
     # print seg(sent,sep='|',full_mode=False,remove_stopword=True)
     # sent = u'有哪些1000块的手机适合我'
@@ -249,13 +259,13 @@ if __name__ == '__main__':
     print jieba_util.iter_each_word(u'妈b', sep=' ', need_segmented=True, full_mode=False)
     print jieba_util.iter_each_word('ch2r', sep=' ', need_segmented=False)
     print(jieba_util.seg(sent,
-                         full_mode=False,
+                         full_mode=True,
                          remove_stopword=False,
                          replace_number=True,
                          lowercase=True,
                          zhs2zht=True,
                          remove_url=False,
-                         HMM=False
+                         HMM=True
                          ))
     print(jieba_util.seg(sent,
                          sep='|',
