@@ -3,7 +3,7 @@
 
 
 ### summary:
-- 当前版本： version1.2
+- 当前版本： version1.3
 1. 数据获取/处理类工具:
     - 分词：jieba
     - 特征编码: onehot 编码等
