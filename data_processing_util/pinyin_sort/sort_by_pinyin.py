@@ -5,11 +5,11 @@
     Email:   '383287471@qq.com'
     Describe: 拼音排序
 """
-
+import os
 __version__ = '1.4'
 
 
-def sort_by_pinyin(words):
+def sort(words):
     """
 
     Parameters
@@ -22,7 +22,7 @@ def sort_by_pinyin(words):
     排完序的词汇列表: array-like
 
     """
-    pinyin = file(u'convert-utf-8.txt').read().split('\n')
+    pinyin = file(os.path.dirname(__file__) + '/convert-utf-8.txt').read().split('\n')
     pinyin = [v for v in pinyin if v.strip() != ""]
     # print len(pinyin)
     one_list = []
@@ -53,4 +53,4 @@ def sort_by_pinyin(words):
 
 
 if __name__ == '__main__':
-    print(','.join(sort_by_pinyin([u'你好', u'啊', u'好', u'苹果', u'大狗'])))
+    print(','.join(sort([u'你好', u'啊', u'好', u'苹果', u'大狗'])))
