@@ -3,7 +3,7 @@
 
 
 ### summary:
-- 当前版本： version1.3
+- 当前版本： version1.4
 1. 数据获取/处理类工具:
     - 分词：jieba
     - 特征编码: onehot 编码等
@@ -55,7 +55,7 @@
         - stopword.txt: 中文停止词表.
         - userdict.txt: 用户自定义字典
         - jieba_util.py: jieba分词工具类,自封装了一层,即包装成一个 Jieba_Util类,这个类主要在原 jieba 分词的基础上对扩展：
-            - 增加用户字典
+            - 增加用户字典: 27万+
             - 是否转为小写
             - 是否移除stopwords，
             - 是否统一替换数字 
@@ -74,7 +74,10 @@
     
 - [crawler](https://github.com/JDwangmo/nlp_util/tree/master/data_processing_util/crawler)
     - 数据爬虫，用户数据爬取,提供了一个使用例子，可以直接复制过去，再重写
-    - 依赖包：Scrapy==1.3.0
+    - 依赖包：Scrapy==1.3.0    
+    
+- [pinyin_sort](https://github.com/JDwangmo/nlp_util/tree/master/data_processing_util/pinyin_sort)
+    - 拼音排序
 
 ---------------
 ### deep_learning: 深度学习类工具
@@ -112,3 +115,10 @@
     - data_processing_util/jiebanlp 
         - 添加 261,529 个用户词典（来自在线新华词典的抓取）
         - 添加 线程数（num_of_parallel） 参数设置 
+     
+- version 1.4  
+    - 2017.02.25 发布
+    - data_processing_util/jiebanlp 
+        - 更新至 272,885 个用户词典（来自在线新华词典的抓取）
+    - data_processing_util/pinyin_sort
+        - 添加该模块 -- 拼音排序

@@ -22,11 +22,11 @@
 from deep_learning.cnn.wordEmbedding_cnn.wordEmbedding_cnn_model import WordEmbeddingCNN
 import pickle
 
-__version__ = '1.3'
+__version__ = '1.4'
 
 
 class WordEmbeddingCNNWithOneConv(object):
-    __version__ = '1.3'
+    __version__ = '1.4'
     # 如果使用全体数据作为字典，则使用这个变量来存放权重，避免重复加载权重，因为每次加载的权重都是一样的。
     train_data_weight = None
     # 验证数据是一份权重，不包含测试集了

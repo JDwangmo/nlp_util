@@ -11,7 +11,7 @@ from gensim.models import Word2Vec
 from data_processing_util.jiebanlp.jieba_util import Jieba_Util
 import os
 
-__version__ = '1.3'
+__version__ = '1.4'
 
 
 class Word2vecUtil(object):
@@ -21,7 +21,7 @@ class Word2vecUtil(object):
             2. save： 保存模型文件
             3. load：加载word2vec模型
     """
-    __version__ = '1.3'
+    __version__ = '1.4'
 
     def __init__(self,
                  verbose=0,

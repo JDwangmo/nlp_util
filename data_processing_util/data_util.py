@@ -14,7 +14,7 @@ import pandas as pd
 
 
 class DataUtil(object):
-    __version__ = '1.3'
+    __version__ = '1.4'
 
     def __init__(self):
         # 训练数据的根目录
