@@ -326,7 +326,7 @@ def test_static_w2v():
         full_mode=False,
         feature_type='word',
     )
-    train_X_feature = feature_encoder.fit_transform(train_X)
+    train_X_feature = feature_encoder.fit_transform(train_X,test_X)
     test_X_feature = feature_encoder.transform(test_X)
     # print feature_encoder.train_padding_index
     # print map(feature_encoder.transform_sentence, test_X)
@@ -342,7 +342,7 @@ def test_static_w2v():
         word_embedding_dim=word_embedding_dim,
         # 设置embedding使用训练好的w2v模型初始化
         embedding_init_weight=feature_encoder.to_embedding_weight(
-            '/home/jdwang/PycharmProjects/corprocessor/word2vec/vector/50dim/ood_sentence_vector1191_50dim.gem'),
+            '/home/jdwang/PycharmProjects/nlp_util/data_processing_util/word2vec_util/vector/v2.3_train_Sa_891_word_50dim.gem'),
         # 设置为训练时embedding层权重不变
         embedding_weight_trainable=False,
         input_length=sentence_padding_length,
@@ -367,10 +367,10 @@ def test_static_w2v():
     static_w2v_cnn.print_model_descibe()
     # 训练模型
     # 从保存的pickle中加载模型
-    print (static_w2v_cnn.embedding_layer_output.get_weights()[0][1])
-    static_w2v_cnn.fit((train_X_feature, trian_y),
-                       (test_X_feature, test_y))
-    print (static_w2v_cnn.embedding_layer_output.get_weights()[0][1])
+    # print (static_w2v_cnn.embedding_layer_output.get_weights()[0][1])
+    # static_w2v_cnn.fit((train_X_feature, trian_y),
+    #                    (test_X_feature, test_y))
+    # print (static_w2v_cnn.embedding_layer_output.get_weights()[0][1])
     static_w2v_cnn.accuracy((train_X_feature, trian_y), transform_input=False)
 
     quit()
@@ -400,7 +400,7 @@ def test_nonstatic_w2v():
         feature_type='word',
         verbose=1,
     )
-    train_X_feature = feature_encoder.fit_transform(train_X)
+    train_X_feature = feature_encoder.fit_transform(train_X,test_X)
     test_X_feature = feature_encoder.transform(test_X)
     # print feature_encoder.train_padding_index
     # print map(feature_encoder.transform_sentence, test_X)
