@@ -130,6 +130,35 @@ class Jieba_Util(object):
         words = sep.join(words)
         return words
 
+    def cut_sentence(self, multi_sentences):
+        """
+        # words = (words).decode('utf8') 如果是从编码为 utf8 的 txt 文本中直接输入的话，需要先把文本解码成 unicode 来处理
+
+        Parameters
+        ----------
+        multi_sentences : str
+            多个句子
+        Returns
+        -------
+        sents: list[str]
+            分完句后的句子列表
+        """
+        start = 0
+        i = 0  # 记录每个字符的位置
+        sents = []
+        # string 必须要解码为 unicode 才能进行匹配
+        punt_list = u'.!?:;~。！？：；～'
+        for word in multi_sentences:
+            if word in punt_list:
+                sents.append(multi_sentences[start:i + 1].strip())
+                start = i + 1  # start标记到下一句的开头
+                i += 1
+            else:
+                i += 1  # 若不是标点符号，则字符位置继续前移
+        if start < len(multi_sentences):
+            sents.append(multi_sentences[start:].strip())  # 这是为了处理文本末尾没有标点符号的情况
+        return sents
+
     def seg(self,
             sentence,
             sep=' ',
@@ -229,7 +258,7 @@ class Jieba_Util(object):
         return seg_srt
 
 
-if __name__ == '__main__':
+def test_seg_words():
     # 使用样例
     jieba_util = Jieba_Util(verbose=0)
     sent = u'我喜歡买手机啊!!........'
@@ -275,3 +304,15 @@ if __name__ == '__main__':
                          HMM=False
                          ))
     # print jieba_util.seg(sent, sep='|', full_mode=False)
+
+
+def test_seg_sentences():
+    # 测试分句
+    jieba_util = Jieba_Util(verbose=0)
+    sentence = u'之前那个吗？　我说得是RAM容量'
+    for item in jieba_util.cut_sentence(sentence):
+        print(item)
+
+
+if __name__ == '__main__':
+    test_seg_sentences()

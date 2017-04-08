@@ -36,6 +36,10 @@
     - scikit-learn 0.17.1: 机器学习工具类，包括计算F1值等
         - 官网： https://github.com/scikit-learn/scikit-learn
         - 安装方法：sudo pip install scikit-learn
+    - imbalanced-learn 0.2.1: python module to perform under sampling and over sampling with various techniques
+        - 官网：https://github.com/scikit-learn-contrib/imbalanced-learn
+        - 安装方法： $ sudo pip install -U imbalanced-learn
+        - 不平衡数据的处理包, 次抽样和过抽样
     - Scrapy 1.3.0: 爬虫框架
 
 ## 工具列表
@@ -47,7 +51,18 @@
 
 
 ### data_processing_util: 数据预处理类工具
-
+   
+- [data_util.py]()
+    - 常用数据处理类
+    - 保存数据,读取数据
+    - 不平衡数据的次抽样和过抽样    
+    
+- [evaluate.py]()
+    - 结果评价
+    
+- [cross_validation_util.py]()
+    - 交叉验证
+    
 - [jiebanlp:](https://github.com/JDwangmo/nlp_util/tree/master/data_processing_util/jiebanlp)
     - describe: jieba分词
     - 依赖包: jieba 0.38,OpenCC 0.2
@@ -78,7 +93,7 @@
     
 - [pinyin_sort](https://github.com/JDwangmo/nlp_util/tree/master/data_processing_util/pinyin_sort)
     - 拼音排序
-
+     
 ---------------
 ### deep_learning: 深度学习类工具
 

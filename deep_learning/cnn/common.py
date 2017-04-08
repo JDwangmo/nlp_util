@@ -682,7 +682,7 @@ class CnnBaseClass(CommonModel):
             train_X,
             train_y,
             nb_epoch=self.nb_epoch,
-            verbose=self.verbose,
+            verbose=self.verbose+1,
             # validation_split=0.1,
             validation_data=(validation_X, validation_y) if self.kwargs.get('show_validate_accuracy', True) else None,
             shuffle=True,

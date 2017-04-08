@@ -275,16 +275,16 @@ class FeatureEncoder(object):
     def print_sentence_length_detail(
             self,
             data=None,
-            lengths=[7, 10, 15, 20],
+            lengths=[7, 10, 15, 20,50,80,100],
     ):
-        '''
+        """
             打印训练库中句子的长度情况
 
         :type lengths: list
         :param lengths: 长度界限列表
         :return: 句子长度列表
         :rtype: list
-        '''
+        """
         if self.need_segmented:
             sentence_length = map(self.get_sentence_length, data)
         else:
@@ -544,8 +544,9 @@ class FeatureEncoder(object):
             unknow_token_index = 0
         # 将训练库中所有句子的每个词映射到索引上,变成索引列表
         index = [self.train_data_dict.token2id.get(item, unknow_token_index) for item in sentence.split()]
-        if self.verbose > 0:
+        if self.verbose > 1:
             if index.__contains__(unknow_token_index):
+                print('unknow_token_index:%d' % unknow_token_index)
                 print('出现字典OOV')
                 print(sentence)
                 print(index)

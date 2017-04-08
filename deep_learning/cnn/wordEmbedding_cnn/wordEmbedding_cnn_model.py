@@ -139,7 +139,7 @@ class WordEmbeddingCNN(CnnBaseClass):
         self.build_model()
 
     def create_network(self):
-        '''
+        """
             1. 创建 CNN 网络
 
                 1. 输入层，2D，（n_batch,input_length）
@@ -153,7 +153,7 @@ class WordEmbeddingCNN(CnnBaseClass):
             2. compile模型
 
         :return: cnn model network
-        '''
+        """
 
         from keras.layers import Embedding, Input, Activation, Reshape, Dropout
         from keras.models import Model
@@ -277,7 +277,7 @@ class WordEmbeddingCNN(CnnBaseClass):
             lowercase=True,
             zhs2zht=True,
             remove_url=True,
-            padding_mode='center',
+            padding_mode=kwargs.get('padding_mode', 'center'),
             add_unkown_word=True,
             feature_type=kwargs.get('feature_type', 'word'),
             vocabulary_including_test_set=kwargs.get('vocabulary_including_test_set', True),

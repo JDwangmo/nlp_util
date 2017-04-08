@@ -73,7 +73,7 @@ def get_splitted_k_fold_data_index(
         data=None,
         rand_seed=2,
 ):
-    '''
+    """
         将数据分为平均分为 K-部分，尽量按类别平均分, 最终数据 每折数据的索引
 
     :param k: k份
@@ -82,7 +82,7 @@ def get_splitted_k_fold_data_index(
     :param rand_seed: 随机种子
     :type rand_seed: int
     :return:
-    '''
+    """
 
     train_X_feature, train_y = data
     # 用FEATURE_INDEX字段来记录数据的位置，以便后面复原数据
@@ -126,7 +126,6 @@ def get_k_fold_data(
         将数据分为K-fold,并获取交叉验证的  k份 (dev_set, val_set)
         每份 格式为 ：
             - train_or_dev_flag(0==train,1~=dev),
-            - train_X,
             - train_y,
             - test_X,
             - test_y
@@ -164,6 +163,9 @@ def get_k_fold_data(
         dev_y = k_fold_data_y[:val_index] + k_fold_data_y[val_index + 1:]
         dev_X = np.concatenate(dev_X)
         dev_y = np.concatenate(dev_y)
+        if shuffle_data:
+            dev_X = np.random.RandomState(rand_seed).permutation(dev_X)
+            dev_y = np.random.RandomState(rand_seed).permutation(dev_y)
         # 第一位为 标记位，从1开始，表示验证集
         cv_data.append([val_index + 1, dev_X, dev_y, val_X, val_y])
     return cv_data

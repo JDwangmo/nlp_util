@@ -6,56 +6,57 @@
     Describe: 一些经常用到的函数：
                 1、transform_word2vec_model_name： 通过 名字获取 word2vec 模型名
                 2、save_data: 保存数据成csv格式
-                3、
+                3、balance_data: 将 imbalanced data 进行 balance化
 """
 
 from __future__ import print_function
 import pandas as pd
+from imblearn.over_sampling import RandomOverSampler
+
+__version__ = '1.4'
 
 
-class DataUtil(object):
-    __version__ = '1.4'
+def save_data(data, path):
+    """
+        保存DataFrame格式的数据
 
-    def __init__(self):
-        # 训练数据的根目录
-        self.jieba_util = None
+    :param data: 数据
+    :param path: 数据文件的路径
+    :return: None
+    """
+    data.to_csv(path,
+                sep='\t',
+                header=True,
+                index=False,
+                encoding='utf8',
+                )
 
-    def save_data(self, data, path):
-        '''
-            保存DataFrame格式的数据
 
-        :param data: 数据
-        :param path: 数据文件的路径
-        :return: None
-        '''
-        data.to_csv(path,
-                    sep='\t',
-                    header=True,
-                    index=False,
-                    encoding='utf8',
-                    )
+def load_data(path):
+    """
+        加载DataFrame格式的数据
 
-    def load_data(self, path):
-        '''
-            加载DataFrame格式的数据
+    :param data: 数据
+    :param path: 数据文件的路径
+    :return: None
+    """
+    data = pd.read_csv(path,
+                       sep='\t',
+                       header=0,
+                       encoding='utf8',
+                       index_col=0,
+                       )
+    return data
 
-        :param data: 数据
-        :param path: 数据文件的路径
-        :return: None
-        '''
-        data = pd.read_csv(path,
-                           sep='\t',
-                           header=0,
-                           encoding='utf8',
-                           index_col=0,
-                           )
-        return data
+
+def balance_data(X, y):
+    # Apply the random over-sampling
+    ros = RandomOverSampler(random_state=0)
+    X_resampled, y_resampled = ros.fit_sample(X, y)
+    return X_resampled, y_resampled
 
 
 if __name__ == '__main__':
-    data_util = DataUtil()
-    # quit()
-
     data = pd.read_csv(
         '/home/jdwang/PycharmProjects/corprocessor/coprocessor/Corpus/ood_dataset/stable_vesion/v2.2/v2.2_train_Sa_893.csv',
         sep='\t')

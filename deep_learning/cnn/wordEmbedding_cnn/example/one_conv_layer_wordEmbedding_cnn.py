@@ -139,16 +139,20 @@ class WordEmbeddingCNNWithOneConv(object):
 
         Parameters
         ----------
-        middle_layer_output_file : str
-            中间层输出到哪个文件
-        get_cnn_middle_layer_output : bool
-            是否获取中间层输出（#,False）
         train_data : array-like
-            训练数据
+            训练数据 (train_X, train_y))
         test_data : array-like
             测试数据
         cv_data : array-like
             k份验证数据
+        input_length : int
+            输入长度
+        num_filter_list : array-like
+            验证参数，number of filters
+        middle_layer_output_file : str
+            中间层输出到哪个文件
+        get_cnn_middle_layer_output : bool
+            是否获取中间层输出（#,False）
         num_labels: int
             标签
         batch_size : int
@@ -165,10 +169,6 @@ class WordEmbeddingCNNWithOneConv(object):
             切换 CNN（rand） or CNN（static/non-static-w2v）
         feature_type : str
             特征类型
-        input_length : int
-            输入长度
-        num_filter_list : array-like
-            验证参数，number of filters
         verbose : int
             数值越大，输出越详细
         cv:int
@@ -201,10 +201,13 @@ class WordEmbeddingCNNWithOneConv(object):
 
         """
         print('=' * 80)
-        print('feature_type:%s,need_segmented:%s,vocabulary_including_test_set:%s' % (feature_type,
+        print('feature_type: %s, need_segmented: %s, vocabulary_including_test_set: %s' % (feature_type,
                                                                                       need_segmented,
                                                                                       vocabulary_including_test_set))
-        print('rand_weight:%s,embedding_weight_trainable:%s' % (rand_weight, embedding_weight_trainable))
+        print('input_length: %d, num_labels: %d' % (input_length, num_labels))
+        print('lr: %f, batch_size: %d, rand_weight: %s, embedding_weight_trainable: %s' % (lr,batch_size, rand_weight, embedding_weight_trainable))
+        if not rand_weight:
+            print('W2V model file_path: %s' % word2vec_model_file_path)
         print('=' * 80)
 
         from data_processing_util.cross_validation_util import transform_cv_data, get_k_fold_data, get_val_score
@@ -225,6 +228,7 @@ class WordEmbeddingCNNWithOneConv(object):
             input_length=input_length,
             verbose=1,
             feature_type=feature_type,
+            padding_mode='center',
             # 设置字典保持一致
             update_dictionary=False,
             vocabulary_including_test_set=vocabulary_including_test_set,
